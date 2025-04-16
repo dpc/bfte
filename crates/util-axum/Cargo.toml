@@ -1,0 +1,8 @@
+[package]
+name = "bfte-util-axum"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+axum = { workspace = true }

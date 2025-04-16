@@ -1,0 +1,8 @@
+[package]
+name = "bfte-util-bincode"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+bincode = { workspace = true }

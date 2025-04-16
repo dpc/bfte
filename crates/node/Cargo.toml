@@ -1,0 +1,40 @@
+[package]
+name = "bfte-node"
+
+description.workspace = true
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+backon = { workspace = true }
+bfte-consensus = { workspace = true }
+bfte-consensus-core = { workspace = true }
+bfte-db = { workspace = true }
+bfte-derive-secret = { workspace = true }
+bfte-invite = { workspace = true }
+bfte-node-core = { workspace = true }
+bfte-node-ui = { workspace = true }
+bfte-util-array-type = { workspace = true }
+bfte-util-bincode = { workspace = true }
+bfte-util-core = { workspace = true }
+bfte-util-db = { workspace = true }
+bfte-util-error = { workspace = true }
+bfte-util-fmt-opt = { workspace = true }
+bincode = { workspace = true }
+bon = { workspace = true }
+data-encoding = { workspace = true }
+derive_more = { workspace = true }
+iroh = { workspace = true }
+iroh-base = { workspace = true }
+iroh-dpc-rpc = { workspace = true }
+n0-future = { workspace = true }
+rand = { workspace = true }
+snafu = { workspace = true }
+tokio = { workspace = true, features = ["time"] }
+tracing = { workspace = true }

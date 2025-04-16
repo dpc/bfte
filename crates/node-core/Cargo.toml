@@ -1,0 +1,13 @@
+[package]
+name = "bfte-node-core"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+bfte-util-array-type = { workspace = true }
+bfte-util-error = { workspace = true }
+bincode = { workspace = true }
+iroh-base = { workspace = true }
+serde = { workspace = true }
+snafu = { workspace = true }

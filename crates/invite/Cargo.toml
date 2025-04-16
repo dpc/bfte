@@ -1,0 +1,14 @@
+
+[package]
+name = "bfte-invite"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+bfte-consensus-core = { workspace = true }
+bfte-node-core = { workspace = true }
+cbor4ii = { workspace = true, features = ["serde1"] }
+data-encoding = { workspace = true }
+serde = { workspace = true }
+snafu = { workspace = true }

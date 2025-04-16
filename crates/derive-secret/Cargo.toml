@@ -1,0 +1,17 @@
+[package]
+name = "bfte-derive-secret"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+bfte-util-array-type = { workspace = true }
+bip39 = { workspace = true }
+blake3 = { workspace = true, features = ["traits-preview"] }
+hkdf = { workspace = true }
+rand = { workspace = true }
+snafu = { workspace = true }
+
+[dev-dependencies]
+data-encoding = { workspace = true }
+hex-literal = { workspace = true }

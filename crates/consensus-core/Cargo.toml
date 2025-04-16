@@ -1,0 +1,25 @@
+[package]
+name = "bfte-consensus-core"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+bfte-util-array-type = { workspace = true }
+bfte-util-bincode = { workspace = true }
+bincode = { workspace = true }
+blake3 = { workspace = true }
+bon = { workspace = true }
+convi = { workspace = true }
+data-encoding = { workspace = true }
+derive_more = { workspace = true }
+ed25519-dalek = { workspace = true, features = ["rand_core", "digest"] }
+num-bigint = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_bytes = { workspace = true }
+snafu = { workspace = true }
+time = { workspace = true }
+
+[dev-dependencies]
+hex-literal = { workspace = true }

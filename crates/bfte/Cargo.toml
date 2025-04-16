@@ -1,0 +1,34 @@
+[package]
+name = "bfte"
+
+description.workspace = true
+edition.workspace = true
+license.workspace = true
+version.workspace = true
+
+[dependencies]
+bfte-consensus-core = { workspace = true }
+bfte-derive-secret = { workspace = true }
+bfte-invite = { workspace = true }
+bfte-node = { workspace = true }
+bfte-node-ui = { workspace = true }
+bfte-node-ui-axum = { workspace = true }
+bfte-util-array-type = { workspace = true }
+bfte-util-error = { workspace = true }
+bincode = { workspace = true }
+blake3 = { workspace = true }
+bon = { workspace = true }
+clap = { workspace = true, features = ["derive", "env"] }
+convi = { workspace = true }
+data-encoding = { workspace = true }
+derive_more = { workspace = true }
+ed25519-dalek = { workspace = true }
+nutype = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_bytes = { workspace = true }
+snafu = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+tokio-test = { workspace = true }

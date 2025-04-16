@@ -1,0 +1,119 @@
+[workspace]
+members = [
+  "crates/bfte",
+  "crates/consensus",
+  "crates/consensus-core",
+  "crates/consensus-tests",
+  "crates/db",
+  "crates/derive-secret",
+  "crates/invite",
+  "crates/node",
+  "crates/node-core",
+  "crates/node-ui",
+  "crates/node-ui-axum",
+  "crates/util-array-type",
+  "crates/util-axum",
+  "crates/util-bincode",
+  "crates/util-core",
+  "crates/util-db",
+  "crates/util-error",
+  "crates/util-fmt-opt",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+name = "bfte"
+version = "0.1.0"
+
+authors = ["Dawid Ciężarkiewicz <dpc@dpc.pw>"]
+description = "BFTE is a federated consesus engine"
+license = "MIT"
+repository = "https://github.com/username/consensus-test"
+
+[workspace.lints.clippy]
+collapsible_else_if = "allow"
+collapsible_if = "allow"
+
+[workspace.dependencies]
+bfte = { path = "./crates/bfte" }
+bfte-consensus = { path = "./crates/consensus" }
+bfte-consensus-core = { path = "./crates/consensus-core" }
+bfte-consensus-tests = { path = "./crates/consensus-tests" }
+bfte-db = { path = "./crates/db" }
+bfte-derive-secret = { path = "./crates/derive-secret" }
+bfte-invite = { path = "./crates/invite" }
+bfte-node = { path = "./crates/node" }
+bfte-node-core = { path = "./crates/node-core" }
+bfte-node-ui = { path = "./crates/node-ui" }
+bfte-node-ui-axum = { path = "./crates/node-ui-axum" }
+bfte-util-array-type = { path = "./crates/util-array-type" }
+bfte-util-axum = { path = "./crates/util-axum" }
+bfte-util-bincode = { path = "./crates/util-bincode" }
+bfte-util-core = { path = "./crates/util-core" }
+bfte-util-db = { path = "./crates/util-db" }
+bfte-util-error = { path = "./crates/util-error" }
+bfte-util-fmt-opt = { path = "./crates/util-fmt-opt" }
+
+anyhow = "1.0"
+assert_matches = "1.5.0"
+async-stream = "0.3.6"
+async-trait = "0.1.88"
+axum = "*"
+backon = "1.5.0"
+bincode = { version = "2.0.0", features = ["derive"] }
+bip39 = "2.0.0"
+bit-set = { version = "0.8" }
+blake3 = "1.8.2"
+bon = "3.6.1"
+bytes = "1.0"
+cbor4ii = "1.0.0"
+clap = "4.5.37"
+convi = { version = "0.1.1", features = ["min_target_pointer_width_32"] }
+data-encoding = "2.7"
+datastar = "0.2.1"
+derive_more = { version = "2.0.1", features = ["from", "deref", "deref_mut"] }
+ed25519-dalek = "2.1.1"
+futures = "0.3"
+hex-literal = "1"
+hkdf = "0.12.0"
+iroh = { version = "0.35.0", default-features = false }
+iroh-base = { version = "0.35.0", default-features = false }
+iroh-dpc-rpc = { version = "*", git = "https://github.com/dpc/iroh-dpc-rpc", rev = "5e6f896b705e3402ce835e3547e36fc29ee34fb4" }
+listenfd = "1.0.2"
+log = "0.4"
+maud = "*"
+n0-future = "0.1.3"
+num-bigint = "0.4.6"
+nutype = "0.6.1"
+rand = "0.8"
+redb-bincode = "0.4.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_bytes = "0.11.17"
+serde_json = "1.0.140"
+snafu = { version = "0.8.5", features = ["rust_1_81"] }
+test-log = { version = "0.2.16", features = ["trace"] }
+time = "0.3.41"
+tokio = { version = "1.0", features = ["full"] }
+tokio-test = "0.4.4"
+tower-http = "0.5"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+
+
+[profile]
+
+[profile.ci]
+debug = "line-tables-only"
+incremental = false
+inherits = "dev"
+lto = "off"
+
+[profile.dev.package."*"] # external dependencies
+opt-level = 1
+
+[patch.crates-io]
+redb-bincode = { git = "https://github.com/rustshop/redb-bincode", rev = "e8f2d2783b2972f8e6b097bf1e18d90f1cf570b1" }
+# temporarily unblock bip39 conflict with iroh 0.35
+# We might need to publish it as a fork, if we can't figure out a better way.
+bip39 = { git = "https://github.com/rust-bitcoin/rust-bip39/", rev = "bc2376d110f963e8be64f521016b2fdaf9a8dcee" }

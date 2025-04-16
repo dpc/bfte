@@ -1,0 +1,100 @@
+/* Basic layout */
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
+  flex: 1;
+}
+
+
+main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* Navbar styling */
+header nav {
+  background-color: var(--pico-background-color);
+  padding: var(--pico-spacing);
+  border-bottom: 1px solid var(--pico-muted-border-color);
+  min-width: 15em;
+
+  details {
+    margin-bottom: 1rem;
+    display: block;
+    width: 100%;
+  }
+
+  summary {
+    cursor: pointer;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+
+  ul {
+    margin-bottom: 1rem;
+    padding-left: 1rem;
+    display: block;
+    font-size: 0.85em;
+  }
+
+  details summary::after {
+    float: none;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  li {
+    margin-bottom: 0.25rem;
+    display: block;
+  }
+
+  li a {
+    display: block;
+    padding: .5em 0.25em;
+    margin-left: .25em;
+  }
+
+  [aria-current] {
+    font-weight: bold;
+  }
+
+
+  li {
+    /* overwrite PicoCSS default */
+    padding: 0.25em;
+  }
+}
+
+
+main {
+  padding: var(--pico-spacing);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+
+/* Break the navbar on left side on large displays */
+@media (min-width: 992px) {
+  body {
+    flex-direction: row;
+  }
+
+  header nav {
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    overflow-y: auto;
+  }
+
+  main {
+    flex: 1;
+    overflow-y: auto;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+}

@@ -1,0 +1,7 @@
+[package]
+name = "bfte-util-core"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]

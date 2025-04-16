@@ -1,0 +1,12 @@
+
+[package]
+name = "bfte-util-array-type"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+data-encoding = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+serde_bytes = { workspace = true }

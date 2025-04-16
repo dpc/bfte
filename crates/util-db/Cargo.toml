@@ -1,0 +1,10 @@
+
+[package]
+name = "bfte-util-db"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+bincode = { workspace = true }
+redb-bincode = { workspace = true }
