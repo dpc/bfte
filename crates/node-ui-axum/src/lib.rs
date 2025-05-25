@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 
 mod assets;
-mod auth;
+
 mod error;
+mod middleware;
 mod misc;
 mod page;
 mod routes;
@@ -11,12 +12,15 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use assets::WithStaticRoutesExt as _;
+use axum::Extension;
 use bfte_node_ui::NodeUiApi;
 use bfte_util_error::WhateverResult;
 use listenfd::ListenFd;
+use middleware::{cache_control, require_auth};
 use routes::make_router;
 use snafu::ResultExt as _;
 use tokio::net::{TcpListener, TcpSocket};
+use tower::ServiceBuilder;
 use tower_http::CompressionLevel;
 use tower_http::compression::CompressionLayer;
 use tower_http::compression::predicate::SizeAbove;
@@ -26,6 +30,7 @@ use tracing::info;
 const LOG_TARGET: &str = "bfte::node::ui";
 const ROUTE_UI: &str = "/ui/";
 const ROUTE_LOGIN: &str = "/ui/login";
+const ROUTE_INIT: &str = "/ui/init";
 const ROUTE_DS_CURRENT_ROUND: &str = "/datastar/current-round";
 
 #[derive(Clone)]
@@ -41,10 +46,18 @@ pub async fn run(node_api: NodeUiApi, bind_ui: SocketAddr) -> WhateverResult<Inf
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::minutes(2 * 24 * 60)));
 
+    let state = Arc::new(UiState { node_api });
     let router = make_router()
+        .layer(
+            ServiceBuilder::new()
+                .layer(Extension(state.clone()))
+                .layer(axum::middleware::from_fn(middleware::cache_control))
+                .layer(axum::middleware::from_fn(middleware::require_auth))
+                .layer(axum::middleware::from_fn(middleware::consensus_init)),
+        )
         .layer(session_layer)
         .with_static_routes()
-        .with_state(Arc::new(UiState { node_api }));
+        .with_state(state);
     let listen = listener
         .local_addr()
         .whatever_context("Failed to get local addr")?;

@@ -7,7 +7,6 @@ use maud::html;
 use serde_json::json;
 use snafu::ResultExt as _;
 
-use crate::auth::UserAuth;
 use crate::error::{OtherSnafu, RequestResult};
 use crate::misc::Maud;
 use crate::page::NavbarSelector;
@@ -17,7 +16,7 @@ pub(crate) async fn root() -> Redirect {
     Redirect::permanent(ROUTE_UI)
 }
 
-pub async fn get(state: State<ArcUiState>, _auth: UserAuth) -> RequestResult<impl IntoResponse> {
+pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
     let content = html! {
         "Hello!"
         input data-bind-input;

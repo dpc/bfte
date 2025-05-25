@@ -6,8 +6,8 @@ use serde::Deserialize;
 use snafu::{OptionExt as _, ResultExt as _};
 use tower_sessions::Session;
 
-use crate::auth::{SESSION_KEY, UserAuth};
 use crate::error::{LoginRequiredSnafu, OtherSnafu, RequestResult};
+use crate::middleware::{SESSION_KEY, UserAuth};
 use crate::misc::Maud;
 use crate::{ArcUiState, ROUTE_LOGIN, ROUTE_UI, UiState};
 
@@ -56,10 +56,11 @@ pub async fn post(
     }
 
     session
-        .insert(SESSION_KEY, &UserAuth::new())
+        .insert(SESSION_KEY, &UserAuth)
         .await
         .whatever_context("Could not create session")
         .context(OtherSnafu)?;
+
     Ok(Redirect::to(ROUTE_UI).into_response())
 }
 
