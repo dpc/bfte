@@ -16,13 +16,14 @@ use crate::tables::{
 
 #[derive(Debug, Snafu)]
 pub enum InitError {
-    AlreadyJoined,
+    AlreadyInitialized,
 }
+
 type InitResult<T> = Result<T, InitError>;
 
 #[derive(Debug, Snafu)]
 pub enum OpenError {
-    NotJoined,
+    NotInitialized,
 }
 type OpenResult<T> = Result<T, OpenError>;
 
@@ -46,9 +47,7 @@ impl Consensus {
     pub async fn open(db: Arc<Database>, our_peer_pubkey: Option<PeerPubkey>) -> OpenResult<Self> {
         let cur_round = db.write_with_expect_falliable(Self::open_tx).await?;
 
-        let s = Self::open_internal(cur_round, db, our_peer_pubkey).await;
-
-        Ok(s)
+        Ok(Self::open_internal(cur_round, db, our_peer_pubkey).await)
     }
 
     async fn open_internal(
@@ -97,7 +96,7 @@ impl Consensus {
             ctx.insert_consensus_params(BlockRound::ZERO, params)?
         {
             if existing != params.hash() {
-                return AlreadyJoinedSnafu.fail().context(TxSnafu);
+                return AlreadyInitializedSnafu.fail().context(TxSnafu);
             }
         }
         if let Some((round, hash)) = pinned {
@@ -114,7 +113,7 @@ impl Consensus {
 
     fn open_tx(ctx: &WriteTransactionCtx) -> Result<BlockRound, DbTxError<OpenError>> {
         let Some(_) = ctx.get_consensus_params_opt(BlockRound::ZERO)? else {
-            return NotJoinedSnafu.fail().context(TxSnafu);
+            return NotInitializedSnafu.fail().context(TxSnafu);
         };
 
         Self::init_tables_tx(ctx)?;

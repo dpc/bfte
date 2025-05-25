@@ -108,7 +108,9 @@ impl RpcServer {
             whatever!("We have no peer pubkey")
         };
 
-        let mut cur_round_rx = node_ref.consensus.current_round_with_timeout_start_rx();
+        let mut cur_round_rx = node_ref
+            .consensus_expect()
+            .current_round_with_timeout_start_rx();
 
         // We can't respond with a vote until we reached or passed a given round
         cur_round_rx
@@ -116,17 +118,20 @@ impl RpcServer {
             .await
             .whatever_context("Shutting down")?;
 
-        let req_round_params = node_ref.consensus.get_round_params(req_round).await;
+        let req_round_params = node_ref
+            .consensus_expect()
+            .get_round_params(req_round)
+            .await;
 
         let Some(peer_idx) = req_round_params.find_peer_idx(peer_pubkey) else {
             whatever!("Not participating in this round");
         };
 
-        let mut new_votes_rx = node_ref.consensus.new_votes_rx();
+        let mut new_votes_rx = node_ref.consensus_expect().new_votes_rx();
 
         let resp = loop {
             if let Some(resp) = node_ref
-                .consensus
+                .consensus_expect()
                 .get_vote(req_round, &req_round_params, peer_idx)
                 .await
             {
@@ -195,7 +200,9 @@ impl RpcServer {
 
         let seckey = node_ref.get_peer_secret_expect();
 
-        let mut cur_round_rx = node_ref.consensus.current_round_with_timeout_start_rx();
+        let mut cur_round_rx = node_ref
+            .consensus_expect()
+            .current_round_with_timeout_start_rx();
 
         // We can't respond with a vote until we reached or passed a given round
         cur_round_rx
@@ -205,8 +212,10 @@ impl RpcServer {
 
         let resp = loop {
             let cur_round = cur_round_rx.borrow().0;
-            if let Some(last_finalized) =
-                node_ref.consensus.get_prev_notarized_block(cur_round).await
+            if let Some(last_finalized) = node_ref
+                .consensus_expect()
+                .get_prev_notarized_block(cur_round)
+                .await
             {
                 if req_round < last_finalized.round {
                     break last_finalized.round;
@@ -255,7 +264,9 @@ impl RpcServer {
 
         let min_notarized_round = req.min_notarized_round;
 
-        let mut cur_round_rx = node_ref.consensus.current_round_with_timeout_start_rx();
+        let mut cur_round_rx = node_ref
+            .consensus_expect()
+            .current_round_with_timeout_start_rx();
 
         // We can't respond with a vote until we reached or passed a given round
         cur_round_rx
@@ -264,7 +275,11 @@ impl RpcServer {
             .whatever_context("Shutting down")?;
 
         let resp = loop {
-            if let Some(resp) = node_ref.consensus.get_notarized_block_resp(req).await {
+            if let Some(resp) = node_ref
+                .consensus_expect()
+                .get_notarized_block_resp(req)
+                .await
+            {
                 break resp;
             }
 
@@ -305,7 +320,7 @@ impl RpcServer {
 
         let node_ref = &self.handle.node_ref().into_whatever()?;
 
-        Node::handle_address_update(&node_ref.db, update).await?;
+        Node::handle_address_update(node_ref.db(), update).await?;
         Ok(())
     }
 
@@ -327,7 +342,7 @@ impl RpcServer {
 
         let node_ref = &self.handle.node_ref().into_whatever()?;
 
-        let update = Node::get_peer_addr(&node_ref.db, req.peer_pubkey).await?;
+        let update = Node::get_peer_addr(node_ref.db(), req.peer_pubkey).await?;
 
         send.write_message_bincode(&GetPeerAddressResponse { update })
             .await
@@ -354,7 +369,10 @@ impl RpcServer {
 
         let node_ref = &self.handle.node_ref().into_whatever()?;
 
-        let consensus_params = node_ref.consensus.get_consensus_params(req.round).await;
+        let consensus_params = node_ref
+            .consensus_expect()
+            .get_consensus_params(req.round)
+            .await;
 
         let raw = consensus_params.to_raw();
         let out_hash = send
@@ -386,7 +404,7 @@ impl RpcServer {
         let node_ref = &self.handle.node_ref().into_whatever()?;
 
         let consensus_version = node_ref
-            .consensus
+            .consensus_expect()
             .get_consensus_params(req.round)
             .await
             .version;
@@ -418,7 +436,11 @@ impl RpcServer {
 
         let node_ref = &self.handle.node_ref().into_whatever()?;
 
-        if let Some(block) = node_ref.consensus.get_finalized_block(req.round).await {
+        if let Some(block) = node_ref
+            .consensus_expect()
+            .get_finalized_block(req.round)
+            .await
+        {
             send.write_message_bincode::<GetBlockResponse>(&GetBlockResponse { block })
                 .await
                 .whatever_context("Write error")?;

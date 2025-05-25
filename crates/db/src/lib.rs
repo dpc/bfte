@@ -56,6 +56,21 @@ impl Database {
         Ok(s)
     }
 
+    pub async fn read_with_inner_falliable<T, E>(
+        inner: &redb_bincode::Database,
+        f: impl FnOnce(&'_ ReadTransaction) -> DbTxResult<T, E>,
+    ) -> DbTxResult<T, E>
+    where
+        E: snafu::Error + 'static,
+    {
+        tokio::task::block_in_place(|| {
+            let dbtx = inner.begin_read().context(TransactionSnafu)?;
+            let res = f(&dbtx)?;
+
+            Ok(res)
+        })
+    }
+
     pub async fn write_with_inner_falliable<T, E>(
         inner: &redb_bincode::Database,
         commit_hook_order_lock: Arc<std::sync::Mutex<()>>,
@@ -151,6 +166,25 @@ impl Database {
         f: impl FnOnce(&'_ ReadTransaction) -> DbResult<T>,
     ) -> DbResult<T> {
         Self::read_with_inner(&self.inner, f).await
+    }
+
+    pub async fn read_with_expect_falliable<T, E>(
+        &self,
+        f: impl FnOnce(&'_ ReadTransaction) -> DbTxResult<T, E>,
+    ) -> Result<T, E>
+    where
+        E: snafu::Error + 'static,
+    {
+        match Self::read_with_inner_falliable(&self.inner, f).await {
+            Ok(o) => Ok(o),
+            Err(DbTxError::DbError { source, location }) => {
+                panic!("Database error: {source:#} at {location}")
+            }
+            Err(DbTxError::TxError {
+                source,
+                location: _,
+            }) => Err(source),
+        }
     }
 
     pub async fn read_with_expect<T>(

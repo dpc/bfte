@@ -1,12 +1,13 @@
 // TODO:
 #![allow(dead_code)]
 
-use axum::http::{HeaderName, HeaderValue, StatusCode};
-use axum::response::{IntoResponse, Response};
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Redirect, Response};
 use bfte_util_error::Whatever;
 use serde::Serialize;
 use snafu::Snafu;
 
+use crate::ROUTE_LOGIN;
 use crate::misc::AppJson;
 
 #[derive(Debug, Snafu)]
@@ -54,30 +55,24 @@ impl IntoResponse for RequestError {
             Some(user_err) => {
                 return user_err.into_response();
             }
-            _ => {
-                match self {
-                    RequestError::LoginRequired => {
-                        let headers = [
-                            (
-                                HeaderName::from_static("hx-redirect"),
-                                HeaderValue::from_static("/ui/unlock"),
-                            ),
-                            (
-                                HeaderName::from_static("location"),
-                                HeaderValue::from_static("/ui/unlock"),
-                            ),
-                        ];
-                        return (StatusCode::SEE_OTHER, headers).into_response();
+            _ => match self {
+                RequestError::LoginRequired => {
+                    // let headers = [
+                    //     (
+                    //         HeaderName::from_static("hx-redirect"),
+                    //         HeaderValue::from_static(ROUTE_LOGIN),
+                    //     ),
+                    //     (LOCATION, HeaderValue::from_static(ROUTE_LOGIN)),
+                    // ];
+                    // return (StatusCode::SEE_OTHER, headers).into_response();
 
-                        // return Redirect::temporary("/ui/unlock").
-                        // into_response();
-                    }
-                    _ => (
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        "Internal Service Error".to_owned(),
-                    ),
+                    return Redirect::to(ROUTE_LOGIN).into_response();
                 }
-            }
+                _ => (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Internal Service Error".to_owned(),
+                ),
+            },
         };
 
         (status_code, AppJson(UserErrorResponse { message })).into_response()

@@ -24,7 +24,7 @@ impl UiState {
 
     pub fn render_html_page(
         &self,
-        active_nabvar: NavbarSelector,
+        active_navbar: Option<NavbarSelector>,
         title: &str,
         main_content: Markup,
     ) -> Markup {
@@ -35,7 +35,9 @@ impl UiState {
 
                 body {
                     header {
-                        (self.render_page_header(active_nabvar))
+                        @if let Some(active_navbar) = active_navbar {
+                            (self.render_page_header(active_navbar))
+                        }
                     }
 
                     main {

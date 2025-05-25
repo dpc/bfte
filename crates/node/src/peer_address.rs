@@ -127,7 +127,7 @@ impl Node {
             let Some((peer_pubkey_to_refresh, peer_pubkey_to_query)) =
                 self.pick_pull_need_gossip_pair().await
             else {
-                self.peer_addr_needed.notified().await;
+                self.peer_addr_needed().notified().await;
                 continue;
             };
 
@@ -163,13 +163,13 @@ impl Node {
         peer_pubkey_to_ask: PeerPubkey,
     ) -> WhateverResult<()> {
         let mut conn = self
-            .connection_pool
+            .connection_pool()
             .connect(peer_pubkey_to_ask)
             .await
             .whatever_context("Failed to connect")?;
 
         match rpc::get_peer_address(&mut conn, peer_pubkey_to_check).await? {
-            Some(update) => Self::handle_address_update(&self.db, update).await?,
+            Some(update) => Self::handle_address_update(self.db(), update).await?,
             None => {
                 warn!(target: LOG_TARGET,
                  %peer_pubkey_to_check,
@@ -191,7 +191,7 @@ impl Node {
             return Ok(());
         }
         let mut conn = self
-            .connection_pool
+            .connection_pool()
             .connect(dst_peer)
             .await
             .whatever_context("Failed to connect")?;
@@ -235,7 +235,7 @@ impl Node {
     // }
 
     async fn pick_pull_need_gossip_pair(&self) -> Option<(PeerPubkey, PeerPubkey)> {
-        self.db
+        self.db()
             .write_with_expect(|ctx| {
                 let mut tbl_needed = ctx.open_table(&peer_addresses_we_need::TABLE)?;
 
@@ -266,7 +266,7 @@ impl Node {
     }
 
     async fn pick_push_gossip_pair(&self) -> Option<(PeerPubkey, Signed<AddressUpdate>)> {
-        self.db
+        self.db()
             .read_with_expect(|ctx| {
                 let tbl_updates = ctx.open_table(&peer_addresses::TABLE)?;
 
@@ -295,13 +295,13 @@ impl Node {
 
     pub(crate) async fn insert_own_address_update(&self) -> WhateverResult<()> {
         if let Some(update) = self.get_own_address_update().await? {
-            Self::handle_address_update(&self.db, update).await?;
+            Self::handle_address_update(self.db(), update).await?;
         }
         Ok(())
     }
 
     async fn get_own_address_update(&self) -> WhateverResult<Option<Signed<AddressUpdate>>> {
-        if self.root_secret.is_none() {
+        if self.root_secret().is_none() {
             return Ok(None);
         }
         let seckey = self.get_peer_secret_expect();
@@ -309,7 +309,7 @@ impl Node {
             AddressUpdate {
                 timestamp: Timestamp::now(),
                 peer_pubkey: seckey.pubkey(),
-                addr: PeerAddress::Iroh(self.iroh_endpoint.node_id().into()),
+                addr: PeerAddress::Iroh(self.iroh_endpoint().node_id().into()),
             },
             seckey,
         );
@@ -392,13 +392,13 @@ impl Node {
             return Ok(());
         }
 
-        self.db
+        self.db()
             .write_with_expect(|ctx| {
                 let mut tbl = ctx.open_table(&peer_addresses_we_need::TABLE)?;
 
                 tbl.insert(&peer_pubkey, &())?;
 
-                let notify = self.peer_addr_needed.clone();
+                let notify = self.peer_addr_needed().clone();
 
                 ctx.on_commit(move || {
                     notify.notify_waiters();

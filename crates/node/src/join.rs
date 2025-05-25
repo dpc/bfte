@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use bfte_consensus::consensus::Consensus;
@@ -41,9 +40,7 @@ pub enum NodeJoinError {
 pub type NodeJoinResult<T> = Result<T, NodeJoinError>;
 
 impl Node {
-    pub async fn join(db_path: PathBuf, invite: &Invite) -> NodeJoinResult<()> {
-        let db = Database::open(db_path).await.context(DbSnafu)?;
-
+    pub async fn join(db: Arc<Database>, invite: &Invite) -> NodeJoinResult<()> {
         let iroh_endpoint = Self::make_iroh_endpoint(None)
             .await
             .context(IrohEndpointSnafu)?;
@@ -57,7 +54,7 @@ impl Node {
             )
             .await
             .context(IrohConnectionSnafu)?;
-        Self::join_inner(&mut conn, db.into(), invite)
+        Self::join_inner(&mut conn, db, invite)
             .await
             .context(PeerRequestSnafu)?;
 

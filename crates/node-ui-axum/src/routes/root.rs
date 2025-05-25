@@ -7,16 +7,17 @@ use maud::html;
 use serde_json::json;
 use snafu::ResultExt as _;
 
+use crate::auth::UserAuth;
 use crate::error::{OtherSnafu, RequestResult};
 use crate::misc::Maud;
 use crate::page::NavbarSelector;
-use crate::{ROUTE_DS_CURRENT_ROUND, ROUTE_UI, UiState};
+use crate::{ArcUiState, ROUTE_DS_CURRENT_ROUND, ROUTE_UI};
 
 pub(crate) async fn root() -> Redirect {
     Redirect::permanent(ROUTE_UI)
 }
 
-pub async fn ui(state: State<UiState>) -> RequestResult<impl IntoResponse> {
+pub async fn get(state: State<ArcUiState>, _auth: UserAuth) -> RequestResult<impl IntoResponse> {
     let content = html! {
         "Hello!"
         input data-bind-input;
@@ -30,17 +31,16 @@ pub async fn ui(state: State<UiState>) -> RequestResult<impl IntoResponse> {
             data-on-load=(format!("@get('{}')", ROUTE_DS_CURRENT_ROUND)) {
 
             "Current round"
-
         }
     };
     Ok(Maud(state.render_html_page(
-        NavbarSelector::Consensus,
+        Some(NavbarSelector::Consensus),
         "Hello!",
         content,
     )))
 }
 
-pub async fn current_round(state: State<UiState>) -> RequestResult<impl IntoResponse> {
+pub async fn current_round(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
     let mut current_round_rx = state
         .node_api
         .get_round_and_timeout_rx()

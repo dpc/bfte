@@ -65,6 +65,7 @@ pub(crate) trait ConsensusReadDbOps {
             .get_consensus_params_opt(round)?
             .expect("Initialized consensus database must set consensus params for round 0"))
     }
+    fn get_consensus_params_opt(&self, round: BlockRound) -> DbResult<Option<ConsensusParams>>;
     fn get_finality_consensus(&self) -> DbResult<Option<BlockRound>>;
 
     fn get_vote_dummy(&self, round: BlockRound, peer_idx: PeerIdx) -> DbResult<Option<Signature>>;
@@ -76,7 +77,6 @@ pub(crate) trait ConsensusReadDbOps {
 
     fn get_payload(&self, payload_hash: BlockPayloadHash) -> DbResult<Option<BlockPayloadRaw>>;
     fn get_finality_vote(&self, peer_pubkey: PeerPubkey) -> DbResult<Option<BlockRound>>;
-    fn get_consensus_params_opt(&self, round: BlockRound) -> DbResult<Option<ConsensusParams>>;
     fn get_peers_with_proposal_votes(&self, round: BlockRound) -> DbResult<VoteSet>;
     fn get_peers_with_dummy_votes(&self, round: BlockRound) -> DbResult<VoteSet>;
     fn get_proposal(&self, round: BlockRound) -> DbResult<Option<BlockHeader>>;

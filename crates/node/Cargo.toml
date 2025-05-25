@@ -27,6 +27,7 @@ bfte-util-db = { workspace = true }
 bfte-util-error = { workspace = true }
 bfte-util-fmt-opt = { workspace = true }
 bincode = { workspace = true }
+blake3 = { workspace = true }
 bon = { workspace = true }
 data-encoding = { workspace = true }
 derive_more = { workspace = true }

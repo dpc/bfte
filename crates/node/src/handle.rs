@@ -2,7 +2,6 @@ use std::marker::PhantomData;
 use std::ops;
 use std::sync::{Arc, Weak};
 
-use bfte_consensus::consensus::Consensus;
 use bfte_db::Database;
 use bfte_util_error::WhateverResult;
 use snafu::{Location, OptionExt as _, ResultExt as _, Snafu};
@@ -68,13 +67,6 @@ impl NodeHandle {
     pub fn db(&self) -> NodeRefResult<Arc<Database>> {
         let client = self.0.upgrade().context(NodeRefSnafu)?;
 
-        Ok(client.db.clone())
-    }
-
-    #[allow(dead_code)]
-    pub fn consensus(&self) -> NodeRefResult<Arc<Consensus>> {
-        let client = self.0.upgrade().context(NodeRefSnafu)?;
-
-        Ok(client.consensus.clone())
+        Ok(client.db().clone())
     }
 }

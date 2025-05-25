@@ -1,45 +1,50 @@
 // SPDX-License-Identifier: MIT
 
 mod assets;
+mod auth;
 mod error;
 mod misc;
 mod page;
 mod routes;
 use std::convert::Infallible;
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 use assets::WithStaticRoutesExt as _;
-use axum::Router;
-use axum::routing::get;
 use bfte_node_ui::NodeUiApi;
 use bfte_util_error::WhateverResult;
 use listenfd::ListenFd;
-use routes::root;
+use routes::make_router;
 use snafu::ResultExt as _;
 use tokio::net::{TcpListener, TcpSocket};
 use tower_http::CompressionLevel;
 use tower_http::compression::CompressionLayer;
 use tower_http::compression::predicate::SizeAbove;
+use tower_sessions::{Expiry, MemoryStore, SessionManagerLayer};
 use tracing::info;
 
 const LOG_TARGET: &str = "bfte::node::ui";
 const ROUTE_UI: &str = "/ui/";
+const ROUTE_LOGIN: &str = "/ui/login";
 const ROUTE_DS_CURRENT_ROUND: &str = "/datastar/current-round";
 
 #[derive(Clone)]
 pub(crate) struct UiState {
     pub(crate) node_api: NodeUiApi,
 }
+pub(crate) type ArcUiState = Arc<UiState>;
 
 pub async fn run(node_api: NodeUiApi, bind_ui: SocketAddr) -> WhateverResult<Infallible> {
     let listener = get_listener(bind_ui, true).await?;
 
-    let router = Router::new()
-        .route("/", get(root::root))
-        .route(ROUTE_UI, get(root::ui))
-        .route(ROUTE_DS_CURRENT_ROUND, get(root::current_round))
+    let session_store = MemoryStore::default();
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_expiry(Expiry::OnInactivity(time::Duration::minutes(2 * 24 * 60)));
+
+    let router = make_router()
+        .layer(session_layer)
         .with_static_routes()
-        .with_state(UiState { node_api });
+        .with_state(Arc::new(UiState { node_api }));
     let listen = listener
         .local_addr()
         .whatever_context("Failed to get local addr")?;
@@ -48,7 +53,7 @@ pub async fn run(node_api: NodeUiApi, bind_ui: SocketAddr) -> WhateverResult<Inf
         target: LOG_TARGET,
         addr = %listen,
         // origin = %self.opts.cors_origin_url_str(listen),
-        "Starting server"
+        "Starting web UI server..."
     );
 
     axum::serve(

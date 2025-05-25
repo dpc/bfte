@@ -2,8 +2,10 @@ mod opts;
 
 use std::io;
 use std::str::FromStr as _;
+use std::sync::Arc;
 
 use bfte_derive_secret::DeriveableSecret;
+use bfte_node::Node;
 use bfte_node::derive_secret_ext::DeriveSecretExt as _;
 use bfte_util_error::{Whatever, WhateverResult};
 use clap::Parser as _;
@@ -48,7 +50,7 @@ impl Bfte {
             None
         };
 
-        match opts.command {
+        let db = match opts.command {
             Commands::GenSecret => {
                 let root_seckey = DeriveableSecret::generate();
                 let peer_seckey = root_seckey.get_peer_seckey().expect("Just generated");
@@ -62,38 +64,66 @@ impl Bfte {
                 return Ok(());
             }
 
-            Commands::Join { invite } => bfte_node::Node::join(
-                db_path
-                    .whatever_context("Database path must be set to persist created federation")?,
-                &invite,
-            )
-            .await
-            .whatever_context("Failed to join consensus")?,
+            Commands::Join { invite, run } => {
+                let db = Arc::new(
+                    Node::open_db(db_path)
+                        .await
+                        .whatever_context("Failed to open database")?,
+                );
 
-            Commands::Create { extra_peers } => bfte_node::Node::create(
-                db_path
-                    .whatever_context("Database path must be set to persist created federation")?,
-                secret.whatever_context("Secret must be provided to create a new federation")?,
-                extra_peers,
-            )
-            .await
-            .whatever_context("Failed to create consensus")?,
+                bfte_node::Node::join(db.clone(), &invite)
+                    .await
+                    .whatever_context("Failed to join consensus")?;
 
-            Commands::Run { bind_ui } => {
-                bfte_node::Node::builder()
-                    .maybe_root_secret(secret)
-                    .maybe_db_path(db_path)
-                    .ui(Box::new(move |api| {
-                        Box::pin(async move { bfte_node_ui_axum::run(api, bind_ui).await })
-                    }))
-                    .build()
-                    .await
-                    .whatever_context("Failed to build node")?
-                    .run()
-                    .await
-                    .whatever_context("Failed to run node")?;
+                if !run {
+                    return Ok(());
+                }
+
+                db
             }
+
+            Commands::Create { extra_peers, run } => {
+                let db = Arc::new(
+                    Node::open_db(db_path)
+                        .await
+                        .whatever_context("Failed to open database")?,
+                );
+
+                bfte_node::Node::create(
+                    db.clone(),
+                    secret
+                        .whatever_context("Secret must be provided to create a new federation")?,
+                    extra_peers,
+                )
+                .await
+                .whatever_context("Failed to create consensus")?;
+
+                if !run {
+                    return Ok(());
+                }
+
+                db
+            }
+
+            Commands::Run => Arc::new(
+                Node::open_db(db_path)
+                    .await
+                    .whatever_context("Failed to open database")?,
+            ),
         };
+
+        bfte_node::Node::builder()
+            .maybe_root_secret(secret)
+            .db(db)
+            .ui(Box::new(move |api| {
+                Box::pin(async move { bfte_node_ui_axum::run(api, opts.bind_ui).await })
+            }))
+            .build()
+            .await
+            .whatever_context("Failed to build node")?
+            .run()
+            .await
+            .whatever_context("Failed to run node")?;
 
         Ok(())
     }

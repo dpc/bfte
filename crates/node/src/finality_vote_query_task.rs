@@ -56,20 +56,20 @@ impl Node {
 
     async fn peer_finality_vote_query(&self, peer_pubkey: PeerPubkey) -> WhateverResult<()> {
         let prev_vote = self
-            .consensus
+            .consensus_expect()
             .get_finality_vote(peer_pubkey)
             .await
             .unwrap_or_default();
 
         let mut conn = self
-            .connection_pool
+            .connection_pool()
             .connect(peer_pubkey)
             .await
             .whatever_context("Failed to connect to peer")?;
 
         let resp = rpc::wait_finality_vote(&mut conn, peer_pubkey, prev_vote).await?;
 
-        self.consensus
+        self.consensus_expect()
             .process_finality_vote_update_response(peer_pubkey, resp)
             .await
             .whatever_context("Failed to process finality vote update")?;

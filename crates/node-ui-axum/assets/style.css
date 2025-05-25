@@ -75,8 +75,13 @@ main {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
+  align-items: center;
 }
 
+.login-form {
+  max-width: 30em;
+  width: 100%;
+}
 
 /* Break the navbar on left side on large displays */
 @media (min-width: 992px) {

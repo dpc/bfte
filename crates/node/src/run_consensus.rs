@@ -20,8 +20,9 @@ use snafu::{ResultExt as _, Whatever};
 use tokio::task::JoinSet;
 use tracing::{debug, info, instrument, trace, warn};
 
+use crate::connection_pool::ConnectionPool;
 use crate::rpc::{RPC_ID_WAIT_NOTARIZED_BLOCK, RPC_ID_WAIT_VOTE};
-use crate::{ConnectionPool, LOG_TARGET, Node, RPC_BACKOFF};
+use crate::{LOG_TARGET, Node, RPC_BACKOFF};
 
 impl Node {
     pub async fn run_consensus(self: Arc<Self>) {
@@ -39,14 +40,14 @@ impl Node {
     /// produce [`RoundEvent`]s, then delivers them to the [`Self::consensus`]
     /// in a loop until the round is finished.
     pub(crate) async fn run_consensus_round(self: &Arc<Self>) -> WhateverResult<()> {
-        let (round, params) = self.consensus.get_current_round_and_params().await;
+        let (round, params) = self.consensus_expect().get_current_round_and_params().await;
 
         self.run_consensus_round_inner(round, params).await
     }
 
     #[instrument(
-        name = "run_consensus_round"
         target = LOG_TARGET,
+        name = "run"
         level = "info",
         skip_all,
         fields(round = %round)
@@ -56,6 +57,7 @@ impl Node {
         round: BlockRound,
         params: ConsensusParams,
     ) -> WhateverResult<()> {
+        let consensus = self.consensus_expect();
         // Set of all the tasks specific for this round.
         //
         // Takes care of cancelling on drop. Each task produces (potentially)
@@ -64,8 +66,8 @@ impl Node {
 
         // In case we continuing previous round in progress, we might skip
         // certain tasks.
-        let existing_dummy_votes = self.consensus.get_peers_with_dummy_votes(round).await;
-        let existing_non_dummy_votes = self.consensus.get_peers_with_proposal_votes(round).await;
+        let existing_dummy_votes = consensus.get_peers_with_dummy_votes(round).await;
+        let existing_non_dummy_votes = consensus.get_peers_with_proposal_votes(round).await;
 
         // Our peer_idx in the round, None if we are not participating
         let our_peer_idx = self
@@ -73,12 +75,15 @@ impl Node {
             .and_then(|our_peer_pubkey| params.find_peer_idx(our_peer_pubkey));
 
         let finality_consensus = self
-            .consensus
+            .consensus_expect()
             .get_finality_consensus()
             .await
             .unwrap_or_default();
 
-        let prev_notarized_block = self.consensus.get_prev_notarized_block(round).await;
+        let prev_notarized_block = self
+            .consensus_expect()
+            .get_prev_notarized_block(round)
+            .await;
 
         info!(
             target: LOG_TARGET,
@@ -89,7 +94,7 @@ impl Node {
             our_peer_idx = %our_peer_idx.fmt_option(),
             leader_idx = %round.leader_idx(params.num_peers()),
             %finality_consensus,
-            "Running consensus round"
+            "Running round..."
         );
 
         for (_, peer_pubkey) in params.iter_peers() {
@@ -202,7 +207,7 @@ impl Node {
                 continue;
             }
             round_tasks.spawn(Self::request_peer_vote(
-                self.connection_pool.clone(),
+                self.connection_pool().clone(),
                 round,
                 peer_idx,
                 *params
@@ -237,7 +242,7 @@ impl Node {
             }
 
             round_tasks.spawn(Self::request_peer_notarized_block(
-                self.connection_pool.clone(),
+                self.connection_pool().clone(),
                 round,
                 peer_idx,
                 *params
@@ -257,8 +262,9 @@ impl Node {
         params: &ConsensusParams,
         existing_dummy_votes: VoteSet,
     ) {
-        let current_round_with_timeout_start_rx =
-            self.consensus.current_round_with_timeout_start_rx();
+        let current_round_with_timeout_start_rx = self
+            .consensus_expect()
+            .current_round_with_timeout_start_rx();
 
         if let Some(our_peer_idx) = our_peer_idx {
             if !existing_dummy_votes.contains(our_peer_idx) {
@@ -311,8 +317,8 @@ impl Node {
             if !existing_non_dummy_votes.contains(our_peer_idx)
                 && round.leader_idx(params.num_peers()) != our_peer_idx
             {
-                let mut new_proposal_rx = self.consensus.new_proposal_rx();
-                let consensus = self.consensus.clone();
+                let consensus = self.consensus_expect().clone();
+                let mut new_proposal_rx = consensus.new_proposal_rx();
                 let our_seckey = self.get_peer_secret_expect();
                 round_tasks.spawn({
                     async move {
@@ -344,12 +350,13 @@ impl Node {
         cur_round: BlockRound,
         mut round_tasks: JoinSet<RoundEvent>,
     ) -> WhateverResult<()> {
+        let consensus = self.consensus_expect();
         debug!(
             target: LOG_TARGET,
             "Running consensus round loop"
         );
 
-        let current_round_rx = self.consensus.current_round_with_timeout_start_rx();
+        let current_round_rx = consensus.current_round_with_timeout_start_rx();
         loop {
             if current_round_rx.borrow().0 != cur_round {
                 break Ok(());
@@ -372,7 +379,7 @@ impl Node {
                     peer_pubkey,
                 } => {
                     let is_dummy = resp.block().is_dummy();
-                    if let Err(err) = self.consensus.process_vote_response(peer_idx, resp).await {
+                    if let Err(err) = consensus.process_vote_response(peer_idx, resp).await {
                         warn!(
                             target: LOG_TARGET,
                             %peer_idx,
@@ -381,7 +388,7 @@ impl Node {
                     }
                     if !is_dummy {
                         round_tasks.spawn(Self::request_peer_vote(
-                            self.connection_pool.clone(),
+                            self.connection_pool().clone(),
                             round,
                             peer_idx,
                             peer_pubkey,
@@ -392,7 +399,7 @@ impl Node {
                 }
 
                 RoundEvent::VoteSelfProposal { peer_idx, resp } => {
-                    if let Err(err) = self.consensus.process_vote_response(peer_idx, resp).await {
+                    if let Err(err) = consensus.process_vote_response(peer_idx, resp).await {
                         warn!(
                             target: LOG_TARGET,
                             %peer_idx,
@@ -402,7 +409,7 @@ impl Node {
                 }
 
                 RoundEvent::VoteSelf { peer_idx, resp } => {
-                    if let Err(err) = self.consensus.process_vote_response(peer_idx, resp).await {
+                    if let Err(err) = consensus.process_vote_response(peer_idx, resp).await {
                         warn!(
                             target: LOG_TARGET,
                             %peer_idx,
@@ -411,7 +418,7 @@ impl Node {
                     }
                 }
                 RoundEvent::VoteSelfTimeout { resp, peer_idx } => {
-                    if let Err(err) = self.consensus.process_vote_response(peer_idx, resp).await {
+                    if let Err(err) = consensus.process_vote_response(peer_idx, resp).await {
                         warn!(
                             target: LOG_TARGET,
                             %peer_idx,
@@ -421,8 +428,7 @@ impl Node {
                 }
 
                 RoundEvent::Notarized { peer_idx, resp } => {
-                    if let Err(err) = self
-                        .consensus
+                    if let Err(err) = consensus
                         .process_notarized_block_response(peer_idx, resp)
                         .await
                     {
@@ -442,7 +448,7 @@ impl Node {
         round: BlockRound,
         our_peer_idx: PeerIdx,
     ) -> RoundEvent {
-        let (block, payload) = self.consensus.generate_proposal(round).await;
+        let (block, payload) = self.consensus_expect().generate_proposal(round).await;
         debug!(
             target: LOG_TARGET,
             hash = %block.hash(),

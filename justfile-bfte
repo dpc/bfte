@@ -1,0 +1,23 @@
+# run and restart on changes
+dev IDX="1":
+	#!/usr/bin/env bash
+	set -euo pipefail
+
+	if [ ! -f Cargo.toml ]; then
+		cd {{invocation_directory()}}
+	fi
+
+	port=$((6910 + {{IDX}}))
+
+
+	env \
+		BFTE_DEV_MODE=1 \
+		RUST_LOG=${RUST_LOG:-bfte=info,info,iroh=error,mainline=error} \
+		systemfd --no-pid -s http::[::1]:$port -- \
+		cargo watch \
+			-d .1 \
+			-i 'tmp/**' \
+			-s " \
+			cargo run -- \
+				--secret-path tmp/{{IDX}}/secret --data-dir tmp/{{IDX}}/ run
+			"
