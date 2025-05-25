@@ -56,3 +56,38 @@ impl fmt::Display for Invite {
         ))
     }
 }
+
+pub struct InviteString(Invite);
+
+impl From<InviteString> for Invite {
+    fn from(value: InviteString) -> Self {
+        value.0
+    }
+}
+
+impl From<Invite> for InviteString {
+    fn from(value: Invite) -> Self {
+        Self(value)
+    }
+}
+
+impl ::serde::Serialize for InviteString {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: ::serde::Serializer,
+    {
+        s.serialize_str(&self.0.to_string())
+    }
+}
+
+impl<'de> ::serde::de::Deserialize<'de> for InviteString {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        let str = <String>::deserialize(d)?;
+        <Invite as std::str::FromStr>::from_str(&str)
+            .map_err(|e| serde::de::Error::custom(format!("Deserialization error: {e:#}")))
+            .map(Self)
+    }
+}

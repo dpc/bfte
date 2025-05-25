@@ -1,10 +1,14 @@
 # run and restart on changes
-dev IDX="1":
+dev IDX="1" PERSISTENT="":
 	#!/usr/bin/env bash
 	set -euo pipefail
 
 	if [ ! -f Cargo.toml ]; then
 		cd {{invocation_directory()}}
+	fi
+
+	if [ -n "{{PERSISTENT}}" ]; then
+		export BFTE_DATA_DIR "tmp/{{IDX}}/"
 	fi
 
 	port=$((6910 + {{IDX}}))
@@ -19,5 +23,5 @@ dev IDX="1":
 			-i 'tmp/**' \
 			-s " \
 			cargo run -- \
-				--secret-path tmp/{{IDX}}/secret --data-dir tmp/{{IDX}}/ run
+				--secret-path tmp/{{IDX}}/secret run
 			"

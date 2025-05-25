@@ -7,6 +7,7 @@ use snafu::{OptionExt as _, ResultExt as _};
 use tower_sessions::Session;
 
 use crate::error::{LoginRequiredSnafu, OtherSnafu, RequestResult};
+use crate::fragments::labeled_input;
 use crate::middleware::{SESSION_KEY, UserAuth};
 use crate::misc::Maud;
 use crate::{ArcUiState, ROUTE_LOGIN, ROUTE_UI, UiState};
@@ -104,23 +105,5 @@ impl UiState {
             }
         };
         Ok(self.render_html_page(None, "Sign in", content))
-    }
-}
-
-#[bon::builder]
-fn labeled_input(
-    name: &str,
-    label: &str,
-    id: Option<&str>,
-    r#type: &str,
-    placeholder: &str,
-    required: Option<bool>,
-) -> Markup {
-    let id = id.unwrap_or(name);
-    let required = required.unwrap_or_default();
-
-    html! {
-        label for=(name) { (label) }
-        input type=(r#type) id=(id) name=(name) placeholder=(placeholder) required[required];
     }
 }

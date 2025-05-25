@@ -3,6 +3,7 @@
 mod assets;
 
 mod error;
+mod fragments;
 mod middleware;
 mod misc;
 mod page;
@@ -16,7 +17,6 @@ use axum::Extension;
 use bfte_node_ui::NodeUiApi;
 use bfte_util_error::WhateverResult;
 use listenfd::ListenFd;
-use middleware::{cache_control, require_auth};
 use routes::make_router;
 use snafu::ResultExt as _;
 use tokio::net::{TcpListener, TcpSocket};
@@ -30,7 +30,7 @@ use tracing::info;
 const LOG_TARGET: &str = "bfte::node::ui";
 const ROUTE_UI: &str = "/ui/";
 const ROUTE_LOGIN: &str = "/ui/login";
-const ROUTE_INIT: &str = "/ui/init";
+const ROUTE_INIT_CONSENSUS: &str = "/ui/init";
 const ROUTE_DS_CURRENT_ROUND: &str = "/datastar/current-round";
 
 #[derive(Clone)]

@@ -5,6 +5,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
+use bfte_consensus_core::peer::PeerPubkey;
+use bfte_invite::Invite;
 use bfte_node_ui::{INodeUiApi, RunUiFn};
 use bfte_util_error::WhateverResult;
 use n0_future::task::AbortOnDropHandle;
@@ -50,6 +52,22 @@ impl INodeUiApi for NodeUiApi {
     fn is_consensus_initialized(&self) -> WhateverResult<bool> {
         Ok(self.node_ref()?.consensus().is_some())
     }
+
+    async fn consensus_init(&self, extra_peers: Vec<PeerPubkey>) -> WhateverResult<()> {
+        Ok(self
+            .node_ref()?
+            .consensus_init(extra_peers)
+            .await
+            .whatever_context("Failed to join consensus")?)
+    }
+    async fn consensus_join(&self, invite: &Invite) -> WhateverResult<()> {
+        Ok(self
+            .node_ref()?
+            .consensus_join(invite)
+            .await
+            .whatever_context("Failed to join consensus")?)
+    }
+
     fn get_round_and_timeout_rx(
         &self,
     ) -> WhateverResult<watch::Receiver<(BlockRound, Option<Duration>)>> {

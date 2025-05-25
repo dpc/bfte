@@ -83,6 +83,11 @@ main {
   width: 100%;
 }
 
+.consensus-init-form {
+  width: 100%;
+  max-width: 60em;
+}
+
 /* Break the navbar on left side on large displays */
 @media (min-width: 992px) {
   body {

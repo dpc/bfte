@@ -590,6 +590,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bfte-consensus-core",
+ "bfte-invite",
  "bfte-util-error",
  "blake3",
  "tokio",
@@ -601,6 +602,7 @@ version = "0.1.0"
 dependencies = [
  "async-stream",
  "axum",
+ "bfte-invite",
  "bfte-node-ui",
  "bfte-util-error",
  "blake3",

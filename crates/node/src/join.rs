@@ -40,7 +40,10 @@ pub enum NodeJoinError {
 pub type NodeJoinResult<T> = Result<T, NodeJoinError>;
 
 impl Node {
-    pub async fn join(db: Arc<Database>, invite: &Invite) -> NodeJoinResult<()> {
+    pub async fn consensus_join_static(
+        db: Arc<Database>,
+        invite: &Invite,
+    ) -> NodeJoinResult<Consensus> {
         let iroh_endpoint = Self::make_iroh_endpoint(None)
             .await
             .context(IrohEndpointSnafu)?;
@@ -54,17 +57,18 @@ impl Node {
             )
             .await
             .context(IrohConnectionSnafu)?;
-        Self::join_inner(&mut conn, db, invite)
+        let consensus = Self::consensus_join_static_inner(&mut conn, db, invite)
             .await
             .context(PeerRequestSnafu)?;
 
-        Ok(())
+        Ok(consensus)
     }
-    pub async fn join_inner(
+
+    async fn consensus_join_static_inner(
         conn: &mut Connection,
         db: Arc<Database>,
         invite: &Invite,
-    ) -> WhateverResult<()> {
+    ) -> WhateverResult<Consensus> {
         let mut init_params = None;
 
         // Use the embedded init_params, to get initial consensus params for the
@@ -127,10 +131,8 @@ impl Node {
             whatever!("Init params not available in the invite");
         };
 
-        let _consensus = Consensus::init(&init_params, db, None, invite.pin)
+        Consensus::init(&init_params, db, None, invite.pin)
             .await
-            .whatever_context("Failed to initialize consensus")?;
-
-        Ok(())
+            .whatever_context("Failed to initialize consensus")
     }
 }

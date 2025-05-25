@@ -71,7 +71,7 @@ impl Bfte {
                         .whatever_context("Failed to open database")?,
                 );
 
-                bfte_node::Node::join(db.clone(), &invite)
+                bfte_node::Node::consensus_join_static(db.clone(), &invite)
                     .await
                     .whatever_context("Failed to join consensus")?;
 
@@ -82,14 +82,14 @@ impl Bfte {
                 db
             }
 
-            Commands::Create { extra_peers, run } => {
+            Commands::Init { extra_peers, run } => {
                 let db = Arc::new(
                     Node::open_db(db_path)
                         .await
                         .whatever_context("Failed to open database")?,
                 );
 
-                bfte_node::Node::create(
+                bfte_node::Node::consensus_init_static(
                     db.clone(),
                     secret
                         .whatever_context("Secret must be provided to create a new federation")?,

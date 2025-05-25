@@ -6,7 +6,7 @@ use std::convert::Infallible;
 use std::option::Option;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Weak};
+use std::sync::{Arc, OnceLock, Weak};
 
 use bfte_consensus::consensus::{Consensus, OpenError};
 use bfte_consensus_core::consensus_params::ConsensusParams;
@@ -14,6 +14,7 @@ use bfte_consensus_core::peer::{PeerPubkey, PeerSeckey};
 use bfte_db::Database;
 use bfte_db::error::DbError;
 use bfte_derive_secret::{DeriveableSecret, LevelError};
+use bfte_invite::Invite;
 use bfte_node_ui::RunUiFn;
 use bfte_util_error::fmt::FmtCompact as _;
 use bfte_util_error::{Whatever, WhateverResult};
@@ -30,6 +31,7 @@ use tokio::sync::{Mutex, Notify, watch};
 use tokio::task::JoinSet;
 use tracing::{debug, info, warn};
 
+use crate::join::NodeJoinResult;
 use crate::{LOG_TARGET, connection_pool, derive_secret_ext, handle, rpc_server};
 
 pub struct Node {
@@ -56,7 +58,7 @@ pub struct Node {
     /// Consensus database and logic
     consensus_initialized_rx: watch::Receiver<bool>,
     consensus_initialized_tx: watch::Sender<bool>,
-    consensus: Option<Arc<Consensus>>,
+    consensus: OnceLock<Arc<Consensus>>,
 
     /// Connection pool
     connection_pool: ConnectionPool,
@@ -82,6 +84,7 @@ pub enum NodeInitError {
     Secret {
         source: LevelError,
     },
+    NoSecret,
     IrohEndpoint {
         source: anyhow::Error,
     },
@@ -135,8 +138,9 @@ impl Node {
         .await
         .context(IrohEndpointSnafu)?;
 
+        #[allow(clippy::manual_ok_err)] // might change signature soon
         let consensus = match Consensus::open(db.clone(), peer_pubkey).await {
-            Ok(c) => Some(Arc::new(c)),
+            Ok(c) => Some(c),
             Err(OpenError::NotInitialized) => None,
         };
 
@@ -158,7 +162,7 @@ impl Node {
             let (consensus_initialized_tx, consensus_initialized_rx) =
                 watch::channel(consensus.is_some());
 
-            Node {
+            let node = Node {
                 handle: handle.clone(),
                 handle_raw: weak.clone(),
                 iroh_router,
@@ -169,13 +173,22 @@ impl Node {
                 iroh_endpoint,
                 consensus_initialized_tx,
                 consensus_initialized_rx,
-                consensus,
+                consensus: OnceLock::new(),
                 finality_tasks: Mutex::new(BTreeMap::default()),
                 ui_task,
                 ui_pass_hash: std::sync::Mutex::new(ui_pass_hash),
                 ui_pass_is_temporary: AtomicBool::new(ui_pass_is_temporary),
                 peer_addr_needed: Arc::new(Notify::new()),
+            };
+
+            if let Some(consensus) = consensus {
+                node.consensus
+                    .set(Arc::new(consensus))
+                    .ok()
+                    .expect("Can't fail to set consensus");
             }
+
+            node
         });
 
         if let Err(err) = slf.insert_own_address_update().await {
@@ -190,11 +203,11 @@ impl Node {
 }
 
 impl Node {
-    pub async fn create(
+    pub async fn consensus_init_static(
         db: Arc<Database>,
         root_secret: DeriveableSecret,
         extra_peers: Vec<PeerPubkey>,
-    ) -> NodeInitResult<()> {
+    ) -> NodeInitResult<Consensus> {
         let pubkey = root_secret.get_peer_seckey()?.pubkey();
 
         let params = ConsensusParams {
@@ -204,9 +217,7 @@ impl Node {
             peers: [vec![pubkey], extra_peers].concat(),
         };
 
-        let _consensus = Consensus::init(&params, db, Some(pubkey), None).await?;
-
-        Ok(())
+        Ok(Consensus::init(&params, db, Some(pubkey), None).await?)
     }
 
     pub(crate) fn clone_strong(&self) -> Arc<Self> {
@@ -237,6 +248,34 @@ impl Node {
         Ok(iroh_endpoint)
     }
 
+    pub async fn consensus_join(&self, invite: &Invite) -> NodeJoinResult<()> {
+        let consensus = Self::consensus_join_static(self.db().clone(), invite).await?;
+
+        self.consensus
+            .set(Arc::new(consensus))
+            .ok()
+            .expect("Can't be initialized twice");
+        self.consensus_initialized_tx.send_replace(true);
+
+        Ok(())
+    }
+
+    pub async fn consensus_init(&self, extra_peers: Vec<PeerPubkey>) -> NodeInitResult<()> {
+        let Some(root_secret) = self.root_secret() else {
+            return NoSecretSnafu.fail();
+        };
+        let consensus =
+            Self::consensus_init_static(self.db().clone(), root_secret, extra_peers).await?;
+
+        self.consensus
+            .set(Arc::new(consensus))
+            .ok()
+            .expect("Can't be initialized twice");
+        self.consensus_initialized_tx.send_replace(true);
+
+        Ok(())
+    }
+
     fn make_iroh_router(
         handle: NodeHandle,
         iroh_endpoint: iroh::Endpoint,
@@ -255,13 +294,13 @@ impl Node {
             .expect("Level verified by now")
     }
 
-    pub(crate) fn consensus(&self) -> &Option<Arc<Consensus>> {
-        &self.consensus
+    pub(crate) fn consensus(&self) -> Option<&Arc<Consensus>> {
+        self.consensus.get()
     }
 
     pub(crate) fn consensus_expect(&self) -> &Arc<Consensus> {
         self.consensus
-            .as_ref()
+            .get()
             .expect("Must be called only when consensus is running")
     }
 

@@ -28,6 +28,7 @@ impl Node {
     pub async fn run_consensus(self: Arc<Self>) {
         loop {
             self.run_consensus_round().await.expect("Consensus failure");
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
     }
 

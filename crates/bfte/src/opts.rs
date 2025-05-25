@@ -28,7 +28,7 @@ pub(crate) struct Opts {
 #[derive(Debug, Subcommand)]
 pub(crate) enum Commands {
     GenSecret,
-    Create {
+    Init {
         #[arg(long, default_value = "false")]
         run: bool,
 

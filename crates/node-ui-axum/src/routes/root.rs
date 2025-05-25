@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use async_stream::stream;
 use axum::extract::State;
 use axum::response::{IntoResponse, Redirect};
@@ -6,6 +8,7 @@ use datastar::prelude::MergeSignals;
 use maud::html;
 use serde_json::json;
 use snafu::ResultExt as _;
+use tokio::time::sleep;
 
 use crate::error::{OtherSnafu, RequestResult};
 use crate::misc::Maud;
@@ -25,7 +28,7 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
         }
 
         div
-            data-signals="{ cur_round: -1 }"
+            data-signals="{ cur_round: '' }"
             data-text="$cur_round"
             data-on-load=(format!("@get('{}')", ROUTE_DS_CURRENT_ROUND)) {
 
@@ -51,6 +54,8 @@ pub async fn current_round(state: State<ArcUiState>) -> RequestResult<impl IntoR
             });
 
             yield MergeSignals::new(out.to_string());
+
+            sleep(Duration::from_secs(1)).await;
 
             if current_round_rx.changed().await.is_err() {
                 break;

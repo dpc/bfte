@@ -7,6 +7,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
+use bfte_consensus_core::peer::PeerPubkey;
+use bfte_invite::Invite;
 use bfte_util_error::WhateverResult;
 use tokio::sync::watch;
 
@@ -27,6 +29,9 @@ pub trait INodeUiApi {
     fn is_ui_password_temporary(&self) -> WhateverResult<bool>;
 
     fn is_consensus_initialized(&self) -> WhateverResult<bool>;
+    async fn consensus_init(&self, extra_peers: Vec<PeerPubkey>) -> WhateverResult<()>;
+    async fn consensus_join(&self, invite: &Invite) -> WhateverResult<()>;
+
     fn get_round_and_timeout_rx(
         &self,
     ) -> WhateverResult<watch::Receiver<(BlockRound, Option<Duration>)>>;

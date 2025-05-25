@@ -9,7 +9,6 @@ impl Node {
     pub async fn generate_invite_code(&self) -> WhateverResult<Invite> {
         let consensus = self
             .consensus()
-            .as_ref()
             .whatever_context("Consensus not initialized")?;
         let round = consensus.get_finality_consensus().await;
         let block = if let Some(round) = round.and_then(|r| r.prev()) {

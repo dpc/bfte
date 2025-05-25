@@ -1,5 +1,5 @@
 use axum::Extension;
-use axum::extract::{Request, State};
+use axum::extract::Request;
 use axum::http::HeaderValue;
 use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
 use axum::middleware::Next;
@@ -9,7 +9,7 @@ use snafu::ResultExt as _;
 use tower_sessions::Session;
 
 use crate::error::{InternalServerSnafu, LoginRequiredSnafu, OtherSnafu, RequestError};
-use crate::{ArcUiState, ROUTE_INIT, ROUTE_LOGIN, ROUTE_UI};
+use crate::{ArcUiState, ROUTE_INIT_CONSENSUS, ROUTE_LOGIN, ROUTE_UI};
 
 pub async fn cache_control(request: Request, next: Next) -> Response {
     let mut response = next.run(request).await;
@@ -49,7 +49,7 @@ pub const SESSION_KEY: &str = "bfte_session";
 #[derive(Clone, Deserialize, Serialize)]
 pub struct UserAuth;
 
-// Check if the request is for /login or requires authentication
+// Check if the request is for /ui/login or requires authentication
 pub(crate) async fn require_auth(
     session: Session,
     req: Request,
@@ -86,16 +86,22 @@ pub(crate) async fn consensus_init(
     next: Next,
 ) -> Result<Response, RequestError> {
     Ok(
-        match (
-            state
-                .node_api
-                .is_consensus_initialized()
-                .context(OtherSnafu)?,
-            req.uri().path() == ROUTE_INIT || req.uri().path() == ROUTE_LOGIN,
-        ) {
-            (true, true) => Redirect::to(ROUTE_UI).into_response(),
-            (false, false) => Redirect::to(ROUTE_INIT).into_response(),
-            _ => next.run(req).await,
+        if state
+            .node_api
+            .is_consensus_initialized()
+            .context(OtherSnafu)?
+        {
+            if req.uri().path() == ROUTE_INIT_CONSENSUS {
+                Redirect::to(ROUTE_UI).into_response()
+            } else {
+                next.run(req).await
+            }
+        } else {
+            if req.uri().path() == ROUTE_INIT_CONSENSUS || req.uri().path() == ROUTE_LOGIN {
+                next.run(req).await
+            } else {
+                Redirect::to(ROUTE_INIT_CONSENSUS).into_response()
+            }
         },
     )
 }
