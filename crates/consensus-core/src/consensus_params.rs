@@ -35,7 +35,6 @@ framed_payload_define! {
 
     pub struct ConsensusParamsSlice;
 
-    TAG = ConsensusParams::TAG;
 }
 /// Core consensus parameters
 ///
@@ -48,7 +47,7 @@ pub struct ConsensusParams {
     /// Consensus version at the given block
     pub version: ConsensusVersion,
 
-    /// BlockRound this consensus parameters were applied.
+    /// BlockRound this consensus parameters was/will be applied.
     ///
     /// As voting on consensus changes is performed, the peers deterministically
     /// reach the decision about new consensus parameters at the same round.
@@ -56,7 +55,7 @@ pub struct ConsensusParams {
     /// Given an amount of peers at that round, a certain delay is added, to
     /// ensure some time for all peers to reach a finality and add it to
     /// their consensus params schedule. The exact round
-    pub applied_round: BlockRound,
+    pub start_round: BlockRound,
 
     /// Block round and hash of some (potentially distant) historical notarized
     /// block.
@@ -77,6 +76,8 @@ pub struct ConsensusParams {
 
     /// Set of voting peers
     pub peers: PeerSet,
+    // TODO: no, the core module should keep track of module params
+    // pub modules: BTreeMap<ModuleId, (ModuleKind, ConsensusVersion, ModuleConfigRaw)>,
 }
 
 impl ConsensusParams {
@@ -153,9 +154,7 @@ impl ConsensusParams {
     }
 }
 
-impl Hashable for ConsensusParams {
-    const TAG: [u8; 4] = *b"copa";
-}
+impl Hashable for ConsensusParams {}
 
 #[derive(Snafu, Debug)]
 pub enum ConsensusParamsDecodeError {

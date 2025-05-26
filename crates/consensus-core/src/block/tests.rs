@@ -12,7 +12,7 @@ fn block_header_size_sanity() {
         &ConsensusParams {
             version: ConsensusVersion::new(0, 0),
             peers: PeerSet::new(),
-            applied_round: 0.into(),
+            start_round: 0.into(),
             prev_mid_block: None,
         },
     );
@@ -41,7 +41,7 @@ fn block_header_fixture() {
         let block = BlockHeader::new_dummy(
             round.into(),
             &ConsensusParams {
-                applied_round: 0.into(),
+                start_round: 0.into(),
                 prev_mid_block: None,
                 version: ConsensusVersion::new(0, 0),
                 peers: PeerSet::new(),

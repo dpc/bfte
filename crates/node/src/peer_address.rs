@@ -32,11 +32,11 @@ pub struct AddressUpdate {
     pub addr: PeerAddress,
 }
 
-impl Hashable for AddressUpdate {
+impl Hashable for AddressUpdate {}
+
+impl Signable for AddressUpdate {
     const TAG: [u8; 4] = *b"adup";
 }
-
-impl Signable for AddressUpdate {}
 
 impl fmt::Display for AddressUpdate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

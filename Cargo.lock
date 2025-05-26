@@ -539,6 +539,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "bfte-module-core"
+version = "0.1.0"
+dependencies = [
+ "bfte-consensus-core",
+ "bfte-db",
+ "bfte-util-error",
+ "bincode",
+ "redb-bincode",
+ "snafu",
+]
+
+[[package]]
 name = "bfte-node"
 version = "0.1.0"
 dependencies = [
@@ -550,6 +562,7 @@ dependencies = [
  "bfte-db",
  "bfte-derive-secret",
  "bfte-invite",
+ "bfte-module-core",
  "bfte-node-core",
  "bfte-node-ui",
  "bfte-util-array-type",
@@ -1299,6 +1312,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.100",
+ "unicode-xid",
 ]
 
 [[package]]

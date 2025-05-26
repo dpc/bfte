@@ -10,11 +10,15 @@ use std::sync::{Arc, OnceLock, Weak};
 
 use bfte_consensus::consensus::{Consensus, OpenError};
 use bfte_consensus_core::consensus_params::ConsensusParams;
+use bfte_consensus_core::module::config::ModuleConfigHash;
+use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::{PeerPubkey, PeerSeckey};
+use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_db::Database;
 use bfte_db::error::DbError;
 use bfte_derive_secret::{DeriveableSecret, LevelError};
 use bfte_invite::Invite;
+use bfte_module_core::module::{Module, ModuleInit};
 use bfte_node_ui::RunUiFn;
 use bfte_util_error::fmt::FmtCompact as _;
 use bfte_util_error::{Whatever, WhateverResult};
@@ -56,9 +60,9 @@ pub struct Node {
     iroh_router: iroh::protocol::Router,
 
     /// Consensus database and logic
+    consensus: OnceLock<Arc<Consensus>>,
     consensus_initialized_rx: watch::Receiver<bool>,
     consensus_initialized_tx: watch::Sender<bool>,
-    consensus: OnceLock<Arc<Consensus>>,
 
     /// Connection pool
     connection_pool: ConnectionPool,
@@ -73,6 +77,10 @@ pub struct Node {
 
     /// Set each time a peer address requires refreshing
     peer_addr_needed: Arc<Notify>,
+
+    modules_inits: BTreeMap<ModuleKind, Arc<dyn ModuleInit + Send + Sync>>,
+    modules: BTreeMap<ModuleId, Arc<dyn Module + Send + Sync>>,
+    modules_config_hashes: BTreeMap<ModuleId, (ConsensusVersion, ModuleConfigHash)>,
 }
 
 #[derive(Debug, Snafu)]
@@ -184,6 +192,10 @@ impl Node {
                 ui_pass_hash: std::sync::Mutex::new(ui_pass_hash),
                 ui_pass_is_temporary: AtomicBool::new(ui_pass_is_temporary),
                 peer_addr_needed: Arc::new(Notify::new()),
+
+                modules_inits: Default::default(),
+                modules: Default::default(),
+                modules_config_hashes: Default::default(),
             };
 
             if let Some(consensus) = consensus {
@@ -216,7 +228,7 @@ impl Node {
         let pubkey = root_secret.get_peer_seckey()?.pubkey();
 
         let params = ConsensusParams {
-            applied_round: 0.into(),
+            start_round: 0.into(),
             prev_mid_block: None,
             version: Consensus::VERSION,
             peers: [vec![pubkey], extra_peers].concat().into(),

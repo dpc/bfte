@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 
+mod transaction;
 mod transaction_nonce;
-
 use std::marker;
 use std::sync::Arc;
 
 use bincode::{BorrowDecode, Decode, Encode};
-use transaction_nonce::TransactionNonce;
+use transaction::Transaction;
 
-#[derive(Encode, Decode)]
-pub struct ModuleId(u16);
+use crate::module::ModuleId;
+use crate::peer::PeerPubkey;
 
 /// Consensus item
 ///
@@ -23,27 +23,23 @@ pub enum Citem {
 }
 
 #[derive(Encode, Decode)]
-pub enum CoreCitem {}
+pub enum CoreCitem {
+    AddPeerVote(PeerPubkey),
+    RemovePeerVote(PeerPubkey),
+}
 
 #[derive(Encode, Decode)]
 pub struct ModuleCitem {
     pub module_id: ModuleId,
 }
 
-#[derive(Encode, Decode)]
-pub struct Transaction {
-    nonce: TransactionNonce,
-    inputs: Vec<Dyn<dyn IInput>>,
-    outputs: Vec<Dyn<dyn IOutput>>,
-}
-
-pub struct Dyn<Iface: ?Sized> {
+pub struct ModuleDyn<Iface: ?Sized> {
     module_id: ModuleId,
     inner: Arc<[u8]>,
     _marker: marker::PhantomData<Iface>,
 }
 
-impl<T, C> Decode<C> for Dyn<T>
+impl<T, C> Decode<C> for ModuleDyn<T>
 where
     T: ?Sized,
 {
@@ -57,7 +53,8 @@ where
         })
     }
 }
-impl<'de, T, C> BorrowDecode<'de, C> for Dyn<T>
+
+impl<'de, T, C> BorrowDecode<'de, C> for ModuleDyn<T>
 where
     T: ?Sized,
 {
@@ -72,7 +69,7 @@ where
     }
 }
 
-impl<T> Encode for Dyn<T>
+impl<T> Encode for ModuleDyn<T>
 where
     T: ?Sized,
 {
@@ -87,3 +84,4 @@ where
 }
 pub trait IInput {}
 pub trait IOutput {}
+pub trait ICitem {}

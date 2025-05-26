@@ -17,10 +17,6 @@ pub struct InvalidSignatureError;
 pub type InvalidSignatureResult<T> = Result<T, InvalidSignatureError>;
 
 pub trait Hashable: bincode::Encode {
-    /// Unique tag preventing two different type of messages with the same
-    /// encoding from conflicting with each other
-    const TAG: [u8; 4];
-
     fn hash(&self) -> blake3::Hash {
         let mut hasher = blake3::Hasher::new();
 
@@ -28,6 +24,13 @@ pub trait Hashable: bincode::Encode {
 
         hasher.finalize()
     }
+}
+
+/// A message that can be signed/verified by [`PeerPubkey`] identity
+pub trait Signable: Hashable {
+    /// Unique tag preventing two different type of messages with the same
+    /// encoding from conflicting with each other
+    const TAG: [u8; 4];
 
     fn sign_hash(&self) -> blake3::Hash {
         let mut hasher = blake3::Hasher::new();
@@ -40,10 +43,7 @@ pub trait Hashable: bincode::Encode {
 
         hasher.finalize()
     }
-}
 
-/// A message that can be signed/verified by [`PeerPubkey`] identity
-pub trait Signable: Hashable {
     fn sign_with(&self, seckey: PeerSeckey) -> Signature {
         let v = ed25519_dalek::SigningKey::from(seckey).sign(self.sign_hash().as_bytes());
         v.into()

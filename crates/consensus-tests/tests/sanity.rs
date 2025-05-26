@@ -24,7 +24,7 @@ impl Setup {
             .collect();
 
         let cons_params = ConsensusParams {
-            applied_round: 0.into(),
+            start_round: 0.into(),
             prev_mid_block: None,
             version: ConsensusVersion::new(0, 0),
             peers: seckeys.iter().map(|s| s.pubkey()).collect(),

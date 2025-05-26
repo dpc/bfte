@@ -23,6 +23,7 @@ pub mod signed;
 pub mod timestamp;
 pub mod ver;
 pub mod vote;
+pub mod module;
 
 array_type_define! {
     #[derive(Encode, Decode, Copy, Clone)]

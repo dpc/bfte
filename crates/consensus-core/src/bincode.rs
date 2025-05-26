@@ -30,7 +30,6 @@ macro_rules! framed_payload_define {
 
         $sv:vis struct $slice:tt;
 
-        TAG = $tag:expr;
     ) => {
 
         $(#[$outer])*
@@ -97,9 +96,9 @@ macro_rules! framed_payload_define {
         }
 
 
-        impl<'r> Hashable for $slice<'r> {
-            const TAG: [u8; 4] = $tag;
+        impl<'r> $crate::signed::Hashable for $slice<'r> {
         }
+
 
     }
 }

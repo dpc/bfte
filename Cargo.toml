@@ -7,6 +7,7 @@ members = [
   "crates/db",
   "crates/derive-secret",
   "crates/invite",
+  "crates/module-core",
   "crates/node",
   "crates/node-core",
   "crates/node-ui",
@@ -43,6 +44,7 @@ bfte-consensus-tests = { path = "./crates/consensus-tests" }
 bfte-db = { path = "./crates/db" }
 bfte-derive-secret = { path = "./crates/derive-secret" }
 bfte-invite = { path = "./crates/invite" }
+bfte-module-core = { path = "./crates/module-core" }
 bfte-node = { path = "./crates/node" }
 bfte-node-core = { path = "./crates/node-core" }
 bfte-node-ui = { path = "./crates/node-ui" }

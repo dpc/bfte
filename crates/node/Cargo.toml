@@ -18,6 +18,7 @@ bfte-consensus-core = { workspace = true }
 bfte-db = { workspace = true }
 bfte-derive-secret = { workspace = true }
 bfte-invite = { workspace = true }
+bfte-module-core = { workspace = true }
 bfte-node-core = { workspace = true }
 bfte-node-ui = { workspace = true }
 bfte-util-array-type = { workspace = true }

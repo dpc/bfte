@@ -93,7 +93,7 @@ impl FinalityVoteUpdate {
     }
 }
 
-impl Hashable for FinalityVoteUpdate {
+impl Hashable for FinalityVoteUpdate {}
+impl Signable for FinalityVoteUpdate {
     const TAG: [u8; 4] = *b"furu";
 }
-impl Signable for FinalityVoteUpdate {}

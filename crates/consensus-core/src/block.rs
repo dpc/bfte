@@ -49,9 +49,7 @@ impl BlockRound {
     }
 }
 
-impl Hashable for BlockRound {
-    const TAG: [u8; 4] = *b"blro";
-}
+impl Hashable for BlockRound {}
 
 // Just some simple test vectors to ensure the leader index does change by
 // accident
@@ -134,10 +132,10 @@ pub enum ContentMismatchError {
 
 pub type ContentMismatchResult<T> = std::result::Result<T, ContentMismatchError>;
 
-impl Hashable for BlockHeader {
+impl Hashable for BlockHeader {}
+impl Signable for BlockHeader {
     const TAG: [u8; 4] = *b"blhd";
 }
-impl Signable for BlockHeader {}
 
 #[bon::bon]
 impl BlockHeader {
@@ -273,8 +271,6 @@ framed_payload_define! {
     BlockPayloadLen;
 
     pub struct BlockPayloadSlice;
-
-    TAG = *b"blpa";
 }
 
 array_type_define! {
