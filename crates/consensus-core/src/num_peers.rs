@@ -15,19 +15,22 @@ impl fmt::Display for NumPeers {
 }
 
 impl NumPeers {
+    /// Total number of peers
     pub fn total(self) -> usize {
         self.0.into()
     }
 
+    /// Max number of faulty nodes
     pub fn max_faulty(self) -> usize {
         self.total().saturating_sub(1) / 3
     }
 
-    // Number of peers required to reach consensus
+    /// Number of peers required to reach consensus
     pub fn threshold(self) -> usize {
         self.total() - self.max_faulty()
     }
 
+    /// Iterator over given number of [`PeerIdx`]es
     pub fn peer_idx_iter(self) -> impl Iterator<Item = PeerIdx> {
         (0..self.0).map(PeerIdx::new)
     }
