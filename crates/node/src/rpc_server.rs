@@ -376,7 +376,7 @@ impl RpcServer {
 
         let raw = consensus_params.to_raw();
         let out_hash = send
-            .write_message_bao(&raw.as_slice())
+            .write_message_bao(&raw.as_inner_slice())
             .await
             .whatever_context("Failed to write response")?;
 

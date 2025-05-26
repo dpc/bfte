@@ -38,7 +38,7 @@ macro_rules! framed_payload_define {
         $pv struct $payload(std::sync::Arc<[u8]>);
 
         impl $payload {
-            pub fn as_slice(&self) -> $slice {
+            pub fn as_inner_slice(&self) -> $slice {
                 $slice(&self.0)
             }
 
@@ -47,7 +47,7 @@ macro_rules! framed_payload_define {
             }
 
             pub fn hash(&self) -> $hash {
-                 Hashable::hash(&self.as_slice()).into()
+                 Hashable::hash(&self.as_inner_slice()).into()
             }
 
             pub fn len(&self) -> $len {
