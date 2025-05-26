@@ -1,27 +1,30 @@
 # run and restart on changes
+[positional-arguments]
 dev IDX="1" PERSISTENT="":
 	#!/usr/bin/env bash
 	set -euo pipefail
+
+	echo "$@"
+	set -x
 
 	if [ ! -f Cargo.toml ]; then
 		cd {{invocation_directory()}}
 	fi
 
-	if [ -n "{{PERSISTENT}}" ]; then
-		export BFTE_DATA_DIR "tmp/{{IDX}}/"
+	if [ -n "$2" ]; then
+		export BFTE_DATA_DIR="tmp/$1/"
 	fi
 
-	port=$((6910 + {{IDX}}))
-
+	port=$((6910 + $1))
 
 	env \
 		BFTE_DEV_MODE=1 \
 		RUST_LOG=${RUST_LOG:-bfte=info,info,iroh=error,mainline=error} \
 		systemfd --no-pid -s http::[::1]:$port -- \
 		cargo watch \
-			-d .1 \
+			-d ".1" \
 			-i 'tmp/**' \
 			-s " \
 			cargo run -- \
-				--secret-path tmp/{{IDX}}/secret run
+				--secret-path tmp/$1/secret run \
 			"

@@ -127,6 +127,7 @@ pub(crate) trait ConsensusWriteDbOps {
     ) -> DbResult<Option<BlockRound>>;
 
     fn update_finality_consensus(&self, round: BlockRound) -> DbResult<Option<BlockRound>>;
+    fn prune_dummy_votes(&self, round: BlockRound) -> DbResult<()>;
 
     /// Delete a block at a given round
     fn delete_notarized_block(&self, round: BlockRound) -> DbResult<()>;
@@ -415,6 +416,16 @@ impl ConsensusWriteDbOps for WriteTransactionCtx {
         Ok(prev)
     }
 
+    fn prune_dummy_votes(&self, round: BlockRound) -> DbResult<()> {
+        let mut tbl = self.open_table(&cons_votes_dummy::TABLE)?;
+
+        tbl.retain_in(
+            &(BlockRound::MIN, PeerIdx::MIN)..&(round, PeerIdx::MIN),
+            |_, _| false,
+        )?;
+
+        Ok(())
+    }
     fn update_finality_vote(
         &self,
         peer_pubkey: PeerPubkey,

@@ -12,7 +12,7 @@ pub(crate) struct Opts {
 
     #[arg(
         long,
-        env = "BFTE_DATA_DIR",
+        env = "BFTE_BIND_UI",
         default_value = "[::1]:6910",
         global = true
     )]

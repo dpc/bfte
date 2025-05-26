@@ -11,6 +11,7 @@
 //! See [`run_consensus`] for the core consensus round loop logic.
 mod connection_pool;
 pub mod derive_secret_ext;
+mod envs;
 mod finality_vote_query_task;
 mod handle;
 mod invite;

@@ -114,6 +114,9 @@ impl Consensus {
         let tx = self.finality_cons_tx.clone();
 
         if prev_finality_cons != finality_cons {
+            // Prune dummy votes, purely to save space
+            ctx.prune_dummy_votes(finality_cons)?;
+
             ctx.on_commit(move || {
                 debug!(target: LOG_TARGET, round = %finality_cons, "New finality consensus");
                 tx.send_replace(finality_cons);

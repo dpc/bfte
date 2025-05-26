@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 
-pub mod peer_info;
+mod transaction_nonce;
 
 use std::marker;
 use std::sync::Arc;
 
 use bincode::{BorrowDecode, Decode, Encode};
-use peer_info::PeerInfo;
+use transaction_nonce::TransactionNonce;
 
 #[derive(Encode, Decode)]
 pub struct ModuleId(u16);
@@ -23,9 +23,7 @@ pub enum Citem {
 }
 
 #[derive(Encode, Decode)]
-pub enum CoreCitem {
-    PeerInfo(PeerInfo),
-}
+pub enum CoreCitem {}
 
 #[derive(Encode, Decode)]
 pub struct ModuleCitem {
@@ -34,6 +32,7 @@ pub struct ModuleCitem {
 
 #[derive(Encode, Decode)]
 pub struct Transaction {
+    nonce: TransactionNonce,
     inputs: Vec<Dyn<dyn IInput>>,
     outputs: Vec<Dyn<dyn IOutput>>,
 }

@@ -505,6 +505,7 @@ name = "bfte-db"
 version = "0.1.0"
 dependencies = [
  "bfte-util-array-type",
+ "bfte-util-error",
  "redb-bincode",
  "snafu",
  "tokio",

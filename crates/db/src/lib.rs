@@ -4,6 +4,7 @@ pub mod error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use bfte_util_error::fmt::FmtCompact as _;
 use ctx::WriteTransactionCtx;
 use error::{
     CommitSnafu, DatabaseSnafu, DbResult, DbTxError, DbTxResult, InvalidPathSnafu, JoinSnafu,
@@ -11,7 +12,7 @@ use error::{
 };
 use redb_bincode::{ReadTransaction, redb};
 use snafu::{OptionExt as _, ResultExt as _};
-use tracing::{debug, instrument};
+use tracing::{debug, instrument, warn};
 
 const LOG_TARGET: &str = "bfte::consensus::db";
 
@@ -35,10 +36,16 @@ impl Database {
         tokio::fs::create_dir_all(path.parent().context(InvalidPathSnafu)?).await?;
         debug!(target: LOG_TARGET, path = %path.display(), "Opening database");
 
-        let inner = tokio::task::spawn_blocking(move || redb::Database::create(path))
-            .await
-            .context(JoinSnafu)?
-            .context(DatabaseSnafu)?;
+        let inner = tokio::task::spawn_blocking(move || {
+            let mut db = redb::Database::create(path)?;
+            let _ = db.compact().inspect_err(|err| {
+                warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Failed to compact database");
+            });
+            Ok(db)
+        })
+        .await
+        .context(JoinSnafu)?
+        .context(DatabaseSnafu)?;
 
         Self::open_inner(inner).await
     }

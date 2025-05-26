@@ -1,6 +1,7 @@
-use std::future;
+use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{env, future};
 
 use backon::Retryable as _;
 use bfte_consensus::vote_set::VoteSet;
@@ -21,6 +22,7 @@ use tokio::task::JoinSet;
 use tracing::{debug, info, instrument, trace, warn};
 
 use crate::connection_pool::ConnectionPool;
+use crate::envs::BFTE_TEST_ROUND_DELAY;
 use crate::rpc::{RPC_ID_WAIT_NOTARIZED_BLOCK, RPC_ID_WAIT_VOTE};
 use crate::{LOG_TARGET, Node, RPC_BACKOFF};
 
@@ -28,7 +30,11 @@ impl Node {
     pub async fn run_consensus(self: Arc<Self>) {
         loop {
             self.run_consensus_round().await.expect("Consensus failure");
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            if let Ok(delay) = env::var(BFTE_TEST_ROUND_DELAY) {
+                let delay = u64::from_str(&delay)
+                    .unwrap_or_else(|err| panic!("Invalid {BFTE_TEST_ROUND_DELAY}: {err}"));
+                tokio::time::sleep(Duration::from_millis(delay)).await;
+            }
         }
     }
 
