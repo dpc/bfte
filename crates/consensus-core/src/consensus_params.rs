@@ -14,6 +14,7 @@ use crate::block::{BlockHash, BlockRound};
 use crate::framed_payload_define;
 use crate::num_peers::{NumPeers, ToNumPeers as _};
 use crate::peer::{PeerIdx, PeerPubkey};
+use crate::peer_set::PeerSet;
 use crate::signed::Hashable;
 use crate::ver::ConsensusVersion;
 
@@ -36,7 +37,6 @@ framed_payload_define! {
 
     TAG = ConsensusParams::TAG;
 }
-
 /// Core consensus parameters
 ///
 /// In each round peers always know the rules of the consensus,
@@ -76,7 +76,7 @@ pub struct ConsensusParams {
     pub prev_mid_block: Option<(BlockRound, BlockHash)>,
 
     /// Set of voting peers
-    pub peers: Vec<PeerPubkey>,
+    pub peers: PeerSet,
 }
 
 impl ConsensusParams {

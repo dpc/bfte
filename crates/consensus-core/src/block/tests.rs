@@ -2,6 +2,7 @@ use hex_literal::hex;
 
 use crate::block::BlockHeader;
 use crate::consensus_params::ConsensusParams;
+use crate::peer_set::PeerSet;
 use crate::ver::ConsensusVersion;
 
 #[test]
@@ -10,7 +11,7 @@ fn block_header_size_sanity() {
         0.into(),
         &ConsensusParams {
             version: ConsensusVersion::new(0, 0),
-            peers: vec![],
+            peers: PeerSet::new(),
             applied_round: 0.into(),
             prev_mid_block: None,
         },
@@ -43,7 +44,7 @@ fn block_header_fixture() {
                 applied_round: 0.into(),
                 prev_mid_block: None,
                 version: ConsensusVersion::new(0, 0),
-                peers: vec![],
+                peers: PeerSet::new(),
             },
         );
         let hash = block.hash().to_bytes();

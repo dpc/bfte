@@ -18,6 +18,7 @@ pub mod federation_id;
 pub mod msg;
 pub mod num_peers;
 pub mod peer;
+pub mod peer_set;
 pub mod signed;
 pub mod timestamp;
 pub mod ver;

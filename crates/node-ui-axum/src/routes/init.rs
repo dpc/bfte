@@ -1,7 +1,7 @@
 use axum::Form;
 use axum::extract::State;
 use axum::response::{IntoResponse, Redirect, Response};
-use bfte_invite::{Invite, InviteString};
+use bfte_invite::InviteString;
 use maud::{Markup, html};
 use serde::Deserialize;
 use snafu::ResultExt as _;

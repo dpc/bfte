@@ -94,7 +94,7 @@ impl Consensus {
 
         let mut votes = vec![];
 
-        for peer_pubkey in &cur_round_consensus_params.peers {
+        for peer_pubkey in cur_round_consensus_params.peers.as_slice() {
             votes.push(ctx.get_finality_vote(*peer_pubkey)?.unwrap_or_default());
         }
 

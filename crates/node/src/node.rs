@@ -214,7 +214,7 @@ impl Node {
             applied_round: 0.into(),
             prev_mid_block: None,
             version: Consensus::VERSION,
-            peers: [vec![pubkey], extra_peers].concat(),
+            peers: [vec![pubkey], extra_peers].concat().into(),
         };
 
         Ok(Consensus::init(&params, db, Some(pubkey), None).await?)

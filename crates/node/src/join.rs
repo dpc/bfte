@@ -87,8 +87,8 @@ impl Node {
             let consensus_params = ConsensusParams::from_raw(consensus_version, &consensus_params)
                 .whatever_context("Failed to parse init consensus params")?;
 
-            for peer_pubkey in consensus_params.peers.clone() {
-                match rpc::get_peer_address(conn, peer_pubkey).await? {
+            for peer_pubkey in consensus_params.peers.as_slice() {
+                match rpc::get_peer_address(conn, *peer_pubkey).await? {
                     Some(update) => Self::handle_address_update(&db, update).await?,
                     None => {
                         warn!(target: LOG_TARGET, %peer_pubkey, "Missing other peer address");

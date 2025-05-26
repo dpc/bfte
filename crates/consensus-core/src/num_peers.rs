@@ -44,6 +44,7 @@ impl<T> ToNumPeers for [T] {
         NumPeers::from(num_peers)
     }
 }
+
 impl<T> ToNumPeers for Vec<T> {
     fn to_num_peers(&self) -> NumPeers {
         self.as_slice().to_num_peers()
