@@ -124,6 +124,7 @@ impl Node {
         root_secret: Option<DeriveableSecret>,
         db: Arc<Database>,
         ui: Option<RunUiFn>,
+        force_ui_password: Option<String>,
     ) -> NodeInitResult<Arc<Self>> {
         let peer_pubkey = if let Some(root_secret) = root_secret {
             Some(root_secret.get_peer_seckey()?.pubkey())
@@ -137,6 +138,10 @@ impl Node {
         })
         .await
         .context(IrohEndpointSnafu)?;
+
+        if let Some(force_ui_pass) = force_ui_password {
+            Self::change_ui_pass_db_static(&db, &force_ui_pass).await;
+        }
 
         #[allow(clippy::manual_ok_err)] // might change signature soon
         let consensus = match Consensus::open(db.clone(), peer_pubkey).await {

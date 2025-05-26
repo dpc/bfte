@@ -16,6 +16,7 @@ dev IDX="1" PERSISTENT="":
 	fi
 
 	port=$((6910 + $1))
+	export BFTE_FORCE_UI_PASSWORD="bfte"
 
 	env \
 		BFTE_DEV_MODE=1 \

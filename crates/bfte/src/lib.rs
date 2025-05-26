@@ -114,6 +114,7 @@ impl Bfte {
 
         bfte_node::Node::builder()
             .maybe_root_secret(secret)
+            .maybe_force_ui_password(opts.force_ui_password)
             .db(db)
             .ui(Box::new(move |api| {
                 Box::pin(async move { bfte_node_ui_axum::run(api, opts.bind_ui).await })
