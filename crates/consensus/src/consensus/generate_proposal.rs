@@ -1,4 +1,5 @@
 use bfte_consensus_core::block::{BlockHeader, BlockPayloadRaw, BlockRound};
+use bfte_consensus_core::timestamp::Timestamp;
 
 use super::{Consensus, ConsensusReadDbOps as _};
 
@@ -19,6 +20,7 @@ impl Consensus {
                 .round(round)
                 .consensus_params(&consensus_params)
                 .payload(&payload)
+                .timestamp(Timestamp::now())
                 .build(),
             payload,
         )

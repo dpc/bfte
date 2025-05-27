@@ -16,7 +16,7 @@ use crate::framed_payload_define;
 use crate::num_peers::NumPeers;
 use crate::peer::PeerIdx;
 use crate::signed::{Hashable, Signable};
-use crate::ver::ConsensusVersion;
+use crate::timestamp::Timestamp;
 
 array_type_fixed_size_define! {
     /// Non-dumy block sequence number
@@ -94,10 +94,19 @@ impl From<BlockHash> for blake3::Hash {
 
 #[derive(Debug, Encode, Decode, Copy, Clone, PartialEq, Eq)]
 pub struct BlockHeader {
-    padding: [u8; 4],                        // 4B
-    pub consensus_version: ConsensusVersion, // 4B
-    pub seq: BlockSeq,                       // 8B
-    pub round: BlockRound,                   // 8B
+    /// Version of this header format
+    ///
+    /// Should be `0`, and not expected to need to change, but reserved just in
+    /// case.
+    pub header_version: u8, // 1B
+    /// Just to align things, could be used for non-consensus flags
+    /// in the future (e.g. round leader signaling certain networking
+    /// conditions, etc.)
+    padding: [u8; 3], // 3B
+
+    pub timestamp: Timestamp, // 8B
+    pub seq: BlockSeq,        // 8B
+    pub round: BlockRound,    // 8B
 
     /// Commits to [`BlockPayload`]'s length
     ///
@@ -122,15 +131,16 @@ pub struct BlockHeader {
 }
 
 #[derive(Debug, Snafu)]
-pub enum ContentMismatchError {
+pub enum VerifyWithContentError {
     PayloadHashMismatch,
     PayloadLenMismatch,
     ConsensusHashMismatch,
+    UnknownVersion,
     ConsensusLenMismatch,
     ConsensusVersionMismatch,
 }
 
-pub type ContentMismatchResult<T> = std::result::Result<T, ContentMismatchError>;
+pub type VerifyWithContentMismatchResult<T> = std::result::Result<T, VerifyWithContentError>;
 
 impl Hashable for BlockHeader {}
 impl Signable for BlockHeader {
@@ -142,17 +152,19 @@ impl BlockHeader {
     #[builder]
     pub fn new(
         prev: Option<BlockHeader>,
+        timestamp: Timestamp,
         round: BlockRound,
         consensus_params: &ConsensusParams,
         payload: &BlockPayloadRaw,
     ) -> Self {
         Self {
-            consensus_version: consensus_params.version,
+            header_version: 0,
+            padding: [0u8; 3],
+            timestamp,
             seq: prev
                 .map(|p| p.seq.next().expect("Can't ran out"))
                 .unwrap_or_default(),
             round,
-            padding: [0u8; 4],
             payload_len: payload.len(),
             prev_block_hash: prev.map(|p| p.hash()).unwrap_or_default(),
             consensus_params_hash: consensus_params.hash(),
@@ -167,13 +179,12 @@ impl BlockHeader {
         Hashable::hash(self).into()
     }
 
-    pub fn verify_content(
+    pub fn verify_with_content(
         &self,
         block_round_consensus_params_hash: ConsensusParamsHash,
         block_round_consensus_params_len: ConsensusParamsLen,
-        consensus_version: ConsensusVersion,
         payload: &BlockPayloadRaw,
-    ) -> ContentMismatchResult<()> {
+    ) -> VerifyWithContentMismatchResult<()> {
         if self.is_dummy() {
             if payload.len() != 0.into() {
                 PayloadLenMismatchSnafu.fail()?;
@@ -187,14 +198,15 @@ impl BlockHeader {
             }
         }
 
+        if self.header_version != 0 {
+            UnknownVersionSnafu.fail()?;
+        }
+
         if self.consensus_params_hash != block_round_consensus_params_hash {
             ConsensusHashMismatchSnafu.fail()?;
         }
         if self.consensus_params_len != block_round_consensus_params_len {
             ConsensusLenMismatchSnafu.fail()?;
-        }
-        if self.consensus_version != consensus_version {
-            ConsensusVersionMismatchSnafu.fail()?;
         }
         Ok(())
     }
@@ -202,8 +214,9 @@ impl BlockHeader {
     pub fn new_dummy(round: BlockRound, consensus_params: &ConsensusParams) -> Self {
         let (consensus_params_hash, consensus_params_len) = consensus_params.hash_and_len();
         Self {
-            consensus_version: consensus_params.version,
-            padding: [0u8; 4],
+            header_version: 0,
+            padding: [0u8; 3],
+            timestamp: Timestamp::ZERO,
             seq: BlockSeq::default(),
             round,
             prev_block_hash: BlockHash::ZERO,

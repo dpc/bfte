@@ -393,25 +393,26 @@ impl RpcServer {
 
     async fn handle_get_consensus_version_try(
         self,
-        mut send: RpcWrite,
-        mut recv: RpcRead,
+        _send: RpcWrite,
+        _recv: RpcRead,
     ) -> WhateverResult<()> {
-        let req: GetConsensusVersionRequest = recv
-            .read_message_bincode()
-            .await
-            .whatever_context("Failed to read request")?;
+        unimplemented!("No longer necessary?");
+        // let req: GetConsensusVersionRequest = recv
+        //     .read_message_bincode()
+        //     .await
+        //     .whatever_context("Failed to read request")?;
 
-        let node_ref = &self.handle.node_ref().into_whatever()?;
+        // let node_ref = &self.handle.node_ref().into_whatever()?;
 
-        let consensus_version = node_ref
-            .consensus_expect()
-            .get_consensus_params(req.round)
-            .await
-            .version;
+        // let consensus_version = node_ref
+        //     .consensus_expect()
+        //     .get_consensus_params(req.round)
+        //     .await
+        //     .core_version;
 
-        send.write_message_bincode(&GetConsensusVersionResponse { consensus_version })
-            .await
-            .whatever_context("Failed to write response")?;
+        // send.write_message_bincode(&GetConsensusVersionResponse { consensus_version
+        // })     .await
+        //     .whatever_context("Failed to write response")?;
 
         Ok(())
     }

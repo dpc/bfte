@@ -1,4 +1,6 @@
-use bfte_consensus_core::block::{BlockHeader, BlockPayloadRaw, BlockRound, ContentMismatchError};
+use bfte_consensus_core::block::{
+    BlockHeader, BlockPayloadRaw, BlockRound, VerifyWithContentError,
+};
 use bfte_consensus_core::msg::WaitNotarizedBlockResponse;
 use bfte_consensus_core::peer::PeerIdx;
 use bfte_consensus_core::signed::{InvalidNotarizationError, Notarized, Signed};
@@ -30,7 +32,7 @@ pub enum ProcessNotarizedBlockError {
         source: RoundInvariantError,
     },
     InvalidNotarizedContent {
-        source: ContentMismatchError,
+        source: VerifyWithContentError,
     },
 }
 
@@ -81,10 +83,9 @@ impl Consensus {
             .context(TxSnafu)?;
 
         block
-            .verify_content(
+            .verify_with_content(
                 block_round_consensus_params_hash,
                 block_round_consensus_params_len,
-                block_round_consensus_params.version,
                 &payload,
             )
             .context(InvalidNotarizedContentSnafu)

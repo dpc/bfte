@@ -1,5 +1,5 @@
 use bfte_consensus_core::Signature;
-use bfte_consensus_core::block::{BlockHeader, BlockRound, ContentMismatchError};
+use bfte_consensus_core::block::{BlockHeader, BlockRound, VerifyWithContentError};
 use bfte_consensus_core::msg::WaitVoteResponse;
 use bfte_consensus_core::peer::PeerIdx;
 use bfte_db::ctx::WriteTransactionCtx;
@@ -33,7 +33,7 @@ pub enum ProcessVoteError {
     #[snafu(display("Proposed a dummy block"))]
     Dummy,
     InvalidContent {
-        source: ContentMismatchError,
+        source: VerifyWithContentError,
     },
     #[snafu(transparent)]
     RoundInvariant {
@@ -108,12 +108,7 @@ impl Consensus {
                 }
 
                 block
-                    .verify_content(
-                        consensus_params_hash,
-                        consensus_params_len,
-                        consensus_param.version,
-                        &payload,
-                    )
+                    .verify_with_content(consensus_params_hash, consensus_params_len, &payload)
                     .context(InvalidContentSnafu)
                     .context(TxSnafu)?;
 

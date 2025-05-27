@@ -96,7 +96,6 @@ impl Node {
             target: LOG_TARGET,
             %round,
             seq = %prev_notarized_block.map(|b| b.seq).fmt_option(),
-            cons_ver = %params.version,
             num_peers = %params.num_peers(),
             our_peer_idx = %our_peer_idx.fmt_option(),
             leader_idx = %round.leader_idx(params.num_peers()),

@@ -74,8 +74,6 @@ impl Node {
         // Use the embedded init_params, to get initial consensus params for the
         // federation
         if let Some((consensus_params_hash, consensus_params_len)) = invite.init_params {
-            let consensus_version = rpc::get_consensus_version(conn, 0.into()).await?;
-
             let consensus_params = rpc::get_consensus_params(
                 conn,
                 0.into(),
@@ -84,7 +82,7 @@ impl Node {
             )
             .await?;
 
-            let consensus_params = ConsensusParams::from_raw(consensus_version, &consensus_params)
+            let consensus_params = ConsensusParams::from_raw(&consensus_params)
                 .whatever_context("Failed to parse init consensus params")?;
 
             for peer_pubkey in consensus_params.peers.as_slice() {
@@ -111,7 +109,7 @@ impl Node {
             )
             .await?;
 
-            let pin_params = ConsensusParams::from_raw(pin_block.consensus_version, &pin_params)
+            let pin_params = ConsensusParams::from_raw(&pin_params)
                 .whatever_context("Failed to parse consensus params")?;
 
             for peer_pubkey in pin_params.peers {

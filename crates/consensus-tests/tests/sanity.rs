@@ -7,6 +7,7 @@ use bfte_consensus_core::msg::{
 use bfte_consensus_core::num_peers::NumPeers;
 use bfte_consensus_core::peer::{PeerIdx, PeerPubkey, PeerSeckey};
 use bfte_consensus_core::signed::{Notarized, Signable as _, Signed};
+use bfte_consensus_core::timestamp::Timestamp;
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_db::Database;
 use bfte_util_error::BoxedErrorResult;
@@ -18,16 +19,22 @@ struct Setup {
 }
 
 impl Setup {
-    async fn bootstrap(num_peers: NumPeers) -> BoxedErrorResult<Self> {
+    async fn bootstrap(
+        num_peers: NumPeers,
+        init_core_module_cons_version: ConsensusVersion,
+    ) -> BoxedErrorResult<Self> {
         let seckeys: Vec<_> = (0..num_peers.total())
             .map(|_| PeerSeckey::generate())
             .collect();
 
         let cons_params = ConsensusParams {
-            start_round: 0.into(),
             prev_mid_block: None,
-            version: ConsensusVersion::new(0, 0),
             peers: seckeys.iter().map(|s| s.pubkey()).collect(),
+            consensus_params_format_version: ConsensusParams::FORMAT_VERSION,
+            init_core_module_cons_version,
+            timestamp: Timestamp::now(),
+            scheduled_round: 0.into(),
+            applied_round: 0.into(),
         };
         let consensus = temp_consensus(&cons_params, Some(seckeys[0].pubkey())).await?;
 
@@ -55,7 +62,7 @@ pub(crate) async fn temp_consensus(
 
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn starting_consensus_and_generating_first_block_via_vote() -> BoxedErrorResult<()> {
-    let setup = Setup::bootstrap(1.into()).await?;
+    let setup = Setup::bootstrap(1.into(), ConsensusVersion::new(0, 0)).await?;
     let payload = BlockPayloadRaw::empty();
 
     assert_eq!(
@@ -67,6 +74,7 @@ async fn starting_consensus_and_generating_first_block_via_vote() -> BoxedErrorR
         .consensus_params(&setup.cons_params)
         .round(0.into())
         .payload(&BlockPayloadRaw::empty())
+        .timestamp(Timestamp::ZERO)
         .build();
 
     setup
@@ -95,7 +103,7 @@ async fn starting_consensus_and_generating_first_block_via_vote() -> BoxedErrorR
 
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn starting_consensus_and_generating_first_block_via_notarization() -> BoxedErrorResult<()> {
-    let setup = Setup::bootstrap(1.into()).await?;
+    let setup = Setup::bootstrap(1.into(), ConsensusVersion::new(0, 0)).await?;
     let payload = BlockPayloadRaw::empty();
 
     assert_eq!(
@@ -107,6 +115,7 @@ async fn starting_consensus_and_generating_first_block_via_notarization() -> Box
         .payload(&BlockPayloadRaw::empty())
         .consensus_params(&setup.cons_params)
         .round(0.into())
+        .timestamp(Timestamp::ZERO)
         .build();
 
     setup
@@ -136,7 +145,7 @@ async fn starting_consensus_and_generating_first_block_via_notarization() -> Box
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
 async fn two_peers_first_round() -> BoxedErrorResult<()> {
     let num_peers: NumPeers = 2.into();
-    let setup = Setup::bootstrap(num_peers).await?;
+    let setup = Setup::bootstrap(num_peers, ConsensusVersion::new(0, 0)).await?;
     let payload = BlockPayloadRaw::empty();
 
     assert_eq!(BlockRound::ZERO.leader_idx(num_peers), 1.into());
@@ -145,6 +154,7 @@ async fn two_peers_first_round() -> BoxedErrorResult<()> {
         .consensus_params(&setup.cons_params)
         .round(0.into())
         .payload(&BlockPayloadRaw::empty())
+        .timestamp(Timestamp::ZERO)
         .build();
 
     setup

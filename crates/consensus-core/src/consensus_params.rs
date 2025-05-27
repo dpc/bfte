@@ -16,6 +16,7 @@ use crate::num_peers::{NumPeers, ToNumPeers as _};
 use crate::peer::{PeerIdx, PeerPubkey};
 use crate::peer_set::PeerSet;
 use crate::signed::Hashable;
+use crate::timestamp::Timestamp;
 use crate::ver::ConsensusVersion;
 
 array_type_fixed_size_define! {
@@ -44,18 +45,37 @@ framed_payload_define! {
 /// don't (yet, or at all) track the consensus state themselves.
 #[derive(Decode, Encode, Clone, PartialEq, Eq, Debug)]
 pub struct ConsensusParams {
-    /// Consensus version at the given block
-    pub version: ConsensusVersion,
+    /// Version of this [`ConsensusParams`] format
+    pub consensus_params_format_version: u8,
 
-    /// BlockRound this consensus parameters was/will be applied.
+    /// A federation starts with a single module - core consensus module,
+    /// and this field records its starting module consensus version.
+    ///
+    /// Just in case, this should be read from [`Self`] committed to
+    /// in the round 0.
+    pub init_core_module_cons_version: ConsensusVersion,
+
+    /// The timestamp the federation was created at
+    ///
+    /// For initial [`ConsensusParams`] this is the consensus/federation
+    /// creation time.
+    ///
+    /// For following [`ConsensusParams`] this is the timestamp from the block
+    /// at which the consensus params was scheduled (but not yet applied).
+    pub timestamp: Timestamp,
+
+    /// [`BlockRound`] this consensus parameters was/will be scheduled.
     ///
     /// As voting on consensus changes is performed, the peers deterministically
     /// reach the decision about new consensus parameters at the same round.
     ///
     /// Given an amount of peers at that round, a certain delay is added, to
     /// ensure some time for all peers to reach a finality and add it to
-    /// their consensus params schedule. The exact round
-    pub start_round: BlockRound,
+    /// their consensus params schedule.
+    pub scheduled_round: BlockRound,
+
+    /// [`BlockRound`] this consensus parameters was/will be applied.
+    pub applied_round: BlockRound,
 
     /// Block round and hash of some (potentially distant) historical notarized
     /// block.
@@ -81,6 +101,21 @@ pub struct ConsensusParams {
 }
 
 impl ConsensusParams {
+    pub const FORMAT_VERSION: u8 = 0;
+    /// New, empty, zeroed, possibly nonsensical consensus params
+    ///
+    /// Useful mostly for testing.
+    pub fn new_test_dummy() -> Self {
+        Self {
+            peers: PeerSet::new(),
+            prev_mid_block: None,
+            consensus_params_format_version: 0,
+            init_core_module_cons_version: ConsensusVersion::new(0, 0),
+            timestamp: Timestamp::ZERO,
+            scheduled_round: 0.into(),
+            applied_round: 0.into(),
+        }
+    }
     pub fn num_peers(&self) -> NumPeers {
         self.peers.to_num_peers()
     }
@@ -121,22 +156,13 @@ impl ConsensusParams {
         )
     }
 
-    pub fn from_raw(
-        consensus_version: ConsensusVersion,
-        raw: &ConsensusParamsRaw,
-    ) -> ConsensusParamsDecodeResult<Self> {
-        if consensus_version != ConsensusVersion::new(0, 0) {
-            return UnknownVersionSnafu {
-                version: consensus_version,
-            }
-            .fail();
-        }
+    pub fn from_raw(raw: &ConsensusParamsRaw) -> ConsensusParamsDecodeResult<Self> {
         let decoded: ConsensusParams =
             decode_whole(&raw.0, STD_BINCODE_CONFIG).context(BincodeSnafu)?;
 
-        if decoded.version != consensus_version {
-            return MismatchedVersionSnafu {
-                version: decoded.version,
+        if decoded.consensus_params_format_version != 0 {
+            return MismatchedFormatVersionSnafu {
+                version: decoded.consensus_params_format_version,
             }
             .fail();
         }
@@ -159,7 +185,7 @@ impl Hashable for ConsensusParams {}
 #[derive(Snafu, Debug)]
 pub enum ConsensusParamsDecodeError {
     Bincode { source: bincode::error::DecodeError },
-    MismatchedVersion { version: ConsensusVersion },
+    MismatchedFormatVersion { version: u8 },
     UnknownVersion { version: ConsensusVersion },
 }
 

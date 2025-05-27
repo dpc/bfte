@@ -13,6 +13,7 @@ use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::module::config::ModuleConfigHash;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::{PeerPubkey, PeerSeckey};
+use bfte_consensus_core::timestamp::Timestamp;
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_db::Database;
 use bfte_db::error::DbError;
@@ -224,14 +225,18 @@ impl Node {
         db: Arc<Database>,
         root_secret: DeriveableSecret,
         extra_peers: Vec<PeerPubkey>,
+        init_core_module_cons_version: ConsensusVersion,
     ) -> NodeInitResult<Consensus> {
         let pubkey = root_secret.get_peer_seckey()?.pubkey();
 
         let params = ConsensusParams {
-            start_round: 0.into(),
             prev_mid_block: None,
-            version: Consensus::VERSION,
             peers: [vec![pubkey], extra_peers].concat().into(),
+            consensus_params_format_version: ConsensusParams::FORMAT_VERSION,
+            init_core_module_cons_version,
+            timestamp: Timestamp::now(),
+            scheduled_round: 0.into(),
+            applied_round: 0.into(),
         };
 
         Ok(Consensus::init(&params, db, Some(pubkey), None).await?)
@@ -278,11 +283,18 @@ impl Node {
     }
 
     pub async fn consensus_init(&self, extra_peers: Vec<PeerPubkey>) -> NodeInitResult<()> {
+        // TODO: read/get from the core module init
+        let init_core_module_cons_version = ConsensusVersion::new(0, 0);
         let Some(root_secret) = self.root_secret() else {
             return NoSecretSnafu.fail();
         };
-        let consensus =
-            Self::consensus_init_static(self.db().clone(), root_secret, extra_peers).await?;
+        let consensus = Self::consensus_init_static(
+            self.db().clone(),
+            root_secret,
+            extra_peers,
+            init_core_module_cons_version,
+        )
+        .await?;
 
         self.consensus
             .set(Arc::new(consensus))

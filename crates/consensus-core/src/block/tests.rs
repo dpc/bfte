@@ -2,20 +2,10 @@ use hex_literal::hex;
 
 use crate::block::BlockHeader;
 use crate::consensus_params::ConsensusParams;
-use crate::peer_set::PeerSet;
-use crate::ver::ConsensusVersion;
 
 #[test]
 fn block_header_size_sanity() {
-    let block = BlockHeader::new_dummy(
-        0.into(),
-        &ConsensusParams {
-            version: ConsensusVersion::new(0, 0),
-            peers: PeerSet::new(),
-            start_round: 0.into(),
-            prev_mid_block: None,
-        },
-    );
+    let block = BlockHeader::new_dummy(0.into(), &ConsensusParams::new_test_dummy());
     assert_eq!(
         bincode::encode_to_vec(block, crate::bincode::STD_BINCODE_CONFIG)
             .expect("Can't fail")
@@ -38,15 +28,7 @@ fn block_header_fixture() {
             hex!("0b4b83e61d52d12832ff2cf9e293f66cf38b89a450ebd87de77bc3955dea9aca"),
         ),
     ] {
-        let block = BlockHeader::new_dummy(
-            round.into(),
-            &ConsensusParams {
-                start_round: 0.into(),
-                prev_mid_block: None,
-                version: ConsensusVersion::new(0, 0),
-                peers: PeerSet::new(),
-            },
-        );
+        let block = BlockHeader::new_dummy(round.into(), &ConsensusParams::new_test_dummy());
         let hash = block.hash().to_bytes();
         assert_eq!(
             hash,

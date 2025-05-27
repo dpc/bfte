@@ -15,12 +15,14 @@ array_type_fixed_size_define! {
 
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ConsensusVersion {
-    /// Immutable, major version the a consensus started with
+    /// Immutable, major version the consensus started with
     ///
-    /// Migrations between major versions are generally not supported.
+    /// Migrations between major versions are generally not supported,
+    /// so once something (e.g. module) is running at given major consensus
+    /// version, it is stuck there.
     major: ConsensusVersionMajor,
 
-    /// Immutable, minor version
+    /// Minor consensus version
     ///
     /// This version is expected to change as peers agree on it,
     /// and peer logic must support migrations.
