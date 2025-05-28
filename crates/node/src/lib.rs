@@ -9,6 +9,7 @@
 //! state.
 //!
 //! See [`run_consensus`] for the core consensus round loop logic.
+mod app_api;
 mod connection_pool;
 pub mod derive_secret_ext;
 mod envs;

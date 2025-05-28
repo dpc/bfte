@@ -13,7 +13,7 @@ pub struct ModuleDb {
 }
 
 impl ModuleDb {
-    fn new(module_id: ModuleId, db: Database) -> Self {
+    pub(crate) fn new(module_id: ModuleId, db: Database) -> Self {
         Self {
             module_id,
             inner: db,

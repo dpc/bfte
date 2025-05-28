@@ -21,12 +21,13 @@ struct NodeUiApi {
 }
 
 impl NodeUiApi {
-    fn node_ref(&self) -> std::result::Result<NodeRef<'_>, bfte_util_error::Whatever> {
+    fn node_ref(&self) -> WhateverResult<NodeRef<'_>> {
         self.handle
             .node_ref()
             .whatever_context("Node shutting down")
     }
 }
+
 #[async_trait]
 impl INodeUiApi for NodeUiApi {
     fn get_ui_password_hash(&self) -> WhateverResult<blake3::Hash> {

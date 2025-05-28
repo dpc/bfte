@@ -9,6 +9,8 @@ members = [
   "crates/invite",
   "crates/module-core",
   "crates/node",
+  "crates/node-app",
+  "crates/node-app-core",
   "crates/node-core",
   "crates/node-ui",
   "crates/node-ui-axum",
@@ -46,6 +48,8 @@ bfte-derive-secret = { path = "./crates/derive-secret" }
 bfte-invite = { path = "./crates/invite" }
 bfte-module-core = { path = "./crates/module-core" }
 bfte-node = { path = "./crates/node" }
+bfte-node-app = { path = "./crates/node-app" }
+bfte-node-app-core = { path = "./crates/node-app-core" }
 bfte-node-core = { path = "./crates/node-core" }
 bfte-node-ui = { path = "./crates/node-ui" }
 bfte-node-ui-axum = { path = "./crates/node-ui-axum" }

@@ -10,8 +10,6 @@ use std::sync::{Arc, OnceLock, Weak};
 
 use bfte_consensus::consensus::{Consensus, OpenError};
 use bfte_consensus_core::consensus_params::ConsensusParams;
-use bfte_consensus_core::module::config::ModuleConfigHash;
-use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::{PeerPubkey, PeerSeckey};
 use bfte_consensus_core::timestamp::Timestamp;
 use bfte_consensus_core::ver::ConsensusVersion;
@@ -19,7 +17,7 @@ use bfte_db::Database;
 use bfte_db::error::DbError;
 use bfte_derive_secret::{DeriveableSecret, LevelError};
 use bfte_invite::Invite;
-use bfte_module_core::module::{Module, ModuleInit};
+use bfte_node_app_core::RunNodeAppFn;
 use bfte_node_ui::RunUiFn;
 use bfte_util_error::fmt::FmtCompact as _;
 use bfte_util_error::{Whatever, WhateverResult};
@@ -72,16 +70,14 @@ pub struct Node {
     pub(crate) finality_tasks: Mutex<BTreeMap<PeerPubkey, AbortOnDropHandle<()>>>,
     #[allow(dead_code /* only for drop */)]
     ui_task: Option<AbortOnDropHandle<WhateverResult<Infallible>>>,
+    #[allow(dead_code /* only for drop */)]
+    app_task: Option<AbortOnDropHandle<WhateverResult<Infallible>>>,
 
     ui_pass_hash: std::sync::Mutex<blake3::Hash>,
     ui_pass_is_temporary: AtomicBool,
 
     /// Set each time a peer address requires refreshing
     peer_addr_needed: Arc<Notify>,
-
-    modules_inits: BTreeMap<ModuleKind, Arc<dyn ModuleInit + Send + Sync>>,
-    modules: BTreeMap<ModuleId, Arc<dyn Module + Send + Sync>>,
-    modules_config_hashes: BTreeMap<ModuleId, (ConsensusVersion, ModuleConfigHash)>,
 }
 
 #[derive(Debug, Snafu)]
@@ -133,6 +129,7 @@ impl Node {
         root_secret: Option<DeriveableSecret>,
         db: Arc<Database>,
         ui: Option<RunUiFn>,
+        app: Option<RunNodeAppFn>,
         force_ui_password: Option<String>,
     ) -> NodeInitResult<Arc<Self>> {
         let peer_pubkey = if let Some(root_secret) = root_secret {
@@ -173,6 +170,7 @@ impl Node {
             let iroh_router = Self::make_iroh_router(handle.clone(), iroh_endpoint.clone());
 
             let ui_task = ui.map(|ui| Self::spawn_ui_task(handle.clone(), ui));
+            let app_task = app.map(|app| Self::spawn_app_task(handle.clone(), app));
             let (consensus_initialized_tx, consensus_initialized_rx) =
                 watch::channel(consensus.is_some());
 
@@ -190,13 +188,10 @@ impl Node {
                 consensus: OnceLock::new(),
                 finality_tasks: Mutex::new(BTreeMap::default()),
                 ui_task,
+                app_task,
                 ui_pass_hash: std::sync::Mutex::new(ui_pass_hash),
                 ui_pass_is_temporary: AtomicBool::new(ui_pass_is_temporary),
                 peer_addr_needed: Arc::new(Notify::new()),
-
-                modules_inits: Default::default(),
-                modules: Default::default(),
-                modules_config_hashes: Default::default(),
             };
 
             if let Some(consensus) = consensus {

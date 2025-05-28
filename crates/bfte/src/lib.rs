@@ -1,18 +1,20 @@
+mod logging;
 mod opts;
 
-use std::io;
+use std::collections::BTreeMap;
 use std::str::FromStr as _;
 use std::sync::Arc;
 
+use bfte_consensus_core::module::ModuleKind;
+use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_derive_secret::DeriveableSecret;
+use bfte_module_core::module::ModuleInit;
 use bfte_node::Node;
 use bfte_node::derive_secret_ext::DeriveSecretExt as _;
-use bfte_util_error::{Whatever, WhateverResult};
+use bfte_util_error::WhateverResult;
 use clap::Parser as _;
 use opts::{Commands, Opts};
-use snafu::{FromString as _, OptionExt as _, ResultExt};
-use tracing_subscriber::EnvFilter;
-use tracing_subscriber::filter::LevelFilter;
+use snafu::{OptionExt as _, ResultExt};
 
 pub struct Bfte {
     _something: u32,
@@ -21,9 +23,10 @@ pub struct Bfte {
 #[bon::bon]
 impl Bfte {
     #[builder(finish_fn = run, start_fn = builder)]
-    pub async fn build(something: Option<u32>) -> WhateverResult<()> {
-        init_logging()?;
-        let _ = something;
+    pub async fn build(
+        #[builder(field)] module_inits: BTreeMap<ModuleKind, Arc<dyn ModuleInit + Send + Sync>>,
+    ) -> WhateverResult<()> {
+        logging::init_logging()?;
 
         let opts = Opts::parse();
 
@@ -89,11 +92,15 @@ impl Bfte {
                         .whatever_context("Failed to open database")?,
                 );
 
+                // TODO: get from core module init
+                let core_module_init_cons_version = ConsensusVersion::new(0, 0);
+
                 bfte_node::Node::consensus_init_static(
                     db.clone(),
                     secret
                         .whatever_context("Secret must be provided to create a new federation")?,
                     extra_peers,
+                    core_module_init_cons_version,
                 )
                 .await
                 .whatever_context("Failed to create consensus")?;
@@ -119,6 +126,12 @@ impl Bfte {
             .ui(Box::new(move |api| {
                 Box::pin(async move { bfte_node_ui_axum::run(api, opts.bind_ui).await })
             }))
+            .app(Box::new(move |api| {
+                Box::pin({
+                    let value = module_inits.clone();
+                    async move { bfte_node_app::run(api, value).await }
+                })
+            }))
             .build()
             .await
             .whatever_context("Failed to build node")?
@@ -130,16 +143,12 @@ impl Bfte {
     }
 }
 
-pub fn init_logging() -> WhateverResult<()> {
-    tracing_subscriber::fmt()
-        .with_writer(io::stderr)
-        .with_env_filter(
-            EnvFilter::builder()
-                .with_default_directive(LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
-        .try_init()
-        .map_err(|_| Whatever::without_source("Failed to initialize logging".to_string()))?;
-
-    Ok(())
+impl<BS: bfte_build_builder::State> BfteBuildBuilder<BS> {
+    pub fn handler(mut self, module_init: Arc<dyn ModuleInit + Send + Sync>) -> Self {
+        let kind = module_init.kind();
+        if self.module_inits.insert(kind, module_init).is_some() {
+            panic!("Multiple module inits of the same kind {kind}")
+        }
+        self
+    }
 }

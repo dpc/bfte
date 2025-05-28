@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use bfte_consensus_core::citem::{ICitem, IInput, IOutput, ModuleDyn};
+use bfte_consensus_core::module::ModuleKind;
 use bfte_consensus_core::module::config::ModuleConfigRaw;
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_util_error::WhateverResult;
@@ -18,8 +19,12 @@ pub struct ModuleInitArgs {
     pub cfg: ModuleConfigRaw,
 }
 
+pub type DynModuleInit = Arc<dyn ModuleInit + Send + Sync>;
+
 /// Module "constructor"
 pub trait ModuleInit {
+    fn kind(&self) -> ModuleKind;
+
     /// All major consensus version supported by the module, with latest
     /// supported minor version for each
     fn supported_versions(&self) -> BTreeMap<ConsensusVersionMajor, ConsensusVersionMinor>;

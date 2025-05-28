@@ -1,0 +1,11 @@
+[package]
+name = "bfte-node-app"
+
+edition.workspace = true
+version.workspace = true
+
+[dependencies]
+bfte-consensus-core = { workspace = true }
+bfte-module-core = { workspace = true }
+bfte-node-app-core = { workspace = true }
+bfte-util-error = { workspace = true }

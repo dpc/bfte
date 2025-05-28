@@ -413,7 +413,9 @@ dependencies = [
  "bfte-consensus-core",
  "bfte-derive-secret",
  "bfte-invite",
+ "bfte-module-core",
  "bfte-node",
+ "bfte-node-app",
  "bfte-node-ui",
  "bfte-node-ui-axum",
  "bfte-util-array-type",
@@ -562,7 +564,7 @@ dependencies = [
  "bfte-db",
  "bfte-derive-secret",
  "bfte-invite",
- "bfte-module-core",
+ "bfte-node-app-core",
  "bfte-node-core",
  "bfte-node-ui",
  "bfte-util-array-type",
@@ -584,6 +586,25 @@ dependencies = [
  "snafu",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "bfte-node-app"
+version = "0.1.0"
+dependencies = [
+ "bfte-consensus-core",
+ "bfte-module-core",
+ "bfte-node-app-core",
+ "bfte-util-error",
+]
+
+[[package]]
+name = "bfte-node-app-core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bfte-consensus-core",
+ "bfte-util-error",
 ]
 
 [[package]]
