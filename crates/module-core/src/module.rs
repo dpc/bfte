@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use bfte_consensus_core::citem::{ICitem, IInput, IOutput, ModuleDyn};
 use bfte_consensus_core::module::ModuleKind;
 use bfte_consensus_core::module::config::ModuleConfigRaw;
@@ -22,6 +23,7 @@ pub struct ModuleInitArgs {
 pub type DynModuleInit = Arc<dyn ModuleInit + Send + Sync>;
 
 /// Module "constructor"
+#[async_trait]
 pub trait ModuleInit {
     fn kind(&self) -> ModuleKind;
 
@@ -33,9 +35,13 @@ pub trait ModuleInit {
     ///
     /// Note that in principle this might be called multiple times during the
     /// runtime, e.g. because the version changed.
-    fn init(&self, args: ModuleInitArgs) -> Arc<dyn Module + Send + Sync + 'static>;
+    async fn init(&self, args: ModuleInitArgs) -> Arc<dyn Module + Send + Sync + 'static>;
+
+    // DELME
+    async fn poll(&self) -> Vec<ModuleDyn<dyn ICitem>>;
 }
 
+#[async_trait]
 pub trait Module {
     fn process_input(
         &self,

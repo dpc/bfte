@@ -24,7 +24,7 @@ pub struct Bfte {
 impl Bfte {
     #[builder(finish_fn = run, start_fn = builder)]
     pub async fn build(
-        #[builder(field)] module_inits: BTreeMap<ModuleKind, Arc<dyn ModuleInit + Send + Sync>>,
+        #[builder(field)] modules_inits: BTreeMap<ModuleKind, Arc<dyn ModuleInit + Send + Sync>>,
     ) -> WhateverResult<()> {
         logging::init_logging()?;
 
@@ -128,8 +128,8 @@ impl Bfte {
             }))
             .app(Box::new(move |api| {
                 Box::pin({
-                    let value = module_inits.clone();
-                    async move { bfte_node_app::run(api, value).await }
+                    let modules_inits = modules_inits.clone();
+                    async move { bfte_node_app::NodeApp::new(api, modules_inits).run().await }
                 })
             }))
             .build()
@@ -146,7 +146,7 @@ impl Bfte {
 impl<BS: bfte_build_builder::State> BfteBuildBuilder<BS> {
     pub fn handler(mut self, module_init: Arc<dyn ModuleInit + Send + Sync>) -> Self {
         let kind = module_init.kind();
-        if self.module_inits.insert(kind, module_init).is_some() {
+        if self.modules_inits.insert(kind, module_init).is_some() {
             panic!("Multiple module inits of the same kind {kind}")
         }
         self

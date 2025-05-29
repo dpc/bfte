@@ -544,6 +544,7 @@ dependencies = [
 name = "bfte-module-core"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "bfte-consensus-core",
  "bfte-db",
  "bfte-util-error",

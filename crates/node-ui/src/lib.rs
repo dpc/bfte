@@ -21,7 +21,9 @@ pub type RunUiFn = Box<
 
 pub type NodeUiApi = Arc<dyn INodeUiApi + Send + Sync + 'static>;
 
-/// The interface that UI implementation can use to communicate with the node
+/// The API `bfte-node` exposes to `bfte-node-ui`
+///
+/// UI implementation can use this API to get stuff from the node.
 #[async_trait]
 pub trait INodeUiApi {
     fn get_ui_password_hash(&self) -> WhateverResult<blake3::Hash>;
