@@ -1,3 +1,9 @@
+# Core BFTE consensus logic (Simplex BFT implementation)
+
+Notably this implementation is deterministic, and side-effect free. The higher level code is expected to implement p2p
+communication querrying other consensus peers for information, that is then passed to be handled by this crate.
+
+See [`tables`] module for an overview of the data model it uses.
 
 
 BFTE implements a refolmulation of the original Simplex protocol.

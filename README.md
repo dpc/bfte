@@ -7,7 +7,7 @@ drive BFT applications in federated setup, including financial (Bitcoin) domains
 
 It's fair to say BFTE in its current form is a research on alternative
 implementation of a Fedimint-like system, and this project aims at the very similar *very-long*
-term goals as [fedimint][fedimint], but having benefit of years of extra experience, and allowing
+term goals as [Fedimint][fedimint], but having benefit of years of extra experience, and allowing
 focus on parts and goals that the author (dpc) finds most promising and interesting.
 
 [fedimint]:  http://github.com/fedimint/fedimint
@@ -44,8 +44,10 @@ goal: becoming good general purpose modular consensus engine.
 
 ## Links
 
-* [BFTE Radicle site](https://app.radicle.xyz/nodes/radicle.dpc.pw/rad:zii8qFzZhN3vigh8BuxGCuEEp6z4) - BFTE uses [Radicle][radicle]  as primary distributed code collaboration platform.
+* [BFTE Radicle site](https://app.radicle.xyz/nodes/radicle.dpc.pw/rad:zii8qFzZhN3vigh8BuxGCuEEp6z4) -
+  BFTE uses [Radicle][radicle] as primary distributed code collaboration platform.
 * [BFTE design document](./README.design.md)
+* [BFTE consensus README (Simplex BFT implementation)](/crates/consensus/README.md)
 
 [radicle]: https://radicle.xyz
 
