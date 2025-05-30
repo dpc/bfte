@@ -9,21 +9,26 @@ use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_module_core::module::{DynModuleInit, Module, ModuleInit};
 use bfte_node_app_core::NodeAppApi;
+use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
 
 pub struct NodeApp {
     node_api: NodeAppApi,
     modules_inits: BTreeMap<ModuleKind, Arc<dyn ModuleInit + Send + Sync>>,
-    modules: BTreeMap<ModuleId, Arc<dyn Module + Send + Sync>>,
+    modules: SharedModules,
     modules_config_hashes: BTreeMap<ModuleId, (ConsensusVersion, ModuleConfigHash)>,
 }
 
 impl NodeApp {
-    pub fn new(node_api: NodeAppApi, modules_inits: BTreeMap<ModuleKind, DynModuleInit>) -> Self {
+    pub fn new(
+        node_api: NodeAppApi,
+        modules_inits: BTreeMap<ModuleKind, DynModuleInit>,
+        modules: SharedModules,
+    ) -> Self {
         Self {
             node_api,
             modules_inits,
-            modules: todo!(),
+            modules,
             modules_config_hashes: todo!(),
         }
     }

@@ -7,6 +7,7 @@ use bfte_consensus_core::block::{BlockHeader, BlockPayloadRaw, BlockRound};
 use bfte_consensus_core::citem::{ICitem, ModuleDyn};
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_node_app_core::{INodeAppApi, RunNodeAppFn};
+use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
 use n0_future::task::AbortOnDropHandle;
 use snafu::ResultExt as _;
@@ -48,7 +49,11 @@ impl Node {
     pub(crate) fn spawn_app_task(
         handle: NodeHandle,
         app: RunNodeAppFn,
+        shared_modules: SharedModules,
     ) -> AbortOnDropHandle<WhateverResult<Infallible>> {
-        AbortOnDropHandle::new(tokio::spawn(app(Arc::new(NodeAppApi { handle }))))
+        AbortOnDropHandle::new(tokio::spawn(app(
+            Arc::new(NodeAppApi { handle }),
+            shared_modules,
+        )))
     }
 }

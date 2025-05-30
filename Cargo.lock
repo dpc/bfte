@@ -568,6 +568,7 @@ dependencies = [
  "bfte-invite",
  "bfte-node-app-core",
  "bfte-node-core",
+ "bfte-node-shared-modules",
  "bfte-node-ui",
  "bfte-util-array-type",
  "bfte-util-bincode",
@@ -597,6 +598,7 @@ dependencies = [
  "bfte-consensus-core",
  "bfte-module-core",
  "bfte-node-app-core",
+ "bfte-node-shared-modules",
  "bfte-util-error",
 ]
 
@@ -606,6 +608,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bfte-consensus-core",
+ "bfte-node-shared-modules",
  "bfte-util-error",
 ]
 
@@ -619,6 +622,17 @@ dependencies = [
  "iroh-base",
  "serde",
  "snafu",
+]
+
+[[package]]
+name = "bfte-node-shared-modules"
+version = "0.1.0"
+dependencies = [
+ "bfte-consensus-core",
+ "bfte-module-core",
+ "bfte-util-error",
+ "snafu",
+ "tokio",
 ]
 
 [[package]]

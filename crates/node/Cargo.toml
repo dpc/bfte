@@ -20,6 +20,7 @@ bfte-derive-secret = { workspace = true }
 bfte-invite = { workspace = true }
 bfte-node-app-core = { workspace = true }
 bfte-node-core = { workspace = true }
+bfte-node-shared-modules = { workspace = true }
 bfte-node-ui = { workspace = true }
 bfte-util-array-type = { workspace = true }
 bfte-util-bincode = { workspace = true }

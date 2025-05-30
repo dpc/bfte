@@ -1,11 +1,12 @@
 [package]
-name = "bfte-node-app-core"
+name = "bfte-node-shared-modules"
 
 edition.workspace = true
 version.workspace = true
 
 [dependencies]
-async-trait = { workspace = true }
 bfte-consensus-core = { workspace = true }
-bfte-node-shared-modules = { workspace = true }
+bfte-module-core = { workspace = true }
 bfte-util-error = { workspace = true }
+snafu = { workspace = true }
+tokio = { workspace = true }

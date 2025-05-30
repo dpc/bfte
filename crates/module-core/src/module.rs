@@ -41,6 +41,8 @@ pub trait ModuleInit {
     async fn poll(&self) -> Vec<ModuleDyn<dyn ICitem>>;
 }
 
+pub type DynModule = Arc<dyn Module + Send + Sync>;
+
 #[async_trait]
 pub trait Module {
     fn process_input(

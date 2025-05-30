@@ -126,10 +126,14 @@ impl Bfte {
             .ui(Box::new(move |api| {
                 Box::pin(async move { bfte_node_ui_axum::run(api, opts.bind_ui).await })
             }))
-            .app(Box::new(move |api| {
+            .app(Box::new(move |api, shared_modules| {
                 Box::pin({
                     let modules_inits = modules_inits.clone();
-                    async move { bfte_node_app::NodeApp::new(api, modules_inits).run().await }
+                    async move {
+                        bfte_node_app::NodeApp::new(api, modules_inits, shared_modules)
+                            .run()
+                            .await
+                    }
                 })
             }))
             .build()

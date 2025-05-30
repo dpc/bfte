@@ -12,6 +12,7 @@ members = [
   "crates/node-app",
   "crates/node-app-core",
   "crates/node-core",
+  "crates/node-shared-modules",
   "crates/node-ui",
   "crates/node-ui-axum",
   "crates/util-array-type",
@@ -51,6 +52,7 @@ bfte-node = { path = "./crates/node" }
 bfte-node-app = { path = "./crates/node-app" }
 bfte-node-app-core = { path = "./crates/node-app-core" }
 bfte-node-core = { path = "./crates/node-core" }
+bfte-node-shared-modules = { path = "./crates/node-shared-modules" }
 bfte-node-ui = { path = "./crates/node-ui" }
 bfte-node-ui-axum = { path = "./crates/node-ui-axum" }
 bfte-util-array-type = { path = "./crates/util-array-type" }

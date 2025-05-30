@@ -8,10 +8,14 @@ use async_trait::async_trait;
 use bfte_consensus_core::block::{BlockHeader, BlockPayloadRaw, BlockRound};
 use bfte_consensus_core::citem::{ICitem, ModuleDyn};
 use bfte_consensus_core::consensus_params::ConsensusParams;
+use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
 
 pub type RunNodeAppFn = Box<
-    dyn Fn(NodeAppApi) -> Pin<Box<dyn Future<Output = WhateverResult<Infallible>> + Send>>
+    dyn Fn(
+            NodeAppApi,
+            SharedModules,
+        ) -> Pin<Box<dyn Future<Output = WhateverResult<Infallible>> + Send>>
         + Send
         + Sync
         + 'static,

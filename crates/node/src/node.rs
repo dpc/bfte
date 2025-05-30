@@ -18,6 +18,7 @@ use bfte_db::error::DbError;
 use bfte_derive_secret::{DeriveableSecret, LevelError};
 use bfte_invite::Invite;
 use bfte_node_app_core::RunNodeAppFn;
+use bfte_node_shared_modules::{SharedModules, WeakSharedModules};
 use bfte_node_ui::RunUiFn;
 use bfte_util_error::fmt::FmtCompact as _;
 use bfte_util_error::{Whatever, WhateverResult};
@@ -72,6 +73,8 @@ pub struct Node {
     ui_task: Option<AbortOnDropHandle<WhateverResult<Infallible>>>,
     #[allow(dead_code /* only for drop */)]
     app_task: Option<AbortOnDropHandle<WhateverResult<Infallible>>>,
+    #[allow(dead_code /* TODO */)]
+    weak_shared_modules: WeakSharedModules,
 
     ui_pass_hash: std::sync::Mutex<blake3::Hash>,
     ui_pass_is_temporary: AtomicBool,
@@ -170,7 +173,9 @@ impl Node {
             let iroh_router = Self::make_iroh_router(handle.clone(), iroh_endpoint.clone());
 
             let ui_task = ui.map(|ui| Self::spawn_ui_task(handle.clone(), ui));
-            let app_task = app.map(|app| Self::spawn_app_task(handle.clone(), app));
+            let shared_modules = SharedModules::default();
+            let weak_shared_modules = shared_modules.downgrade();
+            let app_task = app.map(|app| Self::spawn_app_task(handle.clone(), app, shared_modules));
             let (consensus_initialized_tx, consensus_initialized_rx) =
                 watch::channel(consensus.is_some());
 
@@ -189,6 +194,7 @@ impl Node {
                 finality_tasks: Mutex::new(BTreeMap::default()),
                 ui_task,
                 app_task,
+                weak_shared_modules,
                 ui_pass_hash: std::sync::Mutex::new(ui_pass_hash),
                 ui_pass_is_temporary: AtomicBool::new(ui_pass_is_temporary),
                 peer_addr_needed: Arc::new(Notify::new()),
