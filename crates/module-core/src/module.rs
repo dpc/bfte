@@ -7,7 +7,7 @@ use bfte_consensus_core::module::ModuleKind;
 use bfte_consensus_core::module::config::ModuleConfigRaw;
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_util_error::WhateverResult;
-use db::{ModuleDb, ModuleReadTransaction, ModuleWriteTransaction};
+use db::{ModuleDb, ModuleReadTransaction, ModuleWriteTransactionCtx};
 
 mod db;
 
@@ -59,5 +59,5 @@ pub trait Module {
         citem: &ModuleDyn<dyn ICitem>,
     ) -> WhateverResult<Vec<EffectDyn>>;
 
-    fn process_effect(&self, dbtx: &mut ModuleWriteTransaction, citem: ModuleDyn<dyn ICitem>);
+    fn process_effect(&self, dbtx: &mut ModuleWriteTransactionCtx, citem: ModuleDyn<dyn ICitem>);
 }

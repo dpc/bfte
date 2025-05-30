@@ -63,7 +63,7 @@ impl Database {
         Ok(s)
     }
 
-    pub async fn read_with_inner_falliable<T, E>(
+    async fn read_with_inner_falliable<T, E>(
         inner: &redb_bincode::Database,
         f: impl FnOnce(&'_ ReadTransaction) -> DbTxResult<T, E>,
     ) -> DbTxResult<T, E>
@@ -78,7 +78,7 @@ impl Database {
         })
     }
 
-    pub async fn write_with_inner_falliable<T, E>(
+    async fn write_with_inner_falliable<T, E>(
         inner: &redb_bincode::Database,
         commit_hook_order_lock: Arc<std::sync::Mutex<()>>,
         f: impl FnOnce(&'_ WriteTransactionCtx) -> DbTxResult<T, E>,
@@ -98,7 +98,7 @@ impl Database {
         })
     }
 
-    pub async fn write_with_inner<T>(
+    async fn write_with_inner<T>(
         inner: &redb_bincode::Database,
         commit_hook_order_lock: Arc<std::sync::Mutex<()>>,
         f: impl FnOnce(&'_ WriteTransactionCtx) -> DbResult<T>,
@@ -113,6 +113,17 @@ impl Database {
             dbtx.commit().context(CommitSnafu)?;
 
             Ok(res)
+        })
+    }
+
+    async fn read_with_inner<T>(
+        inner: &redb_bincode::Database,
+        f: impl FnOnce(&'_ ReadTransaction) -> DbResult<T>,
+    ) -> DbResult<T> {
+        tokio::task::block_in_place(|| {
+            let mut dbtx = inner.begin_read().context(TransactionSnafu)?;
+
+            f(&mut dbtx)
         })
     }
 
@@ -155,17 +166,6 @@ impl Database {
         Self::write_with_inner(&self.inner, self.commit_hook_order_lock.clone(), f)
             .await
             .expect("Fatal database error")
-    }
-
-    pub async fn read_with_inner<T>(
-        inner: &redb_bincode::Database,
-        f: impl FnOnce(&'_ ReadTransaction) -> DbResult<T>,
-    ) -> DbResult<T> {
-        tokio::task::block_in_place(|| {
-            let mut dbtx = inner.begin_read().context(TransactionSnafu)?;
-
-            f(&mut dbtx)
-        })
     }
 
     pub async fn read_with<T>(

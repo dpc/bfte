@@ -12,3 +12,4 @@ bfte-util-error = { workspace = true }
 bincode = { workspace = true }
 redb-bincode = { workspace = true }
 snafu = { workspace = true }
+tokio = { workspace = true }

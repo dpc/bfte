@@ -551,6 +551,7 @@ dependencies = [
  "bincode",
  "redb-bincode",
  "snafu",
+ "tokio",
 ]
 
 [[package]]
