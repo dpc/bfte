@@ -3,6 +3,14 @@
 BTFE is a BFT consensus engine. A permissioned p2p blockchain to
 drive BFT applications in federated setup, including financial (Bitcoin) domains.
 
+
+## Radicle note
+
+BFTE uses [Radicle][radicle] as a primary distributed code collaboration platform,
+and Github repo is only a read-only mirror.
+
+Head to [BFTE's Radicle site][bfte-radicle] for an up to date version.
+
 ## Introduction
 
 It's fair to say BFTE in its current form is a research on alternative
@@ -40,16 +48,17 @@ mobile apps, cross-platform support, interoperability, API stability, backward
 compatibility etc.
 
 By ignoring all these ambitions, BFTE can focus first on honing the primary
-goal: becoming good general purpose modular consensus engine.
+goal: becoming good general purpose modular consensus engine, and be ambitious
+about other aspects of the design places and implementation.
 
 ## Links
 
-* [BFTE Radicle site](https://app.radicle.xyz/nodes/radicle.dpc.pw/rad:zii8qFzZhN3vigh8BuxGCuEEp6z4) -
-  BFTE uses [Radicle][radicle] as primary distributed code collaboration platform.
+* [BFTE Radicle site][bfte-radicle]
 * [BFTE design document](./README.design.md)
 * [BFTE consensus README (Simplex BFT implementation)](/crates/consensus/README.md)
 
 [radicle]: https://radicle.xyz
+[bfte-radicle]: https://app.radicle.xyz/nodes/radicle.dpc.pw/rad:zii8qFzZhN3vigh8BuxGCuEEp6z4 
 
 ## License
 
