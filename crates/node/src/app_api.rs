@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use bfte_consensus_core::block::{BlockHeader, BlockPayloadRaw, BlockRound};
 use bfte_consensus_core::citem::{ICitem, ModuleDyn};
 use bfte_consensus_core::consensus_params::ConsensusParams;
+use bfte_db::Database;
 use bfte_node_app_core::{INodeAppApi, RunNodeAppFn};
 use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
@@ -29,9 +30,18 @@ impl NodeAppApi {
 
 #[async_trait]
 impl INodeAppApi for NodeAppApi {
+    async fn get_consensus_params(&self, round: BlockRound) -> WhateverResult<ConsensusParams> {
+        Ok(self
+            .node_ref()?
+            .consensus_wait()
+            .await?
+            .get_consensus_params(round)
+            .await)
+    }
+
     async fn ack_and_wait_next_block<'f>(
         &self,
-        round: BlockRound,
+        _round: BlockRound,
 
         pending_citems: Pin<Box<dyn Future<Output = Vec<ModuleDyn<dyn ICitem>>> + Send + 'f>>,
     ) -> (BlockHeader, BlockPayloadRaw) {
@@ -40,7 +50,7 @@ impl INodeAppApi for NodeAppApi {
         todo!()
     }
 
-    async fn schedule_consensus_params(&self, consensus_params: ConsensusParams) {
+    async fn schedule_consensus_params(&self, _consensus_params: ConsensusParams) {
         todo!()
     }
 }
@@ -48,10 +58,12 @@ impl INodeAppApi for NodeAppApi {
 impl Node {
     pub(crate) fn spawn_app_task(
         handle: NodeHandle,
+        db: Arc<Database>,
         app: RunNodeAppFn,
         shared_modules: SharedModules,
     ) -> AbortOnDropHandle<WhateverResult<Infallible>> {
         AbortOnDropHandle::new(tokio::spawn(app(
+            db,
             Arc::new(NodeAppApi { handle }),
             shared_modules,
         )))

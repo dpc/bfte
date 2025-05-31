@@ -8,11 +8,13 @@ use async_trait::async_trait;
 use bfte_consensus_core::block::{BlockHeader, BlockPayloadRaw, BlockRound};
 use bfte_consensus_core::citem::{ICitem, ModuleDyn};
 use bfte_consensus_core::consensus_params::ConsensusParams;
+use bfte_db::Database;
 use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
 
 pub type RunNodeAppFn = Box<
     dyn Fn(
+            Arc<Database>,
             NodeAppApi,
             SharedModules,
         ) -> Pin<Box<dyn Future<Output = WhateverResult<Infallible>> + Send>>
@@ -26,6 +28,8 @@ pub type NodeAppApi = Arc<dyn INodeAppApi + Send + Sync + 'static>;
 /// The API `bfte-node` exposes to `bfte-node-app`
 #[async_trait]
 pub trait INodeAppApi {
+    async fn get_consensus_params(&self, round: BlockRound) -> WhateverResult<ConsensusParams>;
+
     /// Wait for the first finalized block at `round` or higher
     ///
     /// It also acknowledges that that application logic processed

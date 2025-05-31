@@ -7,5 +7,6 @@ version.workspace = true
 [dependencies]
 async-trait = { workspace = true }
 bfte-consensus-core = { workspace = true }
+bfte-db = { workspace = true }
 bfte-node-shared-modules = { workspace = true }
 bfte-util-error = { workspace = true }

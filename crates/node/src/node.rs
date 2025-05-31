@@ -175,7 +175,8 @@ impl Node {
             let ui_task = ui.map(|ui| Self::spawn_ui_task(handle.clone(), ui));
             let shared_modules = SharedModules::default();
             let weak_shared_modules = shared_modules.downgrade();
-            let app_task = app.map(|app| Self::spawn_app_task(handle.clone(), app, shared_modules));
+            let app_task = app
+                .map(|app| Self::spawn_app_task(handle.clone(), db.clone(), app, shared_modules));
             let (consensus_initialized_tx, consensus_initialized_rx) =
                 watch::channel(consensus.is_some());
 
@@ -332,6 +333,17 @@ impl Node {
         self.consensus
             .get()
             .expect("Must be called only when consensus is running")
+    }
+    pub(crate) async fn consensus_wait(&self) -> WhateverResult<&Arc<Consensus>> {
+        self.consensus_initialized_rx
+            .clone()
+            .wait_for(|r| *r)
+            .await
+            .whatever_context("Shutting down")?;
+        Ok(self
+            .consensus
+            .get()
+            .expect("Must be called only when consensus is running"))
     }
 
     pub async fn run(self: Arc<Self>) -> WhateverResult<()> {

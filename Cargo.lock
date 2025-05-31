@@ -413,7 +413,7 @@ dependencies = [
  "bfte-consensus-core",
  "bfte-derive-secret",
  "bfte-invite",
- "bfte-module-core",
+ "bfte-module",
  "bfte-node",
  "bfte-node-app",
  "bfte-node-ui",
@@ -541,7 +541,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bfte-module-core"
+name = "bfte-module"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -552,6 +552,18 @@ dependencies = [
  "redb-bincode",
  "snafu",
  "tokio",
+]
+
+[[package]]
+name = "bfte-module-consensus"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bfte-consensus-core",
+ "bfte-module",
+ "bfte-util-db",
+ "bfte-util-error",
+ "bincode",
 ]
 
 [[package]]
@@ -596,10 +608,15 @@ name = "bfte-node-app"
 version = "0.1.0"
 dependencies = [
  "bfte-consensus-core",
- "bfte-module-core",
+ "bfte-db",
+ "bfte-module",
+ "bfte-module-consensus",
  "bfte-node-app-core",
  "bfte-node-shared-modules",
+ "bfte-util-db",
  "bfte-util-error",
+ "snafu",
+ "tokio",
 ]
 
 [[package]]
@@ -608,6 +625,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bfte-consensus-core",
+ "bfte-db",
  "bfte-node-shared-modules",
  "bfte-util-error",
 ]
@@ -629,7 +647,7 @@ name = "bfte-node-shared-modules"
 version = "0.1.0"
 dependencies = [
  "bfte-consensus-core",
- "bfte-module-core",
+ "bfte-module",
  "bfte-util-error",
  "snafu",
  "tokio",

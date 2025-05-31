@@ -33,10 +33,21 @@ pub struct ModuleCitem {
     pub module_id: ModuleId,
 }
 
+#[derive(PartialEq, Eq)]
 pub struct ModuleDyn<Iface: ?Sized> {
     module_id: ModuleId,
     inner: Arc<[u8]>,
     _marker: marker::PhantomData<Iface>,
+}
+
+impl<Iface: ?Sized> ModuleDyn<Iface> {
+    pub fn new(module_id: ModuleId, inner: Arc<[u8]>) -> Self {
+        Self {
+            module_id,
+            inner,
+            _marker: marker::PhantomData,
+        }
+    }
 }
 
 impl<T, C> Decode<C> for ModuleDyn<T>
@@ -82,6 +93,8 @@ where
         Ok(())
     }
 }
+
+pub trait IParams {}
 pub trait IInput {}
 pub trait IOutput {}
 pub trait ICitem {}

@@ -7,7 +7,8 @@ members = [
   "crates/db",
   "crates/derive-secret",
   "crates/invite",
-  "crates/module-core",
+  "crates/module",
+  "crates/modules/consensus",
   "crates/node",
   "crates/node-app",
   "crates/node-app-core",
@@ -47,7 +48,8 @@ bfte-consensus-tests = { path = "./crates/consensus-tests" }
 bfte-db = { path = "./crates/db" }
 bfte-derive-secret = { path = "./crates/derive-secret" }
 bfte-invite = { path = "./crates/invite" }
-bfte-module-core = { path = "./crates/module-core" }
+bfte-module = { path = "./crates/module" }
+bfte-module-consensus = { path = "./crates/modules/consensus" }
 bfte-node = { path = "./crates/node" }
 bfte-node-app = { path = "./crates/node-app" }
 bfte-node-app-core = { path = "./crates/node-app-core" }
@@ -112,6 +114,12 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 
 
 [profile]
+
+[profile.dev]
+panic = 'abort'
+
+[profile.release]
+panic = 'abort'
 
 [profile.ci]
 debug = "line-tables-only"

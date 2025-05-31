@@ -1,17 +1,15 @@
 [package]
-name = "bfte-node-app"
+name = "bfte-module"
 
 edition.workspace = true
 version.workspace = true
 
 [dependencies]
+async-trait = { workspace = true }
 bfte-consensus-core = { workspace = true }
 bfte-db = { workspace = true }
-bfte-module = { workspace = true }
-bfte-module-consensus = { workspace = true }
-bfte-node-app-core = { workspace = true }
-bfte-node-shared-modules = { workspace = true }
-bfte-util-db = { workspace = true }
 bfte-util-error = { workspace = true }
+bincode = { workspace = true }
+redb-bincode = { workspace = true }
 snafu = { workspace = true }
 tokio = { workspace = true }

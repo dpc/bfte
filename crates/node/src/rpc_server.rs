@@ -13,8 +13,8 @@ use crate::Node;
 use crate::handle::{NodeHandle, NodeRefResultExt as _};
 use crate::peer_address::AddressUpdate;
 use crate::rpc::{
-    GetBlockRequest, GetBlockResponse, GetConsensusVersionRequest, GetConsensusVersionResponse,
-    GetPeerAddressRequest, GetPeerAddressResponse, RPC_ID_GET_BLOCK, RPC_ID_GET_CONSENSUS_PARAMS,
+    GetBlockRequest, GetBlockResponse, GetConsensusVersionRequest, GetPeerAddressRequest,
+    GetPeerAddressResponse, RPC_ID_GET_BLOCK, RPC_ID_GET_CONSENSUS_PARAMS,
     RPC_ID_GET_CONSENSUS_VERSION, RPC_ID_GET_PEER_ADDR_UPDATE, RPC_ID_HELLO,
     RPC_ID_PUSH_PEER_ADDR_UPDATE, RPC_ID_WAIT_FINALITY_VOTE, RPC_ID_WAIT_NOTARIZED_BLOCK,
     RPC_ID_WAIT_VOTE,
@@ -396,6 +396,7 @@ impl RpcServer {
         _send: RpcWrite,
         _recv: RpcRead,
     ) -> WhateverResult<()> {
+        //TODO:
         unimplemented!("No longer necessary?");
         // let req: GetConsensusVersionRequest = recv
         //     .read_message_bincode()

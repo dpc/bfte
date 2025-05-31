@@ -8,7 +8,7 @@ use std::sync::Arc;
 use bfte_consensus_core::module::ModuleKind;
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_derive_secret::DeriveableSecret;
-use bfte_module_core::module::ModuleInit;
+use bfte_module::module::ModuleInit;
 use bfte_node::Node;
 use bfte_node::derive_secret_ext::DeriveSecretExt as _;
 use bfte_util_error::WhateverResult;
@@ -126,11 +126,11 @@ impl Bfte {
             .ui(Box::new(move |api| {
                 Box::pin(async move { bfte_node_ui_axum::run(api, opts.bind_ui).await })
             }))
-            .app(Box::new(move |api, shared_modules| {
+            .app(Box::new(move |db, api, shared_modules| {
                 Box::pin({
                     let modules_inits = modules_inits.clone();
                     async move {
-                        bfte_node_app::NodeApp::new(api, modules_inits, shared_modules)
+                        bfte_node_app::NodeApp::new(db, api, modules_inits, shared_modules)
                             .run()
                             .await
                     }

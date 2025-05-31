@@ -10,12 +10,12 @@ use redb_bincode::{ReadOnlyTable, ReadTransaction, Table, TableDefinition};
 /// A wrapper around [`Database`] that encapsulates module's tables
 ///
 /// This is done by prefixing all table names with `module_{module_id}_`
-pub struct ModuleDb {
+pub struct ModuleDatabase {
     module_id: ModuleId,
     inner: Arc<Database>,
 }
 
-impl ModuleDb {
+impl ModuleDatabase {
     pub(crate) fn new(module_id: ModuleId, db: Arc<Database>) -> Self {
         Self {
             module_id,
@@ -24,7 +24,7 @@ impl ModuleDb {
     }
 }
 
-impl ModuleDb {
+impl ModuleDatabase {
     /// See [`Database::write_with`]
     pub async fn write_with<T>(
         &self,

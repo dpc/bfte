@@ -102,6 +102,7 @@ pub(crate) async fn get_block_hashed(
     Ok(resp)
 }
 
+#[allow(dead_code)]
 pub(crate) async fn get_consensus_version(
     conn: &mut iroh::endpoint::Connection,
     round: BlockRound,

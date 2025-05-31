@@ -5,9 +5,9 @@ use std::sync::{Arc, Weak};
 use std::{marker, ops};
 
 use bfte_consensus_core::module::ModuleId;
-use bfte_module_core::module::{DynModule, Module};
+use bfte_module::module::{DynModule, IModule};
 use snafu::{OptionExt as _, Snafu};
-use tokio::sync::{OwnedRwLockReadGuard, RwLock, RwLockWriteGuard};
+use tokio::sync::{OwnedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Shared module state
 ///
@@ -32,6 +32,9 @@ pub struct SharedModules {
 }
 
 impl SharedModules {
+    pub async fn read(&self) -> RwLockReadGuard<'_, BTreeMap<ModuleId, DynModule>> {
+        self.inner.read().await
+    }
     pub async fn write(&self) -> RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModule>> {
         self.inner.write().await
     }
@@ -79,7 +82,7 @@ pub struct SharedModuleRef<'r> {
 }
 
 impl ops::Deref for SharedModuleRef<'_> {
-    type Target = dyn Module + Send + Sync;
+    type Target = dyn IModule + Send + Sync;
 
     fn deref(&self) -> &Self::Target {
         self.inner.as_ref()
