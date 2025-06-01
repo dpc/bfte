@@ -5,7 +5,7 @@ use derive_more::{Display, From, Into};
 
 /// Position in the block of items that were already processed
 #[derive(
-    Encode, Decode, Default, PartialEq, Eq, PartialOrd, Ord, Into, From, Clone, Copy, Display,
+    Encode, Decode, Default, PartialEq, Eq, PartialOrd, Ord, Into, From, Clone, Copy, Display, Debug,
 )]
 pub struct BlockCItemIdx(u32);
 

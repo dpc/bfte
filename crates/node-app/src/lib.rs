@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 mod db;
+mod init;
 mod process_citem;
 mod tables;
 
@@ -24,10 +25,13 @@ use bfte_util_error::WhateverResult;
 use snafu::{OptionExt as _, ResultExt as _};
 use tables::BlockCItemIdx;
 use tokio::sync::RwLockWriteGuard;
+use tracing::info;
 
 /// Consensus module is auto-initialized and always there at a fixed id
 const CONSENSUS_MODULE_ID: ModuleId = ModuleId::new(0);
 const LOG_TARGET: &str = "bfte::app";
+
+pub type ModulesInits = BTreeMap<ModuleKind, DynModuleInit>;
 
 /// Node's application layer
 ///
@@ -60,9 +64,12 @@ impl NodeApp {
     pub fn new(
         db: Arc<Database>,
         node_api: NodeAppApi,
-        modules_inits: BTreeMap<ModuleKind, DynModuleInit>,
+        mut modules_inits: ModulesInits,
         modules: SharedModules,
     ) -> Self {
+        modules_inits
+            .entry(bfte_module_consensus::KIND)
+            .or_insert_with(|| Arc::new(bfte_module_consensus::init::ConsensusModuleInit));
         Self {
             node_api,
             modules_inits,
@@ -75,15 +82,21 @@ impl NodeApp {
     /// Main loop which processes consensus items ([`CItem`]s) from each
     /// finalized block as they become available.
     pub async fn run(mut self) -> WhateverResult<Infallible> {
+        self.db.write_with_expect(Self::init_tables_tx).await;
+
         let mut cur_round_idx = self.load_cur_round_and_idx().await;
 
         if cur_round_idx == Default::default() {
-            let consensus_params = self.node_api.get_consensus_params(cur_round_idx.0).await?;
+            info!(target: LOG_TARGET, ?cur_round_idx, "Initializing app level consensus processing...");
+            let consensus_params = self.node_api.get_consensus_params(cur_round_idx.0).await;
             self.setup_modules_init(consensus_params).await?;
         } else {
+            info!(target: LOG_TARGET, ?cur_round_idx, "Started node app level processing");
             self.setup_modules().await?;
         }
+
         loop {
+            info!(target: LOG_TARGET, ?cur_round_idx, "Awaiting next round...");
             let (block_header, citems) = self.node_api.ack_and_wait_next_block(0.into()).await;
 
             for (idx, citem) in citems.iter().enumerate() {
@@ -126,18 +139,14 @@ impl NodeApp {
         consensus_params: ConsensusParams,
     ) -> WhateverResult<()> {
         let modules_write = self.modules.write().await;
-
         assert!(modules_write.is_empty());
-
         let consensus_module_init = self
             .modules_inits
             .get(&ConsensusModuleInit.kind())
             .whatever_context("Missing module init for consensus module kind")?;
-
         let consensus_module_init = (consensus_module_init.as_ref() as &dyn Any)
             .downcast_ref::<ConsensusModuleInit>()
             .expect("Must be a consensus module");
-
         let default_config = self
             .db
             .write_with_expect(|dbtx| {
@@ -146,9 +155,7 @@ impl NodeApp {
                 consensus_module_init.init_consensus(dbtx, CONSENSUS_MODULE_ID, consensus_params)
             })
             .await;
-
         let new_modules_configs = BTreeMap::from([(CONSENSUS_MODULE_ID, default_config)]);
-
         Self::setup_modules_to(
             &self.db,
             &mut self.modules_configs,
@@ -214,7 +221,7 @@ impl NodeApp {
                             module_id,
                             db.clone(),
                             new_module_setup.version,
-                            new_module_setup.config,
+                            new_module_setup.params,
                         ))
                         .await
                         .whatever_context("Failed to setup module")?,

@@ -7,5 +7,5 @@ use bincode::{Decode, Encode};
 pub struct ModuleConfig {
     pub kind: ModuleKind,
     pub version: ConsensusVersion,
-    pub config: ModuleParamsRaw,
+    pub params: ModuleParamsRaw,
 }

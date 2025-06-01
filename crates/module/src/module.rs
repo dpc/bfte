@@ -43,9 +43,13 @@ impl ModuleInitArgs {
 }
 
 #[derive(Debug, Snafu)]
+#[snafu(visibility(pub))]
 pub enum ModuleInitError {
     InvalidConfig,
-    UnsupportedVersion,
+    UnsupportedVersion {
+        requested: ConsensusVersion,
+        supported: ConsensusVersion,
+    },
     Other,
 }
 

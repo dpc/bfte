@@ -434,6 +434,7 @@ dependencies = [
  "snafu",
  "tokio",
  "tokio-test",
+ "tracing",
  "tracing-subscriber",
 ]
 
@@ -566,6 +567,7 @@ dependencies = [
  "bfte-util-db",
  "bfte-util-error",
  "bincode",
+ "snafu",
 ]
 
 [[package]]

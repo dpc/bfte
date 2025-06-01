@@ -8,13 +8,16 @@ use std::sync::Arc;
 use bfte_consensus_core::module::ModuleKind;
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_derive_secret::DeriveableSecret;
-use bfte_module::module::ModuleInit;
+use bfte_module::module::{DynModuleInit, ModuleInit};
 use bfte_node::Node;
 use bfte_node::derive_secret_ext::DeriveSecretExt as _;
 use bfte_util_error::WhateverResult;
 use clap::Parser as _;
 use opts::{Commands, Opts};
 use snafu::{OptionExt as _, ResultExt};
+
+#[allow(dead_code)]
+const LOG_TARGET: &str = "bfte::bin";
 
 pub struct Bfte {
     _something: u32,
@@ -148,7 +151,7 @@ impl Bfte {
 }
 
 impl<BS: bfte_build_builder::State> BfteBuildBuilder<BS> {
-    pub fn handler(mut self, module_init: Arc<dyn ModuleInit + Send + Sync>) -> Self {
+    pub fn handler(mut self, module_init: DynModuleInit) -> Self {
         let kind = module_init.kind();
         if self.modules_inits.insert(kind, module_init).is_some() {
             panic!("Multiple module inits of the same kind {kind}")

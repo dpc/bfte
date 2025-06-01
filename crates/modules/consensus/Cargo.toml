@@ -11,3 +11,4 @@ bfte-module = { workspace = true }
 bfte-util-db = { workspace = true }
 bfte-util-error = { workspace = true }
 bincode = { workspace = true }
+snafu = { workspace = true }

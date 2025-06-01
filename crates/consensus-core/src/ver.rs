@@ -13,7 +13,7 @@ array_type_fixed_size_define! {
     pub struct ConsensusVersionMinor(u16);
 }
 
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
 pub struct ConsensusVersion {
     /// Immutable, major version the consensus started with
     ///

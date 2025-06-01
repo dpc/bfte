@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 
 pub mod init;
+pub mod params;
 mod tables;
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::citem::{CItemRaw, InputRaw, ModuleDyn, OutputRaw};
-use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module::effect::{CItemEffect, ModuleCItemEffect};
@@ -15,19 +15,15 @@ use bfte_module::module::IModule;
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{ModuleDatabase, ModuleReadTransaction, ModuleWriteTransactionCtx};
 use bfte_util_error::WhateverResult;
-use bincode::{Decode, Encode};
 
-const KIND: ModuleKind = ModuleKind::new(0);
+pub const KIND: ModuleKind = ModuleKind::new(0);
 const CURRENT_VERSION: ConsensusVersion =
     ConsensusVersion::new_const(ConsensusVersionMajor::new(0), ConsensusVersionMinor::new(0));
 
 pub struct ConsensusModule {
+    #[allow(dead_code)]
+    version: ConsensusVersion,
     db: ModuleDatabase,
-}
-
-#[derive(Encode, Decode)]
-pub struct ConsensuseModuleParams {
-    consensus_params: ConsensusParams,
 }
 
 impl ConsensusModule {
@@ -47,7 +43,7 @@ impl ConsensusModule {
                             ModuleConfig {
                                 kind: value.kind,
                                 version: value.version,
-                                config: value.config,
+                                params: value.params,
                             },
                         ))
                     })

@@ -8,10 +8,13 @@ use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::ver::{ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{DbResult, ModuleWriteTransactionCtx};
-use bfte_module::module::{IModule, ModuleInit, ModuleInitArgs, ModuleInitResult};
+use bfte_module::module::{
+    IModule, ModuleInit, ModuleInitArgs, ModuleInitResult, UnsupportedVersionSnafu,
+};
+use snafu::ensure;
 
 use crate::tables::modules_configs;
-use crate::{CURRENT_VERSION, ConsensuseModuleParams, KIND};
+use crate::{CURRENT_VERSION, KIND};
 
 pub struct ConsensusModuleInit;
 
@@ -31,8 +34,8 @@ impl ConsensusModuleInit {
         let config = ModuleConfig {
             kind: KIND,
             version: CURRENT_VERSION,
-            config: bincode::encode_to_vec(
-                &ConsensuseModuleParams { consensus_params },
+            params: bincode::encode_to_vec(
+                &super::params::ConsensusModuleParams { consensus_params },
                 CONSENSUS_BINCODE_CONFIG,
             )
             .expect("Can't fail")
@@ -64,8 +67,19 @@ impl ModuleInit for ConsensusModuleInit {
     /// runtime, e.g. because the version changed.
     async fn init(
         &self,
-        _args: ModuleInitArgs,
+        args: ModuleInitArgs,
     ) -> ModuleInitResult<Arc<dyn IModule + Send + Sync + 'static>> {
-        todo!()
+        ensure!(
+            args.module_consensus_version <= super::CURRENT_VERSION,
+            UnsupportedVersionSnafu {
+                requested: args.module_consensus_version,
+                supported: super::CURRENT_VERSION
+            }
+        );
+
+        Ok(Arc::new(super::ConsensusModule {
+            db: args.db,
+            version: args.module_consensus_version,
+        }))
     }
 }

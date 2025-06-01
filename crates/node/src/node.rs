@@ -3,12 +3,14 @@ mod init;
 
 use std::collections::BTreeMap;
 use std::convert::Infallible;
+use std::future;
 use std::option::Option;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, OnceLock, Weak};
 
 use bfte_consensus::consensus::{Consensus, OpenError};
+use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::peer::{PeerPubkey, PeerSeckey};
 use bfte_consensus_core::timestamp::Timestamp;
@@ -66,6 +68,10 @@ pub struct Node {
 
     /// Connection pool
     connection_pool: ConnectionPool,
+
+    /// Position of the node-app processing rounds
+    node_app_ack_rx: watch::Receiver<BlockRound>,
+    pub(crate) node_app_ack_tx: watch::Sender<BlockRound>,
 
     /// Tasks querying peers for finality votes
     pub(crate) finality_tasks: Mutex<BTreeMap<PeerPubkey, AbortOnDropHandle<()>>>,
@@ -179,6 +185,7 @@ impl Node {
                 .map(|app| Self::spawn_app_task(handle.clone(), db.clone(), app, shared_modules));
             let (consensus_initialized_tx, consensus_initialized_rx) =
                 watch::channel(consensus.is_some());
+            let (node_app_ack_tx, node_app_ack_rx) = watch::channel(BlockRound::ZERO);
 
             let node = Node {
                 handle: handle.clone(),
@@ -199,6 +206,8 @@ impl Node {
                 ui_pass_hash: std::sync::Mutex::new(ui_pass_hash),
                 ui_pass_is_temporary: AtomicBool::new(ui_pass_is_temporary),
                 peer_addr_needed: Arc::new(Notify::new()),
+                node_app_ack_rx,
+                node_app_ack_tx,
             };
 
             if let Some(consensus) = consensus {
@@ -334,16 +343,13 @@ impl Node {
             .get()
             .expect("Must be called only when consensus is running")
     }
-    pub(crate) async fn consensus_wait(&self) -> WhateverResult<&Arc<Consensus>> {
-        self.consensus_initialized_rx
-            .clone()
-            .wait_for(|r| *r)
-            .await
-            .whatever_context("Shutting down")?;
-        Ok(self
-            .consensus
+    pub(crate) async fn consensus_wait(&self) -> &Arc<Consensus> {
+        let Ok(_) = self.consensus_initialized_rx.clone().wait_for(|r| *r).await else {
+            future::pending().await
+        };
+        self.consensus
             .get()
-            .expect("Must be called only when consensus is running"))
+            .expect("Must be called only when consensus is running")
     }
 
     pub async fn run(self: Arc<Self>) -> WhateverResult<()> {
