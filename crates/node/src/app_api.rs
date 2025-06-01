@@ -1,10 +1,9 @@
 use std::convert::Infallible;
-use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use bfte_consensus_core::block::{BlockHeader, BlockPayloadRaw, BlockRound};
-use bfte_consensus_core::citem::{ICitem, ModuleDyn};
+use bfte_consensus_core::block::{BlockHeader, BlockRound};
+use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_db::Database;
 use bfte_node_app_core::{INodeAppApi, RunNodeAppFn};
@@ -39,14 +38,7 @@ impl INodeAppApi for NodeAppApi {
             .await)
     }
 
-    async fn ack_and_wait_next_block<'f>(
-        &self,
-        _round: BlockRound,
-
-        pending_citems: Pin<Box<dyn Future<Output = Vec<ModuleDyn<dyn ICitem>>> + Send + 'f>>,
-    ) -> (BlockHeader, BlockPayloadRaw) {
-        pending_citems.await;
-
+    async fn ack_and_wait_next_block<'f>(&self, _round: BlockRound) -> (BlockHeader, Arc<[CItem]>) {
         todo!()
     }
 

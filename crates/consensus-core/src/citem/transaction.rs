@@ -2,19 +2,19 @@ use bfte_util_array_type::array_type_define;
 use bincode::{Decode, Encode};
 
 use super::transaction_nonce::TransactionNonce;
-use super::{IInput, IOutput, ModuleDyn};
+use super::{InputRaw, ModuleDyn, OutputRaw};
 
 #[derive(Encode, Decode)]
 pub struct TransactionUnsigned {
-    nonce: TransactionNonce,
-    inputs: Vec<ModuleDyn<dyn IInput>>,
-    outputs: Vec<ModuleDyn<dyn IOutput>>,
+    pub nonce: TransactionNonce,
+    pub inputs: Vec<ModuleDyn<InputRaw>>,
+    pub outputs: Vec<ModuleDyn<OutputRaw>>,
 }
 
 #[derive(Encode, Decode)]
 pub struct Transaction {
-    inner: TransactionUnsigned,
-    signature: TransactionSignature,
+    pub inner: TransactionUnsigned,
+    pub signature: TransactionSignature,
 }
 
 array_type_define! {

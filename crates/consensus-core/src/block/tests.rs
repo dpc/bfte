@@ -7,7 +7,7 @@ use crate::consensus_params::ConsensusParams;
 fn block_header_size_sanity() {
     let block = BlockHeader::new_dummy(0.into(), &ConsensusParams::new_test_dummy());
     assert_eq!(
-        bincode::encode_to_vec(block, crate::bincode::STD_BINCODE_CONFIG)
+        bincode::encode_to_vec(block, crate::bincode::CONSENSUS_BINCODE_CONFIG)
             .expect("Can't fail")
             .len(),
         // Nice round number so it can potentially be compactly

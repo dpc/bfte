@@ -1,4 +1,4 @@
-use bfte_consensus_core::bincode::STD_BINCODE_CONFIG;
+use bfte_consensus_core::bincode::CONSENSUS_BINCODE_CONFIG;
 use bfte_util_bincode::decode_whole;
 
 use crate::vote_set::VoteSet;
@@ -15,8 +15,8 @@ pub(crate) fn vote_set_sanity() {
     assert!(set.contains(100.into()));
 
     let rr_set = decode_whole(
-        &bincode::encode_to_vec(set, STD_BINCODE_CONFIG).expect("Can't fail"),
-        STD_BINCODE_CONFIG,
+        &bincode::encode_to_vec(set, CONSENSUS_BINCODE_CONFIG).expect("Can't fail"),
+        CONSENSUS_BINCODE_CONFIG,
     )
     .expect("Can't fail");
 
@@ -31,7 +31,7 @@ pub(crate) fn vote_set_sanity_2() {
     set.insert(3.into());
 
     assert_eq!(
-        bincode::encode_to_vec(set, STD_BINCODE_CONFIG).expect("Can't fail"),
+        bincode::encode_to_vec(set, CONSENSUS_BINCODE_CONFIG).expect("Can't fail"),
         vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 10
@@ -40,7 +40,7 @@ pub(crate) fn vote_set_sanity_2() {
     set.insert(13.into());
     set.insert(100.into());
     assert_eq!(
-        bincode::encode_to_vec(set, STD_BINCODE_CONFIG).expect("Can't fail"),
+        bincode::encode_to_vec(set, CONSENSUS_BINCODE_CONFIG).expect("Can't fail"),
         vec![
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 32, 10
@@ -51,7 +51,7 @@ pub(crate) fn vote_set_sanity_2() {
     set.insert(253.into());
     set.insert(252.into());
     assert_eq!(
-        bincode::encode_to_vec(set, STD_BINCODE_CONFIG).expect("Can't fail"),
+        bincode::encode_to_vec(set, CONSENSUS_BINCODE_CONFIG).expect("Can't fail"),
         vec![
             0xf0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 16, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 32, 10

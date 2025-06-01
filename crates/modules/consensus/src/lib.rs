@@ -5,11 +5,12 @@ mod tables;
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use bfte_consensus_core::citem::{ICitem, IInput, IOutput, ModuleDyn};
+use bfte_consensus_core::block::BlockRound;
+use bfte_consensus_core::citem::{CItemRaw, InputRaw, ModuleDyn, OutputRaw};
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
-use bfte_module::effect::EffectDyn;
+use bfte_module::effect::{CItemEffect, ModuleCItemEffect};
 use bfte_module::module::IModule;
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{ModuleDatabase, ModuleReadTransaction, ModuleWriteTransactionCtx};
@@ -33,7 +34,7 @@ impl ConsensusModule {
     pub async fn get_modules_configs(&self) -> BTreeMap<ModuleId, ModuleConfig> {
         self.db
             .read_with_expect(|dbtx| {
-                let tbl = dbtx.open_table(&tables::module_setup::TABLE)?;
+                let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
 
                 tbl.range(..)?
                     .map(|kv| {
@@ -58,29 +59,39 @@ impl ConsensusModule {
 
 #[async_trait]
 impl IModule for ConsensusModule {
+    async fn propose_citems(&self) -> Vec<ModuleDyn<CItemRaw>> {
+        todo!()
+    }
+
+    fn process_citem(
+        &self,
+        _dbtx: &ModuleReadTransaction,
+        _round: BlockRound,
+        _citem: &CItemRaw,
+    ) -> WhateverResult<Vec<CItemEffect>> {
+        todo!()
+    }
+
     fn process_input(
         &self,
-        _dbtx: &mut ModuleReadTransaction,
-        _input: &ModuleDyn<dyn IInput>,
-    ) -> WhateverResult<Vec<EffectDyn>> {
+        _dbtx: &ModuleReadTransaction,
+        _input: &InputRaw,
+    ) -> WhateverResult<Vec<CItemEffect>> {
         todo!()
     }
     fn process_output(
         &self,
-        _dbtx: &mut ModuleReadTransaction,
-        _output: &ModuleDyn<dyn IOutput>,
-    ) -> WhateverResult<Vec<EffectDyn>> {
-        todo!()
-    }
-    fn process_citem(
-        &self,
-        _dbtx: &mut ModuleReadTransaction,
-        _citem: &ModuleDyn<dyn ICitem>,
-    ) -> WhateverResult<Vec<EffectDyn>> {
+        _dbtx: &ModuleReadTransaction,
+        _output: &OutputRaw,
+    ) -> WhateverResult<Vec<CItemEffect>> {
         todo!()
     }
 
-    fn process_effect(&self, _dbtx: &mut ModuleWriteTransactionCtx, _citem: ModuleDyn<dyn ICitem>) {
+    fn process_effects(
+        &self,
+        _dbtx: &ModuleWriteTransactionCtx,
+        _effects: &[ModuleCItemEffect],
+    ) -> WhateverResult<()> {
         todo!()
     }
 }

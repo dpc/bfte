@@ -9,7 +9,7 @@ use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use snafu::{ResultExt as _, Snafu};
 
-use crate::bincode::STD_BINCODE_CONFIG;
+use crate::bincode::CONSENSUS_BINCODE_CONFIG;
 use crate::block::{BlockHash, BlockRound};
 use crate::framed_payload_define;
 use crate::num_peers::{NumPeers, ToNumPeers as _};
@@ -150,7 +150,7 @@ impl ConsensusParams {
 
     pub fn to_raw(&self) -> ConsensusParamsRaw {
         ConsensusParamsRaw(
-            bincode::encode_to_vec(self, STD_BINCODE_CONFIG)
+            bincode::encode_to_vec(self, CONSENSUS_BINCODE_CONFIG)
                 .expect("Can't fail")
                 .into(),
         )
@@ -158,7 +158,7 @@ impl ConsensusParams {
 
     pub fn from_raw(raw: &ConsensusParamsRaw) -> ConsensusParamsDecodeResult<Self> {
         let decoded: ConsensusParams =
-            decode_whole(&raw.0, STD_BINCODE_CONFIG).context(BincodeSnafu)?;
+            decode_whole(&raw.0, CONSENSUS_BINCODE_CONFIG).context(BincodeSnafu)?;
 
         if decoded.consensus_params_format_version != 0 {
             return MismatchedFormatVersionSnafu {

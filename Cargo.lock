@@ -471,6 +471,7 @@ version = "0.1.0"
 dependencies = [
  "bfte-util-array-type",
  "bfte-util-bincode",
+ "bfte-util-error",
  "bincode",
  "blake3",
  "bon",
@@ -549,6 +550,7 @@ dependencies = [
  "bfte-db",
  "bfte-util-error",
  "bincode",
+ "derive_more 2.0.1",
  "redb-bincode",
  "snafu",
  "tokio",
@@ -615,8 +617,11 @@ dependencies = [
  "bfte-node-shared-modules",
  "bfte-util-db",
  "bfte-util-error",
+ "bincode",
+ "derive_more 2.0.1",
  "snafu",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

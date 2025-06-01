@@ -3,7 +3,7 @@ use std::sync::Arc;
 use bfte_consensus_core::module::ModuleId;
 use bfte_db::Database;
 use bfte_db::ctx::WriteTransactionCtx;
-use bfte_db::error::{DbResult, DbTxResult};
+pub use bfte_db::error::{DbError, DbResult, DbTxResult};
 use redb_bincode::redb::{TableError, TableHandle as _};
 use redb_bincode::{ReadOnlyTable, ReadTransaction, Table, TableDefinition};
 
@@ -16,7 +16,7 @@ pub struct ModuleDatabase {
 }
 
 impl ModuleDatabase {
-    pub(crate) fn new(module_id: ModuleId, db: Arc<Database>) -> Self {
+    pub fn new(module_id: ModuleId, db: Arc<Database>) -> Self {
         Self {
             module_id,
             inner: db,
@@ -130,7 +130,10 @@ pub struct ModuleWriteTransactionCtx<'a> {
                                      * 'static>>>, */
 }
 
-impl ModuleWriteTransactionCtx<'_> {
+impl<'s> ModuleWriteTransactionCtx<'s> {
+    pub fn new(module_id: ModuleId, inner: &'s WriteTransactionCtx) -> Self {
+        Self { module_id, inner }
+    }
     pub fn open_table<K, V>(
         &self,
         table_def: &TableDefinition<'_, K, V>,
@@ -152,7 +155,10 @@ pub struct ModuleReadTransaction<'a> {
     inner: &'a ReadTransaction,
 }
 
-impl ModuleReadTransaction<'_> {
+impl<'s> ModuleReadTransaction<'s> {
+    pub fn new(module_id: ModuleId, inner: &'s ReadTransaction) -> Self {
+        Self { module_id, inner }
+    }
     pub fn open_table<K, V>(
         &self,
         table_def: &TableDefinition<'_, K, V>,

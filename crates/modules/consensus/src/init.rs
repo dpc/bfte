@@ -2,31 +2,47 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use bfte_consensus_core::bincode::STD_BINCODE_CONFIG;
-use bfte_consensus_core::citem::{ICitem, ModuleDyn};
+use bfte_consensus_core::bincode::CONSENSUS_BINCODE_CONFIG;
 use bfte_consensus_core::consensus_params::ConsensusParams;
-use bfte_consensus_core::module::ModuleKind;
+use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::ver::{ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module::module::config::ModuleConfig;
+use bfte_module::module::db::{DbResult, ModuleWriteTransactionCtx};
 use bfte_module::module::{IModule, ModuleInit, ModuleInitArgs, ModuleInitResult};
 
+use crate::tables::modules_configs;
 use crate::{CURRENT_VERSION, ConsensuseModuleParams, KIND};
 
 pub struct ConsensusModuleInit;
 
 impl ConsensusModuleInit {
-    /// [`ModuleConfig`] to use for this module when initializing new consensus
-    pub fn init_consensus(&self, consensus_params: ConsensusParams) -> ModuleConfig {
-        ModuleConfig {
+    /// Initialize consensus module
+    ///
+    /// Since consensus module is the one storing consensus configs for itself
+    /// and other modules, it needs to be initialized manually.
+    ///
+    /// Its own [`ModuleConfig`] it was initialized with
+    pub fn init_consensus(
+        &self,
+        dbtx: &ModuleWriteTransactionCtx,
+        module_id: ModuleId,
+        consensus_params: ConsensusParams,
+    ) -> DbResult<ModuleConfig> {
+        let config = ModuleConfig {
             kind: KIND,
             version: CURRENT_VERSION,
             config: bincode::encode_to_vec(
                 &ConsensuseModuleParams { consensus_params },
-                STD_BINCODE_CONFIG,
+                CONSENSUS_BINCODE_CONFIG,
             )
             .expect("Can't fail")
             .into(),
-        }
+        };
+
+        let mut tbl = dbtx.open_table(&modules_configs::TABLE)?;
+        tbl.insert(&module_id, &config)?;
+
+        Ok(config)
     }
 }
 
@@ -50,11 +66,6 @@ impl ModuleInit for ConsensusModuleInit {
         &self,
         _args: ModuleInitArgs,
     ) -> ModuleInitResult<Arc<dyn IModule + Send + Sync + 'static>> {
-        todo!()
-    }
-
-    // DELME
-    async fn poll(&self) -> Vec<ModuleDyn<dyn ICitem>> {
         todo!()
     }
 }

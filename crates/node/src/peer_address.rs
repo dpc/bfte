@@ -3,7 +3,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use bfte_consensus_core::bincode::STD_BINCODE_CONFIG;
+use bfte_consensus_core::bincode::CONSENSUS_BINCODE_CONFIG;
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::signed::{Hashable, Signable, Signed};
 use bfte_consensus_core::timestamp::Timestamp;
@@ -43,7 +43,7 @@ impl fmt::Display for AddressUpdate {
         f.write_fmt(format_args!(
             "{}",
             data_encoding::BASE32_NOPAD.encode_display(
-                &bincode::encode_to_vec(self, STD_BINCODE_CONFIG).expect("Can't fail")
+                &bincode::encode_to_vec(self, CONSENSUS_BINCODE_CONFIG).expect("Can't fail")
             )
         ))
     }
@@ -56,7 +56,7 @@ impl FromStr for AddressUpdate {
         let bytes = data_encoding::BASE32_NOPAD
             .decode(s.as_bytes())
             .whatever_context("Failed to decode base32")?;
-        decode_whole(&bytes, STD_BINCODE_CONFIG).whatever_context("Failed to decode bincode")
+        decode_whole(&bytes, CONSENSUS_BINCODE_CONFIG).whatever_context("Failed to decode bincode")
     }
 }
 

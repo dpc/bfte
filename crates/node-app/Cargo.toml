@@ -13,5 +13,8 @@ bfte-node-app-core = { workspace = true }
 bfte-node-shared-modules = { workspace = true }
 bfte-util-db = { workspace = true }
 bfte-util-error = { workspace = true }
+bincode = { workspace = true }
+derive_more = { workspace = true, features = ["from", "into", "display"] }
 snafu = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }

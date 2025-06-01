@@ -7,7 +7,7 @@ use ed25519_dalek::ed25519::signature::SignerMut as _;
 use snafu::{OptionExt as _, Snafu};
 
 use crate::Signature;
-use crate::bincode::STD_BINCODE_CONFIG;
+use crate::bincode::CONSENSUS_BINCODE_CONFIG;
 use crate::consensus_params::ConsensusParams;
 use crate::peer::{PeerIdx, PeerPubkey, PeerSeckey};
 
@@ -20,7 +20,8 @@ pub trait Hashable: bincode::Encode {
     fn hash(&self) -> blake3::Hash {
         let mut hasher = blake3::Hasher::new();
 
-        bincode::encode_into_std_write(self, &mut hasher, STD_BINCODE_CONFIG).expect("Can't fail");
+        bincode::encode_into_std_write(self, &mut hasher, CONSENSUS_BINCODE_CONFIG)
+            .expect("Can't fail");
 
         hasher.finalize()
     }

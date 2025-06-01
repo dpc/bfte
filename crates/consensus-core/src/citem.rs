@@ -2,10 +2,10 @@
 
 mod transaction;
 mod transaction_nonce;
-use std::marker;
 use std::sync::Arc;
 
 use bincode::{BorrowDecode, Decode, Encode};
+use derive_more::Deref;
 use transaction::Transaction;
 
 use crate::module::ModuleId;
@@ -16,9 +16,8 @@ use crate::peer::PeerPubkey;
 /// Something that can transmitted and agreed on as a part of the consensus
 /// process.
 #[derive(Encode, Decode)]
-pub enum Citem {
-    Core(CoreCitem),
-    Module(ModuleCitem),
+pub enum CItem {
+    ModuleCItem(ModuleDyn<CItemRaw>),
     Transaction(Transaction),
 }
 
@@ -28,31 +27,38 @@ pub enum CoreCitem {
     RemovePeerVote(PeerPubkey),
 }
 
-#[derive(Encode, Decode)]
-pub struct ModuleCitem {
-    pub module_id: ModuleId,
-}
+#[derive(Deref, Encode, Decode)]
+pub struct InputRaw(pub Arc<[u8]>);
+
+#[derive(Deref, Encode, Decode)]
+pub struct OutputRaw(pub Arc<[u8]>);
+
+#[derive(Deref, Encode, Decode)]
+pub struct CItemRaw(pub Arc<[u8]>);
 
 #[derive(PartialEq, Eq)]
-pub struct ModuleDyn<Iface: ?Sized> {
+pub struct ModuleDyn<Inner> {
     module_id: ModuleId,
-    inner: Arc<[u8]>,
-    _marker: marker::PhantomData<Iface>,
+    inner: Inner,
 }
 
-impl<Iface: ?Sized> ModuleDyn<Iface> {
-    pub fn new(module_id: ModuleId, inner: Arc<[u8]>) -> Self {
-        Self {
-            module_id,
-            inner,
-            _marker: marker::PhantomData,
-        }
+impl<Inner> ModuleDyn<Inner> {
+    pub fn new(module_id: ModuleId, inner: Inner) -> Self {
+        Self { module_id, inner }
+    }
+
+    pub fn module_id(&self) -> ModuleId {
+        self.module_id
+    }
+
+    pub fn inner(&self) -> &Inner {
+        &self.inner
     }
 }
 
-impl<T, C> Decode<C> for ModuleDyn<T>
+impl<Inner, C> Decode<C> for ModuleDyn<Inner>
 where
-    T: ?Sized,
+    Inner: Decode<C>,
 {
     fn decode<D: bincode::de::Decoder<Context = C>>(
         decoder: &mut D,
@@ -60,14 +66,13 @@ where
         Ok(Self {
             module_id: Decode::decode(decoder)?,
             inner: Decode::decode(decoder)?,
-            _marker: marker::PhantomData,
         })
     }
 }
 
-impl<'de, T, C> BorrowDecode<'de, C> for ModuleDyn<T>
+impl<'de, Inner, C> BorrowDecode<'de, C> for ModuleDyn<Inner>
 where
-    T: ?Sized,
+    Inner: Decode<C>,
 {
     fn borrow_decode<D: bincode::de::BorrowDecoder<'de, Context = C>>(
         decoder: &mut D,
@@ -75,14 +80,13 @@ where
         Ok(Self {
             module_id: Decode::decode(decoder)?,
             inner: Decode::decode(decoder)?,
-            _marker: marker::PhantomData,
         })
     }
 }
 
-impl<T> Encode for ModuleDyn<T>
+impl<Inner> Encode for ModuleDyn<Inner>
 where
-    T: ?Sized,
+    Inner: Encode,
 {
     fn encode<E: bincode::enc::Encoder>(
         &self,
@@ -93,8 +97,3 @@ where
         Ok(())
     }
 }
-
-pub trait IParams {}
-pub trait IInput {}
-pub trait IOutput {}
-pub trait ICitem {}

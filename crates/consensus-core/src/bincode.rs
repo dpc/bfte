@@ -1,7 +1,7 @@
 use bincode::config;
 
 pub const STANDARD_LIMIT_16M: usize = 0x1_0000_0000;
-pub const STD_BINCODE_CONFIG: config::Configuration<
+pub const CONSENSUS_BINCODE_CONFIG: config::Configuration<
     config::BigEndian,
     config::Varint,
     config::Limit<STANDARD_LIMIT_16M>,

@@ -5,8 +5,8 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use bfte_consensus_core::block::{BlockHeader, BlockPayloadRaw, BlockRound};
-use bfte_consensus_core::citem::{ICitem, ModuleDyn};
+use bfte_consensus_core::block::{BlockHeader, BlockRound};
+use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_db::Database;
 use bfte_node_shared_modules::SharedModules;
@@ -34,11 +34,7 @@ pub trait INodeAppApi {
     ///
     /// It also acknowledges that that application logic processed
     /// all blocks before `rounds` (since it asks for next ones)
-    async fn ack_and_wait_next_block<'f>(
-        &self,
-        round: BlockRound,
-        pending_citems: Pin<Box<dyn Future<Output = Vec<ModuleDyn<dyn ICitem>>> + Send + 'f>>,
-    ) -> (BlockHeader, BlockPayloadRaw);
+    async fn ack_and_wait_next_block<'f>(&self, round: BlockRound) -> (BlockHeader, Arc<[CItem]>);
 
     /// Notify node logic that a [`ConsensusParams`] were scheduled to change
     async fn schedule_consensus_params(&self, consensus_params: ConsensusParams);

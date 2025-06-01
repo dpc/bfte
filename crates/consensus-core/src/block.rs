@@ -6,11 +6,15 @@ use bfte_util_array_type::{
     array_type_impl_base32_str, array_type_impl_debug_as_display, array_type_impl_serde,
     array_type_impl_zero_default,
 };
+use bfte_util_bincode::decode_whole;
+use bfte_util_error::WhateverResult;
 use bincode::{Decode, Encode};
 use num_bigint::BigUint;
 use serde::Deserialize;
-use snafu::Snafu;
+use snafu::{ResultExt as _, Snafu};
 
+use crate::bincode::CONSENSUS_BINCODE_CONFIG;
+use crate::citem::CItem;
 use crate::consensus_params::{ConsensusParams, ConsensusParamsHash, ConsensusParamsLen};
 use crate::framed_payload_define;
 use crate::num_peers::NumPeers;
@@ -286,6 +290,12 @@ framed_payload_define! {
     pub struct BlockPayloadSlice;
 }
 
+impl BlockPayloadRaw {
+    pub fn decode_citems(&self) -> WhateverResult<Arc<[CItem]>> {
+        decode_whole(&self.as_inner_slice(), CONSENSUS_BINCODE_CONFIG)
+            .whatever_context("Unable to decode block payload")
+    }
+}
 array_type_define! {
     #[derive(Encode, Decode)]
     pub struct BlockSignature[32];
