@@ -26,7 +26,6 @@ pub const RPC_ID_PUSH_PEER_ADDR_UPDATE: u16 = 0x20;
 pub const RPC_ID_GET_PEER_ADDR_UPDATE: u16 = 0x21;
 pub const RPC_ID_GET_BLOCK: u16 = 0x23;
 pub const RPC_ID_GET_CONSENSUS_PARAMS: u16 = 0x24;
-pub const RPC_ID_GET_CONSENSUS_VERSION: u16 = 0x25;
 
 /// Wait for the peer vote on the block in the round
 #[derive(Decode, Encode, Clone, Copy, PartialEq, Eq)]
@@ -100,22 +99,6 @@ pub(crate) async fn get_block_hashed(
     }
 
     Ok(resp)
-}
-
-#[allow(dead_code)]
-pub(crate) async fn get_consensus_version(
-    conn: &mut iroh::endpoint::Connection,
-    round: BlockRound,
-) -> WhateverResult<ConsensusVersion> {
-    let resp: GetConsensusVersionResponse = conn
-        .make_request_response_bincode(
-            RPC_ID_GET_CONSENSUS_VERSION,
-            GetConsensusVersionRequest { round },
-        )
-        .await
-        .whatever_context("Failed request get_consensus_version")?;
-
-    Ok(resp.consensus_version)
 }
 
 pub(crate) async fn get_consensus_params(

@@ -15,9 +15,8 @@ use crate::peer_address::AddressUpdate;
 use crate::rpc::{
     GetBlockRequest, GetBlockResponse, GetConsensusVersionRequest, GetPeerAddressRequest,
     GetPeerAddressResponse, RPC_ID_GET_BLOCK, RPC_ID_GET_CONSENSUS_PARAMS,
-    RPC_ID_GET_CONSENSUS_VERSION, RPC_ID_GET_PEER_ADDR_UPDATE, RPC_ID_HELLO,
-    RPC_ID_PUSH_PEER_ADDR_UPDATE, RPC_ID_WAIT_FINALITY_VOTE, RPC_ID_WAIT_NOTARIZED_BLOCK,
-    RPC_ID_WAIT_VOTE,
+    RPC_ID_GET_PEER_ADDR_UPDATE, RPC_ID_HELLO, RPC_ID_PUSH_PEER_ADDR_UPDATE,
+    RPC_ID_WAIT_FINALITY_VOTE, RPC_ID_WAIT_NOTARIZED_BLOCK, RPC_ID_WAIT_VOTE,
 };
 
 const LOG_TARGET: &str = "bfte::node::rpc::server";
@@ -52,10 +51,6 @@ impl RpcServer {
             .handler(
                 RPC_ID_GET_CONSENSUS_PARAMS,
                 Self::handle_get_consensus_params,
-            )
-            .handler(
-                RPC_ID_GET_CONSENSUS_VERSION,
-                Self::handle_get_consensus_version,
             )
             .handler(RPC_ID_GET_BLOCK, Self::handle_get_block)
             .build()
@@ -381,39 +376,6 @@ impl RpcServer {
             .whatever_context("Failed to write response")?;
 
         assert_eq!(out_hash.as_bytes(), &raw.hash().to_bytes());
-
-        Ok(())
-    }
-
-    async fn handle_get_consensus_version(self, send: RpcWrite, recv: RpcRead) {
-        if let Err(err) = self.handle_get_consensus_version_try(send, recv).await {
-            debug!(target: LOG_TARGET, err = %err.fmt_compact(), "Failed handling request get_consensus_version");
-        }
-    }
-
-    async fn handle_get_consensus_version_try(
-        self,
-        _send: RpcWrite,
-        _recv: RpcRead,
-    ) -> WhateverResult<()> {
-        //TODO:
-        unimplemented!("No longer necessary?");
-        // let req: GetConsensusVersionRequest = recv
-        //     .read_message_bincode()
-        //     .await
-        //     .whatever_context("Failed to read request")?;
-
-        // let node_ref = &self.handle.node_ref().into_whatever()?;
-
-        // let consensus_version = node_ref
-        //     .consensus_expect()
-        //     .get_consensus_params(req.round)
-        //     .await
-        //     .core_version;
-
-        // send.write_message_bincode(&GetConsensusVersionResponse { consensus_version
-        // })     .await
-        //     .whatever_context("Failed to write response")?;
 
         Ok(())
     }
