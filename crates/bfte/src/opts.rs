@@ -36,14 +36,14 @@ pub(crate) struct Opts {
 pub(crate) enum Commands {
     GenSecret,
     Init {
-        #[arg(long, default_value = "false")]
+        #[arg(long)]
         run: bool,
 
         #[arg(long = "extra-peer")]
         extra_peers: Vec<PeerPubkey>,
     },
     Join {
-        #[arg(long, default_value = "false")]
+        #[arg(long)]
         run: bool,
 
         #[arg(long)]

@@ -9,11 +9,15 @@ use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_invite::Invite;
+use bfte_node_shared_modules::WeakSharedModules;
 use bfte_util_error::WhateverResult;
 use tokio::sync::watch;
 
 pub type RunUiFn = Box<
-    dyn Fn(NodeUiApi) -> Pin<Box<dyn Future<Output = WhateverResult<Infallible>> + Send>>
+    dyn Fn(
+            NodeUiApi,
+            WeakSharedModules,
+        ) -> Pin<Box<dyn Future<Output = WhateverResult<Infallible>> + Send>>
         + Send
         + Sync
         + 'static,

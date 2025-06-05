@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_invite::Invite;
+use bfte_node_shared_modules::WeakSharedModules;
 use bfte_node_ui::{INodeUiApi, RunUiFn};
 use bfte_util_error::WhateverResult;
 use n0_future::task::AbortOnDropHandle;
@@ -85,7 +86,11 @@ impl Node {
     pub(crate) fn spawn_ui_task(
         handle: NodeHandle,
         ui: RunUiFn,
+        shared_modules: WeakSharedModules,
     ) -> AbortOnDropHandle<WhateverResult<Infallible>> {
-        AbortOnDropHandle::new(tokio::spawn(ui(Arc::new(NodeUiApi { handle }))))
+        AbortOnDropHandle::new(tokio::spawn(ui(
+            Arc::new(NodeUiApi { handle }),
+            shared_modules,
+        )))
     }
 }

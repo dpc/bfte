@@ -7,16 +7,26 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
-use bfte_consensus_core::citem::{CItemRaw, InputRaw, ModuleDyn, OutputRaw};
+use bfte_consensus_core::citem::{CItemRaw, InputRaw, OutputRaw};
 use bfte_consensus_core::module::config::ModuleParamsRaw;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_db::Database;
 use bfte_util_error::WhateverResult;
+use config::ModuleConfig;
 use db::{ModuleDatabase, ModuleReadTransaction, ModuleWriteTransactionCtx};
+use derive_more::Deref;
 use snafu::Snafu;
+use tokio::sync::watch;
 
 use crate::effect::{CItemEffect, ModuleCItemEffect};
+
+#[derive(Deref)]
+pub struct DynModuleWithConfig {
+    pub config: ModuleConfig,
+    #[deref]
+    pub inner: DynModule,
+}
 
 #[non_exhaustive]
 pub struct ModuleInitArgs {
@@ -78,7 +88,13 @@ pub type DynModule = Arc<dyn IModule + Send + Sync>;
 
 #[async_trait]
 pub trait IModule: Any {
-    async fn propose_citems(&self) -> Vec<ModuleDyn<CItemRaw>>;
+    fn display_name(&self) -> &'static str;
+
+    /// Get receiver of consensus item proposals
+    ///
+    /// Module should set this watch channel to the current consensus
+    /// items it wishes to be published.
+    async fn propose_citems_rx(&self) -> watch::Receiver<Vec<CItemRaw>>;
 
     /// Process some consensus item
     ///

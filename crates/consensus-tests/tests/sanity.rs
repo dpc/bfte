@@ -95,7 +95,7 @@ async fn starting_consensus_and_generating_first_block_via_vote() -> BoxedErrorR
 
     assert_eq!(
         BlockRound::from(1),
-        *setup.consensus.first_unfinalized_round_rx().borrow()
+        *setup.consensus.finality_consensus_rx().borrow()
     );
 
     Ok(())
@@ -136,7 +136,7 @@ async fn starting_consensus_and_generating_first_block_via_notarization() -> Box
 
     assert_eq!(
         BlockRound::from(1),
-        *setup.consensus.first_unfinalized_round_rx().borrow()
+        *setup.consensus.finality_consensus_rx().borrow()
     );
 
     Ok(())
@@ -175,7 +175,7 @@ async fn two_peers_first_round() -> BoxedErrorResult<()> {
 
     assert_eq!(
         BlockRound::from(0),
-        *setup.consensus.first_unfinalized_round_rx().borrow()
+        *setup.consensus.finality_consensus_rx().borrow()
     );
 
     setup
@@ -195,7 +195,7 @@ async fn two_peers_first_round() -> BoxedErrorResult<()> {
 
     assert_eq!(
         BlockRound::from(0),
-        *setup.consensus.first_unfinalized_round_rx().borrow()
+        *setup.consensus.finality_consensus_rx().borrow()
     );
 
     setup

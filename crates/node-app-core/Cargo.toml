@@ -10,3 +10,4 @@ bfte-consensus-core = { workspace = true }
 bfte-db = { workspace = true }
 bfte-node-shared-modules = { workspace = true }
 bfte-util-error = { workspace = true }
+tokio = { workspace = true }

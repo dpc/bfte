@@ -11,6 +11,7 @@ use std::sync::{Arc, OnceLock, Weak};
 
 use bfte_consensus::consensus::{Consensus, OpenError};
 use bfte_consensus_core::block::BlockRound;
+use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::peer::{PeerPubkey, PeerSeckey};
 use bfte_consensus_core::timestamp::Timestamp;
@@ -69,9 +70,11 @@ pub struct Node {
     /// Connection pool
     connection_pool: ConnectionPool,
 
-    /// Position of the node-app processing rounds
-    node_app_ack_rx: watch::Receiver<BlockRound>,
+    /// Block round acknowledged by the node app processing
+    pub(crate) node_app_ack_rx: watch::Receiver<BlockRound>,
     pub(crate) node_app_ack_tx: watch::Sender<BlockRound>,
+
+    pub(crate) pending_transactions_rx: watch::Receiver<Vec<Transaction>>,
 
     /// Tasks querying peers for finality votes
     pub(crate) finality_tasks: Mutex<BTreeMap<PeerPubkey, AbortOnDropHandle<()>>>,
@@ -80,7 +83,7 @@ pub struct Node {
     #[allow(dead_code /* only for drop */)]
     app_task: Option<AbortOnDropHandle<WhateverResult<Infallible>>>,
     #[allow(dead_code /* TODO */)]
-    weak_shared_modules: WeakSharedModules,
+    pub(crate) weak_shared_modules: WeakSharedModules,
 
     ui_pass_hash: std::sync::Mutex<blake3::Hash>,
     ui_pass_is_temporary: AtomicBool,
@@ -175,18 +178,29 @@ impl Node {
             });
 
         let slf = Arc::new_cyclic(|weak| {
+            let shared_modules = SharedModules::default();
+            let weak_shared_modules = shared_modules.downgrade();
+
             let handle = NodeHandle::from(weak.clone());
             let iroh_router = Self::make_iroh_router(handle.clone(), iroh_endpoint.clone());
 
-            let ui_task = ui.map(|ui| Self::spawn_ui_task(handle.clone(), ui));
-            let shared_modules = SharedModules::default();
-            let weak_shared_modules = shared_modules.downgrade();
-            let app_task = app
-                .map(|app| Self::spawn_app_task(handle.clone(), db.clone(), app, shared_modules));
+            let ui_task =
+                ui.map(|ui| Self::spawn_ui_task(handle.clone(), ui, weak_shared_modules.clone()));
+
             let (consensus_initialized_tx, consensus_initialized_rx) =
                 watch::channel(consensus.is_some());
+            let (pending_transactions_tx, pending_transactions_rx) = watch::channel(vec![]);
             let (node_app_ack_tx, node_app_ack_rx) = watch::channel(BlockRound::ZERO);
 
+            let app_task = app.map(|app| {
+                Self::spawn_app_task(
+                    handle.clone(),
+                    db.clone(),
+                    app,
+                    shared_modules,
+                    pending_transactions_tx,
+                )
+            });
             let node = Node {
                 handle: handle.clone(),
                 handle_raw: weak.clone(),
@@ -208,6 +222,7 @@ impl Node {
                 peer_addr_needed: Arc::new(Notify::new()),
                 node_app_ack_rx,
                 node_app_ack_tx,
+                pending_transactions_rx,
             };
 
             if let Some(consensus) = consensus {

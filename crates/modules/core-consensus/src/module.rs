@@ -1,32 +1,27 @@
-// SPDX-License-Identifier: MIT
-
-pub mod init;
-pub mod params;
-mod tables;
 use std::collections::BTreeMap;
+use std::future;
 
 use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
-use bfte_consensus_core::citem::{CItemRaw, InputRaw, ModuleDyn, OutputRaw};
-use bfte_consensus_core::module::{ModuleId, ModuleKind};
-use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
+use bfte_consensus_core::citem::{CItemRaw, InputRaw, OutputRaw};
+use bfte_consensus_core::module::ModuleId;
+use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_module::effect::{CItemEffect, ModuleCItemEffect};
 use bfte_module::module::IModule;
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{ModuleDatabase, ModuleReadTransaction, ModuleWriteTransactionCtx};
 use bfte_util_error::WhateverResult;
+use tokio::sync::watch;
 
-pub const KIND: ModuleKind = ModuleKind::new(0);
-const CURRENT_VERSION: ConsensusVersion =
-    ConsensusVersion::new_const(ConsensusVersionMajor::new(0), ConsensusVersionMinor::new(0));
+use crate::tables;
 
-pub struct ConsensusModule {
+pub struct CoreConsensusModule {
     #[allow(dead_code)]
-    version: ConsensusVersion,
-    db: ModuleDatabase,
+    pub(crate) version: ConsensusVersion,
+    pub(crate) db: ModuleDatabase,
 }
 
-impl ConsensusModule {
+impl CoreConsensusModule {
     pub async fn get_modules_configs(&self) -> BTreeMap<ModuleId, ModuleConfig> {
         self.db
             .read_with_expect(|dbtx| {
@@ -54,9 +49,13 @@ impl ConsensusModule {
 }
 
 #[async_trait]
-impl IModule for ConsensusModule {
-    async fn propose_citems(&self) -> Vec<ModuleDyn<CItemRaw>> {
-        todo!()
+impl IModule for CoreConsensusModule {
+    fn display_name(&self) -> &'static str {
+        "Consensus"
+    }
+
+    async fn propose_citems_rx(&self) -> watch::Receiver<Vec<CItemRaw>> {
+        future::pending().await
     }
 
     fn process_citem(

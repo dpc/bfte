@@ -1,5 +1,5 @@
 [package]
-name = "bfte-module-consensus"
+name = "bfte-module-core-consensus"
 
 edition.workspace = true
 version.workspace = true
@@ -12,3 +12,4 @@ bfte-util-db = { workspace = true }
 bfte-util-error = { workspace = true }
 bincode = { workspace = true }
 snafu = { workspace = true }
+tokio = { workspace = true }

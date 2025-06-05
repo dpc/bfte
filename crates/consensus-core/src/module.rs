@@ -2,8 +2,24 @@ pub mod config;
 
 use bincode::{Decode, Encode};
 use derive_more::{Display, From};
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, Debug, Display, From)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Encode,
+    Decode,
+    Debug,
+    Display,
+    From,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
 pub struct ModuleId(u32);
 
 impl ModuleId {
@@ -12,7 +28,22 @@ impl ModuleId {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode, Debug, Display, From)]
+#[derive(
+    Copy,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Encode,
+    Decode,
+    Debug,
+    Display,
+    From,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
 pub struct ModuleKind(u32);
 
 impl ModuleKind {

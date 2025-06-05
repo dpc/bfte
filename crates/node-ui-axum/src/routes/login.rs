@@ -104,6 +104,6 @@ impl UiState {
                 }
             }
         };
-        Ok(self.render_html_page(None, "Sign in", content))
+        Ok(self.render_html_page(None, "Sign in", content).await)
     }
 }

@@ -1,6 +1,5 @@
 mod finish_round;
 
-mod generate_proposal;
 mod getters;
 mod handle_finality_vote;
 mod handle_notarized_block;
@@ -38,17 +37,20 @@ const LOG_TARGET: &str = "bfte::consensus";
 pub struct Consensus {
     /// Database the consensus stores its state
     db: Arc<Database>,
+
     /// Own [`PeerPubkey`], `None` if the peer does not and can not participate
     /// in the consensu and is just a non-voting replica.
     our_peer_pubkey: Option<PeerPubkey>,
     current_round_with_timeout_start_tx: watch::Sender<(BlockRound, Option<Duration>)>,
     current_round_with_timeout_start_rx: watch::Receiver<(BlockRound, Option<Duration>)>,
+
     /// The consensus on the finality height
     ///
     /// Notably: does not mean that current peer actually has all the blocks up
     /// this point yet.
     finality_cons_tx: watch::Sender<BlockRound>,
     finality_cons_rx: watch::Receiver<BlockRound>,
+
     /// Notifications every new vote
     new_votes_tx: watch::Sender<()>,
     new_votes_rx: watch::Receiver<()>,
@@ -75,7 +77,10 @@ pub(crate) trait ConsensusReadDbOps {
         peer_idx: PeerIdx,
     ) -> DbResult<Option<Signed<BlockHeader>>>;
 
-    fn get_payload(&self, payload_hash: BlockPayloadHash) -> DbResult<Option<BlockPayloadRaw>>;
+    fn get_block_payload(
+        &self,
+        payload_hash: BlockPayloadHash,
+    ) -> DbResult<Option<BlockPayloadRaw>>;
     fn get_finality_vote(&self, peer_pubkey: PeerPubkey) -> DbResult<Option<BlockRound>>;
     fn get_peers_with_proposal_votes(&self, round: BlockRound) -> DbResult<VoteSet>;
     fn get_peers_with_dummy_votes(&self, round: BlockRound) -> DbResult<VoteSet>;
@@ -86,6 +91,7 @@ pub(crate) trait ConsensusReadDbOps {
     fn get_votes_dummy(&self, round: BlockRound) -> DbResult<Vec<(PeerIdx, Signature)>>;
     fn get_votes_proposal(&self, round: BlockRound) -> DbResult<Vec<(PeerIdx, Signature)>>;
     fn get_prev_notarized_block(&self, round: BlockRound) -> DbResult<Option<BlockHeader>>;
+    fn get_next_notarized_block(&self, round: BlockRound) -> DbResult<Option<BlockHeader>>;
     fn get_notarized_block(&self, round: BlockRound) -> DbResult<Option<BlockHeader>>;
     fn get_pinned_block(&self, round: BlockRound) -> DbResult<Option<BlockHash>>;
 }
@@ -258,7 +264,7 @@ macro_rules! impl_consensus_read_db_ops {
                 Ok(tbl.get(&peer_pubkey)?.map(|g| g.value()))
             }
 
-            fn get_payload(
+            fn get_block_payload(
                 &self,
                 payload_hash: BlockPayloadHash,
             ) -> DbResult<Option<BlockPayloadRaw>> {
@@ -305,6 +311,16 @@ macro_rules! impl_consensus_read_db_ops {
                 Ok(tbl_blocks
                     .range(..round)?
                     .next_back()
+                    .transpose()?
+                    .map(|(_k, v)| v.value()))
+            }
+
+            fn get_next_notarized_block(&self, round: BlockRound) -> DbResult<Option<BlockHeader>> {
+                let tbl_blocks = self.open_table(&cons_blocks_notarized::TABLE)?;
+
+                Ok(tbl_blocks
+                    .range(round..)?
+                    .next()
                     .transpose()?
                     .map(|(_k, v)| v.value()))
             }

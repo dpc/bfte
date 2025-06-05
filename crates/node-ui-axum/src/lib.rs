@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 mod assets;
-
 mod error;
 mod fragments;
 mod middleware;
@@ -14,6 +13,7 @@ use std::sync::Arc;
 
 use assets::WithStaticRoutesExt as _;
 use axum::Extension;
+use bfte_node_shared_modules::WeakSharedModules;
 use bfte_node_ui::NodeUiApi;
 use bfte_util_error::WhateverResult;
 use listenfd::ListenFd;
@@ -30,23 +30,32 @@ use tracing::info;
 const LOG_TARGET: &str = "bfte::node::ui";
 const ROUTE_UI: &str = "/ui/";
 const ROUTE_LOGIN: &str = "/ui/login";
+const ROUTE_MODULE: &str = "/ui/module/{module-id}";
 const ROUTE_INIT_CONSENSUS: &str = "/ui/init";
 const ROUTE_DS_CURRENT_ROUND: &str = "/datastar/current-round";
 
 #[derive(Clone)]
 pub(crate) struct UiState {
     pub(crate) node_api: NodeUiApi,
+    pub(crate) modules: WeakSharedModules,
 }
 pub(crate) type ArcUiState = Arc<UiState>;
 
-pub async fn run(node_api: NodeUiApi, bind_ui: SocketAddr) -> WhateverResult<Infallible> {
+pub async fn run(
+    node_api: NodeUiApi,
+    bind_ui: SocketAddr,
+    shared_modules: WeakSharedModules,
+) -> WhateverResult<Infallible> {
     let listener = get_listener(bind_ui, true).await?;
 
     let session_store = MemoryStore::default();
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::minutes(2 * 24 * 60)));
 
-    let state = Arc::new(UiState { node_api });
+    let state = Arc::new(UiState {
+        node_api,
+        modules: shared_modules,
+    });
     let router = make_router()
         .layer(
             ServiceBuilder::new()

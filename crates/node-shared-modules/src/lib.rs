@@ -4,10 +4,13 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Weak};
 use std::{marker, ops};
 
+use bfte_consensus_core::citem::{CItem, ModuleDyn};
 use bfte_consensus_core::module::ModuleId;
-use bfte_module::module::{DynModule, IModule};
+use bfte_module::module::{DynModuleWithConfig, IModule};
 use snafu::{OptionExt as _, Snafu};
 use tokio::sync::{OwnedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tokio_stream::StreamMap;
+use tokio_stream::wrappers::WatchStream;
 
 /// Shared module state
 ///
@@ -28,14 +31,14 @@ use tokio::sync::{OwnedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockWriteGuar
 /// [`SharedModules`] is the strong, "owning", reference.
 #[derive(Default)]
 pub struct SharedModules {
-    inner: Arc<RwLock<BTreeMap<ModuleId, DynModule>>>,
+    inner: Arc<RwLock<BTreeMap<ModuleId, DynModuleWithConfig>>>,
 }
 
 impl SharedModules {
-    pub async fn read(&self) -> RwLockReadGuard<'_, BTreeMap<ModuleId, DynModule>> {
+    pub async fn read(&self) -> RwLockReadGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>> {
         self.inner.read().await
     }
-    pub async fn write(&self) -> RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModule>> {
+    pub async fn write(&self) -> RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>> {
         self.inner.write().await
     }
 
@@ -46,8 +49,78 @@ impl SharedModules {
     }
 }
 /// [`Self`] is a weak reference to [`SharedModules`]
+#[derive(Clone)]
 pub struct WeakSharedModules {
-    inner: Weak<RwLock<BTreeMap<ModuleId, DynModule>>>,
+    inner: Weak<RwLock<BTreeMap<ModuleId, DynModuleWithConfig>>>,
+}
+
+impl WeakSharedModules {
+    pub async fn display_names(&self) -> BTreeMap<ModuleId, String> {
+        let arc = self.upgrade_or_hang().await;
+
+        let read = arc.read().await;
+
+        read.iter()
+            .map(|(module_id, module)| (*module_id, module.display_name().to_string()))
+            .collect()
+    }
+
+    /// Wait for any of the modules to return proposed citems
+    ///
+    /// This is supposed to get canceled from the outside,
+    /// so just hangs if the modules underneath disappeared.
+    pub async fn wait_consensus_proposal(&self) -> Vec<CItem> {
+        let arc = self.upgrade_or_hang().await;
+
+        let mut stream_map: StreamMap<ModuleId, WatchStream<_>> = StreamMap::new();
+
+        let read = arc.read().await;
+
+        for (&module_id, module) in read.iter() {
+            let citems_rx = module.propose_citems_rx().await;
+            {
+                let citems = citems_rx.borrow();
+                if !citems.is_empty() {
+                    return citems
+                        .iter()
+                        .map(|citem| CItem::ModuleCItem(ModuleDyn::new(module_id, citem.clone())))
+                        .collect();
+                }
+            }
+            stream_map.insert(module_id, WatchStream::new(citems_rx));
+        }
+
+        // Important; We don't want to be holding the lock. Big part of why
+        // `propose_citems_rx` returns watch channels - so we can wait on them
+        // and detect modules being distroyed from undrneath as well.
+        drop(read);
+
+        todo!()
+    }
+
+    async fn upgrade_or_hang(&self) -> Arc<RwLock<BTreeMap<ModuleId, DynModuleWithConfig>>> {
+        let Some(arc) = self.inner.upgrade() else {
+            std::future::pending().await
+        };
+        arc
+    }
+
+    /// Get an instance of one of the modules
+    ///
+    /// **WARNING**: Caller should not store the value as it might block
+    /// `node-app` from acquiring the write lock on modules, preventing it
+    /// from processing consensus modules reconfiguration.
+    pub async fn get_module(
+        &self,
+        module_id: ModuleId,
+    ) -> Option<OwnedRwLockReadGuard<BTreeMap<ModuleId, DynModuleWithConfig>, DynModuleWithConfig>>
+    {
+        let arc = self.upgrade_or_hang().await;
+
+        let read = arc.read_owned().await;
+
+        OwnedRwLockReadGuard::try_map(read, |tree| tree.get(&module_id)).ok()
+    }
 }
 
 #[derive(Debug, Snafu)]
@@ -76,7 +149,7 @@ impl WeakSharedModules {
 }
 
 pub struct SharedModuleRef<'r> {
-    inner: OwnedRwLockReadGuard<BTreeMap<ModuleId, DynModule>, DynModule>,
+    inner: OwnedRwLockReadGuard<BTreeMap<ModuleId, DynModuleWithConfig>, DynModuleWithConfig>,
     // This is here purely to prevent getters from storing it by mistake
     _marker: &'r marker::PhantomData<()>,
 }

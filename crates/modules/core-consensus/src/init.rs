@@ -77,7 +77,7 @@ impl ModuleInit for ConsensusModuleInit {
             }
         );
 
-        Ok(Arc::new(super::ConsensusModule {
+        Ok(Arc::new(super::CoreConsensusModule {
             db: args.db,
             version: args.module_consensus_version,
         }))

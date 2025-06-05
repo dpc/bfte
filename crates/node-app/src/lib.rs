@@ -11,21 +11,21 @@ use std::convert::Infallible;
 use std::mem;
 use std::sync::Arc;
 
+use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_db::Database;
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::ModuleWriteTransactionCtx;
-use bfte_module::module::{DynModule, DynModuleInit, ModuleInit, ModuleInitArgs};
-use bfte_module_consensus::ConsensusModule;
-use bfte_module_consensus::init::ConsensusModuleInit;
+use bfte_module::module::{DynModuleInit, DynModuleWithConfig, ModuleInit, ModuleInitArgs};
+use bfte_module_core_consensus::{ConsensusModuleInit, CoreConsensusModule};
 use bfte_node_app_core::NodeAppApi;
 use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
 use snafu::{OptionExt as _, ResultExt as _};
 use tables::BlockCItemIdx;
-use tokio::sync::RwLockWriteGuard;
-use tracing::info;
+use tokio::sync::{RwLockWriteGuard, watch};
+use tracing::{debug, info};
 
 /// Consensus module is auto-initialized and always there at a fixed id
 const CONSENSUS_MODULE_ID: ModuleId = ModuleId::new(0);
@@ -53,11 +53,8 @@ pub struct NodeApp {
     /// of this is shared with `bfte-node`.
     modules: SharedModules,
 
-    /// Current config for each initialized module
-    ///
-    /// This is mostly used for detecting when module's config changes,
-    /// so it can be re-created with new config.
-    modules_configs: BTreeMap<ModuleId, ModuleConfig>,
+    /// Used to signal pending transactions
+    pending_transactions_tx: watch::Sender<Vec<Transaction>>,
 }
 
 impl NodeApp {
@@ -66,16 +63,17 @@ impl NodeApp {
         node_api: NodeAppApi,
         mut modules_inits: ModulesInits,
         modules: SharedModules,
+        pending_transactions_tx: watch::Sender<Vec<Transaction>>,
     ) -> Self {
         modules_inits
-            .entry(bfte_module_consensus::KIND)
-            .or_insert_with(|| Arc::new(bfte_module_consensus::init::ConsensusModuleInit));
+            .entry(bfte_module_core_consensus::KIND)
+            .or_insert_with(|| Arc::new(bfte_module_core_consensus::init::ConsensusModuleInit));
         Self {
             node_api,
             modules_inits,
             modules,
-            modules_configs: BTreeMap::default(),
             db,
+            pending_transactions_tx,
         }
     }
 
@@ -96,8 +94,10 @@ impl NodeApp {
         }
 
         loop {
-            info!(target: LOG_TARGET, ?cur_round_idx, "Awaiting next round...");
-            let (block_header, citems) = self.node_api.ack_and_wait_next_block(0.into()).await;
+            debug!(target: LOG_TARGET, ?cur_round_idx, "Awaiting next round...");
+            let (block_header, citems) =
+                self.node_api.ack_and_wait_next_block(cur_round_idx.0).await;
+            debug!(target: LOG_TARGET, round = %block_header.round, "Processing new block...");
 
             for (idx, citem) in citems.iter().enumerate() {
                 let idx = BlockCItemIdx::from(u32::try_from(idx).expect("Can't fail"));
@@ -109,7 +109,7 @@ impl NodeApp {
             }
 
             cur_round_idx = (
-                cur_round_idx.0.next().expect("Can't fail"),
+                block_header.round.next().expect("Can't fail"),
                 BlockCItemIdx::new(0),
             );
             self.db
@@ -122,14 +122,14 @@ impl NodeApp {
 
     fn get_consensus_module<'s>(
         &'s self,
-        modules_write: &'s RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModule>>,
-    ) -> &'s ConsensusModule {
+        modules_write: &'s RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>>,
+    ) -> &'s CoreConsensusModule {
         let consensus_module = modules_write
             .get(&CONSENSUS_MODULE_ID)
             .expect("Must have consensus module");
 
-        (consensus_module.as_ref() as &dyn Any)
-            .downcast_ref::<ConsensusModule>()
+        (consensus_module.inner.as_ref() as &dyn Any)
+            .downcast_ref::<CoreConsensusModule>()
             .expect("Must be a consensus module")
     }
 
@@ -158,7 +158,6 @@ impl NodeApp {
         let new_modules_configs = BTreeMap::from([(CONSENSUS_MODULE_ID, default_config)]);
         Self::setup_modules_to(
             &self.db,
-            &mut self.modules_configs,
             modules_write,
             new_modules_configs,
             &self.modules_inits,
@@ -176,7 +175,6 @@ impl NodeApp {
 
         Self::setup_modules_to(
             &self.db,
-            &mut self.modules_configs,
             modules_write,
             new_modules_configs,
             &self.modules_inits,
@@ -187,8 +185,7 @@ impl NodeApp {
 
     async fn setup_modules_to(
         db: &Arc<Database>,
-        prev_modules_configs: &mut BTreeMap<ModuleId, ModuleConfig>,
-        mut modules_write: RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModule>>,
+        mut modules_write: RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>>,
         new_modules_configs: BTreeMap<ModuleId, ModuleConfig>,
         modules_inits: &BTreeMap<ModuleKind, DynModuleInit>,
     ) -> WhateverResult<()> {
@@ -196,8 +193,12 @@ impl NodeApp {
         // destroyed
         let mut existing_modules = mem::take(&mut *modules_write);
 
-        for (module_id, new_module_setup) in new_modules_configs {
-            if prev_modules_configs.get(&module_id) == Some(&new_module_setup) {
+        for (module_id, new_module_config) in new_modules_configs {
+            if existing_modules
+                .get(&module_id)
+                .map(|module| &module.config)
+                == Some(&new_module_config)
+            {
                 // Module config did not change
                 modules_write.insert(
                     module_id,
@@ -207,7 +208,7 @@ impl NodeApp {
                 );
             } else {
                 let module_init = modules_inits
-                    .get(&new_module_setup.kind)
+                    .get(&new_module_config.kind)
                     .whatever_context("Missing module init for kind")?;
 
                 // (if any) existing module needs to drop all the resources before starting it
@@ -216,15 +217,18 @@ impl NodeApp {
 
                 modules_write.insert(
                     module_id,
-                    module_init
-                        .init(ModuleInitArgs::new(
-                            module_id,
-                            db.clone(),
-                            new_module_setup.version,
-                            new_module_setup.params,
-                        ))
-                        .await
-                        .whatever_context("Failed to setup module")?,
+                    DynModuleWithConfig {
+                        config: new_module_config.clone(),
+                        inner: module_init
+                            .init(ModuleInitArgs::new(
+                                module_id,
+                                db.clone(),
+                                new_module_config.version,
+                                new_module_config.params,
+                            ))
+                            .await
+                            .whatever_context("Failed to setup module")?,
+                    },
                 );
             }
         }

@@ -74,15 +74,11 @@ impl NodeApp {
                 match citem {
                     CItem::ModuleCItem(module_citem) => {
                         let module_id = module_citem.module_id();
-                        let module_kind = self
-                            .modules_configs
-                            .get(&module_id)
-                            .expect("Must have config")
-                            .kind;
                         let module = modules
                             .get(&module_id)
                             .context(UnknownModuleIdSnafu { module_id })
                             .context(TxSnafu)?;
+                        let module_kind = module.config.kind;
 
                         let module_dbtx = ModuleReadTransaction::new(module_id, dbtx);
 
@@ -98,15 +94,11 @@ impl NodeApp {
                         // Process all inputs
                         for input in &transaction.inner.inputs {
                             let module_id = input.module_id();
-                            let module_kind = self
-                                .modules_configs
-                                .get(&module_id)
-                                .expect("Must have config")
-                                .kind;
                             let module = modules
                                 .get(&module_id)
                                 .context(UnknownModuleIdSnafu { module_id })
                                 .context(TxSnafu)?;
+                            let module_kind = module.config.kind;
 
                             let module_dbtx = ModuleReadTransaction::new(module_id, dbtx);
 
@@ -122,15 +114,11 @@ impl NodeApp {
                         // Process all outputs
                         for output in &transaction.inner.outputs {
                             let module_id = output.module_id();
-                            let module_kind = self
-                                .modules_configs
-                                .get(&module_id)
-                                .expect("Must have config")
-                                .kind;
                             let module = modules
                                 .get(&module_id)
                                 .context(UnknownModuleIdSnafu { module_id })
                                 .context(TxSnafu)?;
+                            let module_kind = module.config.kind;
 
                             let module_dbtx = ModuleReadTransaction::new(module_id, dbtx);
 

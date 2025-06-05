@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bfte_consensus_core::block::{BlockHeader, BlockPayloadRaw, BlockRound};
+use bfte_consensus_core::block::{BlockHeader, BlockPayloadHash, BlockPayloadRaw, BlockRound};
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::msg::{
     WaitNotarizedBlockRequest, WaitNotarizedBlockResponse, WaitVoteResponse,
@@ -22,7 +22,7 @@ impl Consensus {
         self.current_round_with_timeout_start_rx.clone()
     }
 
-    pub fn first_unfinalized_round_rx(&self) -> watch::Receiver<BlockRound> {
+    pub fn finality_consensus_rx(&self) -> watch::Receiver<BlockRound> {
         self.finality_cons_rx.clone()
     }
 
@@ -43,6 +43,20 @@ impl Consensus {
     pub async fn get_prev_notarized_block(&self, round: BlockRound) -> Option<BlockHeader> {
         self.db
             .read_with_expect(|ctx| ctx.get_prev_notarized_block(round))
+            .await
+    }
+
+    pub async fn get_next_notarized_block(&self, round: BlockRound) -> Option<BlockHeader> {
+        self.db
+            .read_with_expect(|ctx| ctx.get_next_notarized_block(round))
+            .await
+    }
+    pub async fn get_block_payload(
+        &self,
+        block_payload_hash: BlockPayloadHash,
+    ) -> Option<BlockPayloadRaw> {
+        self.db
+            .read_with_expect(|ctx| ctx.get_block_payload(block_payload_hash))
             .await
     }
 
@@ -174,7 +188,7 @@ impl Consensus {
                 }
                 if let Some(block) = ctx.get_vote_block(round, peer_idx)? {
                     if peer_idx == round.leader_idx(round_consensus_params.num_peers()) {
-                        let Some(payload) = ctx.get_payload(block.inner.payload_hash)? else {
+                        let Some(payload) = ctx.get_block_payload(block.inner.payload_hash)? else {
                             warn!(
                                 target: LOG_TARGET,
                                 %round,

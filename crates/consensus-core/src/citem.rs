@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 
-mod transaction;
-mod transaction_nonce;
+pub mod transaction;
+pub mod transaction_nonce;
 use std::sync::Arc;
 
 use bincode::{BorrowDecode, Decode, Encode};
@@ -27,16 +27,16 @@ pub enum CoreCitem {
     RemovePeerVote(PeerPubkey),
 }
 
-#[derive(Deref, Encode, Decode)]
+#[derive(Deref, Encode, Decode, Clone)]
 pub struct InputRaw(pub Arc<[u8]>);
 
-#[derive(Deref, Encode, Decode)]
+#[derive(Deref, Encode, Decode, Clone)]
 pub struct OutputRaw(pub Arc<[u8]>);
 
-#[derive(Deref, Encode, Decode)]
+#[derive(Deref, Encode, Decode, Clone)]
 pub struct CItemRaw(pub Arc<[u8]>);
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub struct ModuleDyn<Inner> {
     module_id: ModuleId,
     inner: Inner,
@@ -55,7 +55,6 @@ impl<Inner> ModuleDyn<Inner> {
         &self.inner
     }
 }
-
 impl<Inner, C> Decode<C> for ModuleDyn<Inner>
 where
     Inner: Decode<C>,

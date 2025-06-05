@@ -1,3 +1,4 @@
+use bfte_consensus_core::module::ModuleId;
 use maud::{DOCTYPE, Markup, html};
 
 use crate::UiState;
@@ -10,19 +11,18 @@ impl UiState {
                 meta charset="utf-8";
                 meta name="viewport" content="width=device-width, initial-scale=1";
                 meta name="color-scheme" content="light dark";
+                title { (page_title) }
                 link rel="stylesheet" type="text/css" href=(ROUTE_PICO_CSS);
                 link rel="stylesheet" type="text/css" href=(ROUTE_STYLE_CSS);
                 link rel="icon" type="image/png" href=(ROUTE_LOGO_PNG);
-                title { (page_title) }
-                // Load htmx right away so it's immediately available, use defer to make it
+                // Load datastar right away so it's immediately available, use defer to make it
                 // non-blocking
                 script defer type="module" src=(ROUTE_DATASTAR_JS) {}
-                // script defer src=(ROUTE_DATASTAR_JS) {}
             }
         }
     }
 
-    pub fn render_html_page(
+    pub async fn render_html_page(
         &self,
         active_navbar: Option<NavbarSelector>,
         title: &str,
@@ -36,7 +36,7 @@ impl UiState {
                 body {
                     header {
                         @if let Some(active_navbar) = active_navbar {
-                            (self.render_page_header(active_navbar))
+                            (self.render_page_navbar(active_navbar).await)
                         }
                     }
 
@@ -48,13 +48,13 @@ impl UiState {
         }
     }
 
-    fn render_page_header(&self, active_nabvar: NavbarSelector) -> Markup {
+    async fn render_page_navbar(&self, active_nabvar: NavbarSelector) -> Markup {
         html! {
             aside {
                 nav
                     data-signals__ifmissing="{ nav: { openTabs: {
                         consensus: false,
-                        another: false,
+                        modules: false,
                     }}}"
                     data-persist="$nav.openTabs.*"
                 {
@@ -86,19 +86,22 @@ impl UiState {
                         }
 
                         details
-                            data-attr="{ open: $nav.openTabs.another }"
+                            data-attr="{ open: $nav.openTabs.modules }"
                         {
                             summary
-                                data-on-click__prevent="$nav.openTabs.another = !$nav.openTabs.another"
+                                data-on-click__prevent="$nav.openTabs.modules = !$nav.openTabs.modules"
+                                aria-current=[active_nabvar.is_module().then_some("true")]
                             {
-                                "Another"
+                                "Modules"
                             }
                             ul {
-                                li {
-                                    a ."secondary" data-discover="true" href="/ui/tdb" { "Test 1" }
-                                }
-                                li {
-                                    a ."secondary" data-discover="true" href="/ui/tdb" { "Test 2" }
+                                @for (module_id, name) in self.modules.display_names().await {
+                                    li {
+                                        a ."secondary"
+                                        data-discover="true"
+                                        aria-current=[active_nabvar.is_module_id(module_id).then_some("true")]
+                                        href=(format!("/ui/module/{module_id}")) { (format!("{module_id}. {name}")) }
+                                    }
                                 }
                             }
                         }
@@ -110,13 +113,20 @@ impl UiState {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum NavbarSelector {
     Consensus,
+    Module(ModuleId),
 }
 
 impl NavbarSelector {
     fn is_consensus(self) -> bool {
         matches!(self, NavbarSelector::Consensus)
+    }
+    fn is_module(self) -> bool {
+        matches!(self, NavbarSelector::Module(_))
+    }
+    fn is_module_id(self, module_id: ModuleId) -> bool {
+        self == NavbarSelector::Module(module_id)
     }
 }

@@ -126,19 +126,29 @@ impl Bfte {
             .maybe_root_secret(secret)
             .maybe_force_ui_password(opts.force_ui_password)
             .db(db)
-            .ui(Box::new(move |api| {
-                Box::pin(async move { bfte_node_ui_axum::run(api, opts.bind_ui).await })
-            }))
-            .app(Box::new(move |db, api, shared_modules| {
-                Box::pin({
-                    let modules_inits = modules_inits.clone();
-                    async move {
-                        bfte_node_app::NodeApp::new(db, api, modules_inits, shared_modules)
-                            .run()
-                            .await
-                    }
+            .ui(Box::new(move |api, weak_shared_modules| {
+                Box::pin(async move {
+                    bfte_node_ui_axum::run(api, opts.bind_ui, weak_shared_modules).await
                 })
             }))
+            .app(Box::new(
+                move |db, api, shared_modules, pending_transactions_tx| {
+                    Box::pin({
+                        let modules_inits = modules_inits.clone();
+                        async move {
+                            bfte_node_app::NodeApp::new(
+                                db,
+                                api,
+                                modules_inits,
+                                shared_modules,
+                                pending_transactions_tx,
+                            )
+                            .run()
+                            .await
+                        }
+                    })
+                },
+            ))
             .build()
             .await
             .whatever_context("Failed to build node")?

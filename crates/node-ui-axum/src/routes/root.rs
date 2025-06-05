@@ -35,11 +35,11 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
             "Current round"
         }
     };
-    Ok(Maud(state.render_html_page(
-        Some(NavbarSelector::Consensus),
-        "Hello!",
-        content,
-    )))
+    Ok(Maud(
+        state
+            .render_html_page(Some(NavbarSelector::Consensus), "Hello!", content)
+            .await,
+    ))
 }
 
 pub async fn current_round(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {

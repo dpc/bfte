@@ -7,16 +7,19 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use bfte_consensus_core::block::{BlockHeader, BlockRound};
 use bfte_consensus_core::citem::CItem;
+use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_db::Database;
 use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
+use tokio::sync::watch;
 
 pub type RunNodeAppFn = Box<
     dyn Fn(
             Arc<Database>,
             NodeAppApi,
             SharedModules,
+            watch::Sender<Vec<Transaction>>,
         ) -> Pin<Box<dyn Future<Output = WhateverResult<Infallible>> + Send>>
         + Send
         + Sync

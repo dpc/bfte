@@ -5,19 +5,22 @@ use std::{env, future};
 
 use backon::Retryable as _;
 use bfte_consensus::vote_set::VoteSet;
-use bfte_consensus_core::block::{BlockHeader, BlockRound};
+use bfte_consensus_core::block::{BlockHeader, BlockPayloadRaw, BlockRound};
+use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::msg::{
     WaitNotarizedBlockRequest, WaitNotarizedBlockResponse, WaitVoteRequest, WaitVoteResponse,
 };
 use bfte_consensus_core::peer::{PeerIdx, PeerPubkey};
 use bfte_consensus_core::signed::Signed;
+use bfte_consensus_core::timestamp::Timestamp;
 use bfte_util_core::is_env_var_set;
 use bfte_util_error::WhateverResult;
 use bfte_util_error::fmt::FmtCompact as _;
 use bfte_util_fmt_opt::AsFmtOption as _;
 use iroh_dpc_rpc::bincode::RpcExtBincode as _;
 use snafu::{ResultExt as _, Whatever};
+use tokio::select;
 use tokio::task::JoinSet;
 use tracing::{debug, info, instrument, trace, warn};
 
@@ -95,7 +98,7 @@ impl Node {
         info!(
             target: LOG_TARGET,
             %round,
-            seq = %prev_notarized_block.map(|b| b.seq).fmt_option(),
+            prev_seq = %prev_notarized_block.map(|b| b.seq).fmt_option(),
             num_peers = %params.num_peers(),
             our_peer_idx = %our_peer_idx.fmt_option(),
             leader_idx = %round.leader_idx(params.num_peers()),
@@ -454,12 +457,82 @@ impl Node {
         round: BlockRound,
         our_peer_idx: PeerIdx,
     ) -> RoundEvent {
-        let (block, payload) = self.consensus_expect().generate_proposal(round).await;
-        debug!(
-            target: LOG_TARGET,
-            hash = %block.hash(),
-            "Proposing block"
+        let mut node_app_ack_rx = self.node_app_ack_rx.clone();
+        let mut consensus_finality_rx = self.consensus_expect().finality_consensus_rx();
+        let mut pending_transactions_rx = self.pending_transactions_rx.clone();
+
+        // TODO: is this needed?
+        node_app_ack_rx.mark_unchanged();
+        consensus_finality_rx.mark_unchanged();
+        pending_transactions_rx.mark_unchanged();
+
+        let mut pending_citems: Vec<CItem> = Default::default();
+
+        loop {
+            // We only want to propose anything, if app layer is up to date with the latest
+            // finality
+            let Ok(_) = consensus_finality_rx
+                .wait_for(|finality| *finality == *node_app_ack_rx.borrow())
+                .await
+            else {
+                future::pending().await
+            };
+
+            if !pending_transactions_rx.borrow().is_empty() {
+                break;
+            }
+
+            select! {
+                // We check proposed citems from our modules with priority,
+                // and add pending transactions to this list.
+                biased;
+
+                // If the finality was increased, we want to wait for the node_app
+                // to catch up to the new height immediately and retry
+                _ = consensus_finality_rx.changed() => {
+                    continue;
+                },
+
+                // If we get any pending citems, we're done
+                //
+                // Since we already have these citems, we record them
+                // in a local variable and break.
+                citems = self.weak_shared_modules.wait_consensus_proposal() => {
+                    if !citems.is_empty() {
+                        pending_citems = citems;
+                        break;
+                    }
+
+                    continue;
+                },
+
+                // If there are any pending transactions, we break.
+                _res = pending_transactions_rx.changed() => {
+
+                    if _res.is_err() {
+                        // If we're shutting down, just sleep and get dropped
+                        future::pending().await
+                    }
+
+                    if !pending_transactions_rx.borrow().is_empty() {
+                        break;
+                    }
+
+                    continue;
+                },
+            };
+        }
+
+        pending_citems.extend(
+            pending_transactions_rx
+                .borrow()
+                .iter()
+                .map(|tx| CItem::Transaction(tx.to_owned())),
         );
+
+        debug!(target: LOG_TARGET, %round, items = %pending_citems.len(), "Building new block proposal");
+        let (block, payload) = self.generate_proposal(round, &pending_citems).await;
+
         let seckey = self.get_peer_secret_expect();
         let resp = WaitVoteResponse::Proposal {
             block: Signed::new_sign(block, seckey),
@@ -472,6 +545,28 @@ impl Node {
         }
     }
 
+    pub async fn generate_proposal(
+        &self,
+        round: BlockRound,
+        citems: &[CItem],
+    ) -> (BlockHeader, BlockPayloadRaw) {
+        let consensus_params = self.consensus_expect().get_consensus_params(round).await;
+        let prev_block = self
+            .consensus_expect()
+            .get_prev_notarized_block(round)
+            .await;
+        let payload = BlockPayloadRaw::encode_citems(citems);
+        (
+            BlockHeader::builder()
+                .maybe_prev(prev_block)
+                .round(round)
+                .consensus_params(&consensus_params)
+                .payload(&payload)
+                .timestamp(Timestamp::now())
+                .build(),
+            payload,
+        )
+    }
     async fn request_peer_vote(
         connection_pool: ConnectionPool,
         round: BlockRound,

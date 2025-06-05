@@ -78,6 +78,8 @@ impl UiState {
                 }
             }
         };
-        Ok(self.render_html_page(None, "Initialize Consensus", content))
+        Ok(self
+            .render_html_page(None, "Initialize Consensus", content)
+            .await)
     }
 }

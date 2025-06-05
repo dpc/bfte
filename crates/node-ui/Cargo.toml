@@ -8,6 +8,7 @@ version.workspace = true
 async-trait = { workspace = true }
 bfte-consensus-core = { workspace = true }
 bfte-invite = { workspace = true }
+bfte-node-shared-modules = { workspace = true }
 bfte-util-error = { workspace = true }
 blake3 = { workspace = true }
 tokio = { workspace = true }

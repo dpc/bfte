@@ -295,6 +295,14 @@ impl BlockPayloadRaw {
         decode_whole(&self.as_inner_slice(), CONSENSUS_BINCODE_CONFIG)
             .whatever_context("Unable to decode block payload")
     }
+
+    pub fn encode_citems(citems: &[CItem]) -> Self {
+        Self(
+            bincode::encode_to_vec(citems, CONSENSUS_BINCODE_CONFIG)
+                .expect("Can't fail")
+                .into(),
+        )
+    }
 }
 array_type_define! {
     #[derive(Encode, Decode)]

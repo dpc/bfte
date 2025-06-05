@@ -4,14 +4,14 @@ use bincode::{Decode, Encode};
 use super::transaction_nonce::TransactionNonce;
 use super::{InputRaw, ModuleDyn, OutputRaw};
 
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, Clone)]
 pub struct TransactionUnsigned {
     pub nonce: TransactionNonce,
     pub inputs: Vec<ModuleDyn<InputRaw>>,
     pub outputs: Vec<ModuleDyn<OutputRaw>>,
 }
 
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, Clone)]
 pub struct Transaction {
     pub inner: TransactionUnsigned,
     pub signature: TransactionSignature,
