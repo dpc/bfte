@@ -1,4 +1,4 @@
-mod core_consensus_module;
+mod core_consensus;
 
 use std::any::Any;
 
@@ -46,21 +46,6 @@ impl UiState {
             kind => html! {
                 (format!("TBD. Generic handling of module {module_id} of kind {}", kind))
             },
-        }
-    }
-
-    async fn render_consensus_module_page(
-        &self,
-        module_id: bfte_consensus_core::module::ModuleId,
-        consensus_module_ref: &bfte_module_core_consensus::CoreConsensusModule,
-    ) -> maud::PreEscaped<String> {
-        let module_configs = consensus_module_ref.get_modules_configs().await;
-        html! {
-            "Core consensus module"
-
-            prev {
-                (format!("{module_configs:?}"))
-            }
         }
     }
 }

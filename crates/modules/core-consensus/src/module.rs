@@ -5,6 +5,8 @@ use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::citem::{CItemRaw, InputRaw, OutputRaw};
 use bfte_consensus_core::module::ModuleId;
+use bfte_consensus_core::peer::PeerPubkey;
+use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_module::effect::{CItemEffect, ModuleCItemEffect};
 use bfte_module::module::IModule;
@@ -46,6 +48,21 @@ impl CoreConsensusModule {
             })
             .await
     }
+
+    pub async fn get_peer_set(&self) -> PeerSet {
+        self.db
+            .read_with_expect(|dbtx| {
+                let tbl = dbtx.open_table(&tables::peers::TABLE)?;
+
+                tbl.range(..)?
+                    .map(|kv| {
+                        let (k, _) = kv?;
+                        Ok(k.value())
+                    })
+                    .collect()
+            })
+            .await
+    }
 }
 
 #[async_trait]
@@ -62,6 +79,7 @@ impl IModule for CoreConsensusModule {
         &self,
         _dbtx: &ModuleReadTransaction,
         _round: BlockRound,
+        _peer_pubkey: PeerPubkey,
         _citem: &CItemRaw,
     ) -> WhateverResult<Vec<CItemEffect>> {
         todo!()

@@ -18,7 +18,7 @@ use bfte_db::Database;
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::ModuleWriteTransactionCtx;
 use bfte_module::module::{DynModuleInit, DynModuleWithConfig, ModuleInit, ModuleInitArgs};
-use bfte_module_core_consensus::{ConsensusModuleInit, CoreConsensusModule};
+use bfte_module_core_consensus::{CoreConsensusModule, CoreConsensusModuleInit};
 use bfte_node_app_core::NodeAppApi;
 use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
@@ -67,7 +67,7 @@ impl NodeApp {
     ) -> Self {
         modules_inits
             .entry(bfte_module_core_consensus::KIND)
-            .or_insert_with(|| Arc::new(bfte_module_core_consensus::init::ConsensusModuleInit));
+            .or_insert_with(|| Arc::new(bfte_module_core_consensus::init::CoreConsensusModuleInit));
         Self {
             node_api,
             modules_inits,
@@ -95,14 +95,14 @@ impl NodeApp {
 
         loop {
             debug!(target: LOG_TARGET, ?cur_round_idx, "Awaiting next round...");
-            let (block_header, citems) =
+            let (block_header, peer_pubkey, citems) =
                 self.node_api.ack_and_wait_next_block(cur_round_idx.0).await;
             debug!(target: LOG_TARGET, round = %block_header.round, "Processing new block...");
 
             for (idx, citem) in citems.iter().enumerate() {
                 let idx = BlockCItemIdx::from(u32::try_from(idx).expect("Can't fail"));
                 if cur_round_idx.1 <= idx {
-                    self.process_citem(cur_round_idx, &block_header, citem)
+                    self.process_citem(cur_round_idx, &block_header, peer_pubkey, citem)
                         .await;
                 }
                 cur_round_idx.1 = idx;
@@ -142,17 +142,21 @@ impl NodeApp {
         assert!(modules_write.is_empty());
         let consensus_module_init = self
             .modules_inits
-            .get(&ConsensusModuleInit.kind())
+            .get(&CoreConsensusModuleInit.kind())
             .whatever_context("Missing module init for consensus module kind")?;
         let consensus_module_init = (consensus_module_init.as_ref() as &dyn Any)
-            .downcast_ref::<ConsensusModuleInit>()
+            .downcast_ref::<CoreConsensusModuleInit>()
             .expect("Must be a consensus module");
         let default_config = self
             .db
             .write_with_expect(|dbtx| {
                 let dbtx = &ModuleWriteTransactionCtx::new(CONSENSUS_MODULE_ID, dbtx);
 
-                consensus_module_init.init_consensus(dbtx, CONSENSUS_MODULE_ID, consensus_params)
+                consensus_module_init.bootstrap_consensus(
+                    dbtx,
+                    CONSENSUS_MODULE_ID,
+                    consensus_params,
+                )
             })
             .await;
         let new_modules_configs = BTreeMap::from([(CONSENSUS_MODULE_ID, default_config)]);

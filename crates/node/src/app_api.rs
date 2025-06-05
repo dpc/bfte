@@ -7,6 +7,7 @@ use bfte_consensus_core::block::{BlockHeader, BlockRound};
 use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
+use bfte_consensus_core::peer::PeerPubkey;
 use bfte_db::Database;
 use bfte_node_app_core::{INodeAppApi, RunNodeAppFn};
 use bfte_node_shared_modules::SharedModules;
@@ -43,7 +44,10 @@ impl INodeAppApi for NodeAppApi {
             .await
     }
 
-    async fn ack_and_wait_next_block<'f>(&self, round: BlockRound) -> (BlockHeader, Arc<[CItem]>) {
+    async fn ack_and_wait_next_block<'f>(
+        &self,
+        round: BlockRound,
+    ) -> (BlockHeader, PeerPubkey, Arc<[CItem]>) {
         let node_ref = self.node_ref_wait().await;
 
         node_ref.node_app_ack_tx.send_replace(round);
@@ -67,9 +71,19 @@ impl INodeAppApi for NodeAppApi {
             .await
             .expect("Must have notarized block payload");
 
+        let params = consensus.get_consensus_params(block.round).await;
+
+        let leader_idx = block.round.leader_idx(params.num_peers());
+
+        let peer_pubkey = params
+            .peers
+            .as_slice()
+            .get(leader_idx.as_usize())
+            .expect("Must exist");
+
         let block_payload = block_payload.decode_citems().expect("Can't fail");
 
-        (block, block_payload)
+        (block, *peer_pubkey, block_payload)
     }
 
     async fn schedule_consensus_params(&self, _consensus_params: ConsensusParams) {

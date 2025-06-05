@@ -13,19 +13,19 @@ use bfte_module::module::{
 };
 use snafu::ensure;
 
-use crate::tables::modules_configs;
+use crate::tables::{self, modules_configs};
 use crate::{CURRENT_VERSION, KIND};
 
-pub struct ConsensusModuleInit;
+pub struct CoreConsensusModuleInit;
 
-impl ConsensusModuleInit {
+impl CoreConsensusModuleInit {
     /// Initialize consensus module
     ///
     /// Since consensus module is the one storing consensus configs for itself
     /// and other modules, it needs to be initialized manually.
     ///
     /// Its own [`ModuleConfig`] it was initialized with
-    pub fn init_consensus(
+    pub fn bootstrap_consensus(
         &self,
         dbtx: &ModuleWriteTransactionCtx,
         module_id: ModuleId,
@@ -35,22 +35,33 @@ impl ConsensusModuleInit {
             kind: KIND,
             version: CURRENT_VERSION,
             params: bincode::encode_to_vec(
-                &super::params::ConsensusModuleParams { consensus_params },
+                &super::params::CoreConsensusModuleParams {
+                    consensus_params: consensus_params.clone(),
+                },
                 CONSENSUS_BINCODE_CONFIG,
             )
             .expect("Can't fail")
             .into(),
         };
 
-        let mut tbl = dbtx.open_table(&modules_configs::TABLE)?;
-        tbl.insert(&module_id, &config)?;
+        {
+            let mut tbl = dbtx.open_table(&modules_configs::TABLE)?;
+            tbl.insert(&module_id, &config)?;
+        }
+
+        {
+            let mut tbl = dbtx.open_table(&tables::peers::TABLE)?;
+            for peer in consensus_params.peers {
+                tbl.insert(&peer, &())?;
+            }
+        }
 
         Ok(config)
     }
 }
 
 #[async_trait]
-impl ModuleInit for ConsensusModuleInit {
+impl ModuleInit for CoreConsensusModuleInit {
     fn kind(&self) -> ModuleKind {
         crate::KIND
     }

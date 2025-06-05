@@ -1,6 +1,7 @@
 use bfte_consensus_core::block::{BlockHeader, BlockRound};
 use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::module::ModuleId;
+use bfte_consensus_core::peer::PeerPubkey;
 use bfte_db::error::TxSnafu;
 use bfte_module::effect::ModuleCItemEffect;
 use bfte_module::module::db::{ModuleReadTransaction, ModuleWriteTransactionCtx};
@@ -42,10 +43,16 @@ impl NodeApp {
         &self,
         (cur_round, cur_citem_idx): (BlockRound, BlockCItemIdx),
         block_header: &BlockHeader,
+        peer_pubkey: PeerPubkey,
         citem: &CItem,
     ) {
         if let Err(err) = self
-            .process_citem_try((cur_round, cur_citem_idx), block_header.round, citem)
+            .process_citem_try(
+                (cur_round, cur_citem_idx),
+                block_header.round,
+                peer_pubkey,
+                citem,
+            )
             .await
         {
             debug!(target: LOG_TARGET, err = %err.fmt_compact(), %cur_round, %cur_citem_idx, "Invalid consensus item" );
@@ -61,6 +68,7 @@ impl NodeApp {
         &self,
         (cur_round, cur_citem_idx): (BlockRound, BlockCItemIdx),
         block_round: BlockRound,
+        peer_pubkey: PeerPubkey,
         citem: &CItem,
     ) -> ProcessCItemResult<()> {
         let modules = self.modules.read().await;
@@ -83,7 +91,12 @@ impl NodeApp {
                         let module_dbtx = ModuleReadTransaction::new(module_id, dbtx);
 
                         let effects = module
-                            .process_citem(&module_dbtx, block_round, module_citem.inner())
+                            .process_citem(
+                                &module_dbtx,
+                                block_round,
+                                peer_pubkey,
+                                module_citem.inner(),
+                            )
                             .context(ProcessingCItemFailedSnafu { module_id })
                             .context(TxSnafu)?
                             .into_iter()

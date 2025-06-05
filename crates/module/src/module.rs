@@ -10,6 +10,7 @@ use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::citem::{CItemRaw, InputRaw, OutputRaw};
 use bfte_consensus_core::module::config::ModuleParamsRaw;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
+use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_db::Database;
 use bfte_util_error::WhateverResult;
@@ -106,6 +107,7 @@ pub trait IModule: Any {
         &self,
         dbtx: &ModuleReadTransaction,
         round: BlockRound,
+        peer_pubkey: PeerPubkey,
         citem: &CItemRaw,
     ) -> WhateverResult<Vec<CItemEffect>>;
 
