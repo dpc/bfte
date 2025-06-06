@@ -172,7 +172,7 @@ impl NodeApp {
                 consensus_module_init.bootstrap_consensus(
                     dbtx,
                     CONSENSUS_MODULE_ID,
-                    consensus_params,
+                    consensus_params.peers,
                 )
             })
             .await;

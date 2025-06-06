@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use bfte_consensus_core::bincode::CONSENSUS_BINCODE_CONFIG;
-use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
+use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::ver::{ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{DbResult, ModuleWriteTransactionCtx};
@@ -30,15 +30,13 @@ impl CoreConsensusModuleInit {
         &self,
         dbtx: &ModuleWriteTransactionCtx,
         module_id: ModuleId,
-        consensus_params: ConsensusParams,
+        peer_set: PeerSet,
     ) -> DbResult<ModuleConfig> {
         let config = ModuleConfig {
             kind: KIND,
             version: CURRENT_VERSION,
             params: bincode::encode_to_vec(
-                &super::params::CoreConsensusModuleParams {
-                    consensus_params: consensus_params.clone(),
-                },
+                &super::params::CoreConsensusModuleParams {},
                 CONSENSUS_BINCODE_CONFIG,
             )
             .expect("Can't fail")
@@ -52,7 +50,7 @@ impl CoreConsensusModuleInit {
 
         {
             let mut tbl = dbtx.open_table(&tables::peers::TABLE)?;
-            for peer in consensus_params.peers {
+            for peer in peer_set {
                 tbl.insert(&peer, &())?;
             }
         }

@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use bfte_consensus_core::bincode::CONSENSUS_BINCODE_CONFIG;
 use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::citem::{CItemRaw, InputRaw, OutputRaw};
 use bfte_consensus_core::module::ModuleId;
@@ -10,42 +9,17 @@ use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_db::error::TxSnafu;
-use bfte_module::effect::{CItemEffect, EffectId, ModuleCItemEffect};
+use bfte_module::effect::{CItemEffect, EffectKindExt, ModuleCItemEffect};
 use bfte_module::module::IModule;
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{DbResult, DbTxResult, ModuleDatabase, ModuleWriteTransactionCtx};
 use bfte_util_error::{Whatever, WhateverResult};
-use bincode::{Decode, Encode};
-use serde::{Deserialize, Serialize};
 use snafu::{OptionExt as _, ResultExt as _, whatever};
 use tokio::sync::watch;
 
+use crate::citem::CoreConsensusCitem;
+use crate::effects::AddPeerEffect;
 use crate::tables;
-
-#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
-pub enum CoreConsensusCitem {
-    VoteAddPeer(PeerPubkey),
-}
-
-#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
-pub enum CoreConsensusCItemEffect {
-    AddPeer(PeerPubkey),
-}
-
-impl CoreConsensusCitem {
-    pub fn to_citem_raw(&self) -> CItemRaw {
-        let serialized = bincode::encode_to_vec(self, CONSENSUS_BINCODE_CONFIG)
-            .expect("encoding should not fail");
-        CItemRaw(serialized.into())
-    }
-
-    pub fn from_citem_raw(citem_raw: &CItemRaw) -> WhateverResult<Self> {
-        match bincode::decode_from_slice(citem_raw, CONSENSUS_BINCODE_CONFIG) {
-            Ok((citem, _)) => Ok(citem),
-            Err(e) => whatever!("Failed to decode CoreConsensusCitem: {e}"),
-        }
-    }
-}
 
 pub struct CoreConsensusModule {
     #[allow(dead_code)]
@@ -204,16 +178,34 @@ impl CoreConsensusModule {
 
         let mut effects = vec![];
         if votes_for_candidate >= threshold {
-            // This peer should be added to the consensus
-            effects.push(CItemEffect {
-                effect_id: EffectId::new(0), // Use effect ID 0 for AddPeer
-                raw: bincode::encode_to_vec(
-                    CoreConsensusCItemEffect::AddPeer(peer_to_add),
-                    CONSENSUS_BINCODE_CONFIG,
-                )
-                .expect("encoding should not fail")
-                .into(),
-            });
+            // Threshold reached - add the peer immediately and emit effect
+            
+            // Clear all votes for adding this peer since it's now being added
+            // (we already have the table open, so we can reuse it)
+            let peers_to_clear: Vec<PeerPubkey> = tbl
+                .range(..)?
+                .filter_map(|kv| {
+                    let (voter, voted_for) = kv.ok()?;
+                    if voted_for.value() == peer_to_add {
+                        Some(voter.value())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            for voter in peers_to_clear {
+                tbl.remove(&voter)?;
+            }
+            
+            // Insert the peer into the peers table
+            {
+                let mut peers_tbl = dbtx.open_table(&tables::peers::TABLE)?;
+                peers_tbl.insert(&peer_to_add, &())?;
+            }
+
+            let add_peer_effect = AddPeerEffect { peer: peer_to_add };
+            effects.push(EffectKindExt::encode(&add_peer_effect));
         }
 
         Ok(effects)
@@ -261,7 +253,8 @@ impl IModule for CoreConsensusModule {
         _dbtx: &ModuleWriteTransactionCtx,
         _input: &InputRaw,
     ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
-        todo!()
+        None.whatever_context("Module does not support any inputs")
+            .context(TxSnafu)?
     }
 
     fn process_output(
@@ -269,14 +262,38 @@ impl IModule for CoreConsensusModule {
         _dbtx: &ModuleWriteTransactionCtx,
         _output: &OutputRaw,
     ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
-        todo!()
+        None.whatever_context("Module does not support any outputs")
+            .context(TxSnafu)?
     }
 
     fn process_effects(
         &self,
         _dbtx: &ModuleWriteTransactionCtx,
         _effects: &[ModuleCItemEffect],
-    ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
-        todo!()
+    ) -> DbTxResult<(), Whatever> {
+        // Effect processing is commented out - database changes happen directly in
+        // process_vote_add_peer when the threshold is reached
+
+        // for effect in effects {
+        //     // Only process effects from our own module
+        //     if effect.module_kind() != crate::KIND {
+        //         continue;
+        //     }
+
+        //     // Check if this is our AddPeer effect (effect ID 0)
+        //     if effect.inner().effect_id == EffectId::new(0) {
+        //         // Decode the AddPeerEffect
+        //         let add_peer_effect: AddPeerEffect =
+        // EffectKindExt::decode(effect.inner())             .map_err(|e|
+        // format!("Failed to decode AddPeerEffect: {e}"))
+        // .whatever_context("Decoding AddPeerEffect")
+        // .context(TxSnafu)?;
+
+        //         // Process the peer addition
+        //         self.process_add_peer_effect(dbtx, add_peer_effect.peer)?;
+        //     }
+        // }
+
+        Ok(())
     }
 }

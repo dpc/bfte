@@ -13,12 +13,31 @@ impl EffectId {
     }
 }
 
-pub trait EffectKind {
+pub trait EffectKind: Encode + Decode<()> {
     const MODULE_KIND: ModuleKind;
     const EFFECT_ID: EffectId;
-
-    type Payload: Encode + Decode<()>;
 }
+
+pub trait EffectKindExt: EffectKind {
+    fn encode(&self) -> CItemEffect {
+        let encoded = bincode::encode_to_vec(self, bincode::config::standard())
+            .expect("encoding should not fail");
+        CItemEffect {
+            effect_id: Self::EFFECT_ID,
+            raw: encoded.into(),
+        }
+    }
+
+    fn decode(effect: &CItemEffect) -> Result<Self, bincode::error::DecodeError> {
+        if effect.effect_id != Self::EFFECT_ID {
+            return Err(bincode::error::DecodeError::Other("effect ID mismatch"));
+        }
+        let (decoded, _) = bincode::decode_from_slice(&effect.raw, bincode::config::standard())?;
+        Ok(decoded)
+    }
+}
+
+impl<T: EffectKind> EffectKindExt for T {}
 
 #[derive(Deref, Encode, Decode)]
 pub struct CItemEffect {
@@ -36,6 +55,14 @@ pub struct ModuleCItemEffect {
 impl ModuleCItemEffect {
     pub fn new(module_kind: ModuleKind, inner: CItemEffect) -> Self {
         Self { module_kind, inner }
+    }
+
+    pub fn module_kind(&self) -> ModuleKind {
+        self.module_kind
+    }
+
+    pub fn inner(&self) -> &CItemEffect {
+        &self.inner
     }
 }
 

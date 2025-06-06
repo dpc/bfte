@@ -144,5 +144,5 @@ pub trait IModule: Any {
         &self,
         dbtx: &ModuleWriteTransactionCtx,
         effects: &[ModuleCItemEffect],
-    ) -> DbTxResult<Vec<CItemEffect>, Whatever>;
+    ) -> DbTxResult<(), Whatever>;
 }

@@ -80,6 +80,19 @@ where
         }
     }
 }
+
+/// Database transaction error with a user-defined application error
+///
+/// Basically, it can either be some kind of a database issue bubbling
+/// up, or whatever error `E` the user needs for the db transaction logic
+/// to error out.
+///
+/// This type might be a bit hard to use. Maybe I'm overcomplicating
+/// it. --dpc
+///
+/// Look up existing usages, and be aware of helper functions like
+/// [`DbTxError::tx_into`], [`DbTxError::map`], and custom `From`
+/// implementations to help with it.
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub))]
 pub enum DbTxError<E>
@@ -118,6 +131,7 @@ where
     }
 }
 
+/// A `Result` with `T` as success, and [`DbTxError`] as the error.
 pub type DbTxResult<T, E> = std::result::Result<T, DbTxError<E>>;
 
 impl<E> DbTxError<E>

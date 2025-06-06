@@ -2,7 +2,8 @@ use axum::Router;
 use axum::routing::{get, post};
 
 use crate::{
-    ArcUiState, ROUTE_DS_CURRENT_ROUND, ROUTE_INIT_CONSENSUS, ROUTE_LOGIN, ROUTE_MODULE, ROUTE_MODULE_ADD_PEER_VOTE, ROUTE_UI,
+    ArcUiState, ROUTE_DS_CURRENT_ROUND, ROUTE_INIT_CONSENSUS, ROUTE_LOGIN, ROUTE_MODULE,
+    ROUTE_MODULE_ADD_PEER_VOTE, ROUTE_UI,
 };
 
 pub(crate) mod init;

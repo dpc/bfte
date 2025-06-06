@@ -3,9 +3,9 @@ mod core_consensus;
 use std::any::Any;
 use std::str::FromStr;
 
+use axum::Form;
 use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Redirect};
-use axum::Form;
 use bfte_consensus_core::module::ModuleId;
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_module_core_consensus::CoreConsensusModule;
@@ -53,7 +53,9 @@ pub async fn post_add_peer_vote(
         };
 
         if let Ok(peer_pubkey) = PeerPubkey::from_str(&form.peer_pubkey) {
-            let _ = consensus_module_ref.set_pending_add_peer_vote(peer_pubkey).await;
+            let _ = consensus_module_ref
+                .set_pending_add_peer_vote(peer_pubkey)
+                .await;
         }
     }
 

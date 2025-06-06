@@ -15,6 +15,7 @@ pub mod block;
 pub mod citem;
 pub mod consensus_params;
 pub mod federation_id;
+pub mod module;
 pub mod msg;
 pub mod num_peers;
 pub mod peer;
@@ -23,7 +24,6 @@ pub mod signed;
 pub mod timestamp;
 pub mod ver;
 pub mod vote;
-pub mod module;
 
 array_type_define! {
     #[derive(Encode, Decode, Copy, Clone)]
