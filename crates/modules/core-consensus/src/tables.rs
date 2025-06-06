@@ -18,3 +18,7 @@ def_table! {
 def_table! {
     remove_peer_votes: PeerPubkey /* voter */ => PeerPubkey /* voted to be removed */
 }
+
+def_table! {
+    pending_add_peer_vote: () => PeerPubkey
+}

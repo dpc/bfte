@@ -12,6 +12,7 @@ use bfte_module::module::{
     IModule, ModuleInit, ModuleInitArgs, ModuleInitResult, UnsupportedVersionSnafu,
 };
 use snafu::ensure;
+use tokio::sync::watch;
 
 use crate::tables::{self, modules_configs};
 use crate::{CURRENT_VERSION, KIND};
@@ -88,10 +89,14 @@ impl ModuleInit for CoreConsensusModuleInit {
             }
         );
 
+        let (propose_citems_tx, propose_citems_rx) = watch::channel(Vec::new());
+
         Ok(Arc::new(super::CoreConsensusModule {
             db: args.db,
             version: args.module_consensus_version,
             peer_pubkey: args.peer_pubkey,
+            propose_citems_rx,
+            propose_citems_tx,
         }))
     }
 }

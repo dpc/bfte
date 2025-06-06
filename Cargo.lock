@@ -564,9 +564,11 @@ dependencies = [
  "async-trait",
  "bfte-consensus-core",
  "bfte-module",
+ "bfte-util-bincode",
  "bfte-util-db",
  "bfte-util-error",
  "bincode",
+ "serde",
  "snafu",
  "tokio",
 ]

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Weak};
-use std::{marker, ops};
+use std::{future, marker, ops};
 
 use bfte_consensus_core::citem::{CItem, ModuleDyn};
 use bfte_consensus_core::module::ModuleId;
@@ -72,7 +72,7 @@ impl WeakSharedModules {
     pub async fn wait_consensus_proposal(&self) -> Vec<CItem> {
         let arc = self.upgrade_or_hang().await;
 
-        let mut stream_map: StreamMap<ModuleId, WatchStream<_>> = StreamMap::new();
+        let mut stream_map: StreamMap<ModuleId, _> = StreamMap::new();
 
         let read = arc.read().await;
 
@@ -87,7 +87,10 @@ impl WeakSharedModules {
                         .collect();
                 }
             }
-            stream_map.insert(module_id, WatchStream::new(citems_rx));
+            stream_map.insert(
+                module_id,
+                WatchStream::new(citems_rx).filter(|v| !v.is_empty()),
+            );
         }
 
         // Important; We don't want to be holding the lock. Big part of why
@@ -95,7 +98,17 @@ impl WeakSharedModules {
         // and detect modules being distroyed from undrneath as well.
         drop(read);
 
-        todo!()
+        use tokio_stream::StreamExt as _;
+
+        if let Some((module_id, citems)) = stream_map.next().await {
+            assert!(!citems.is_empty());
+            citems
+                .iter()
+                .map(|citem| CItem::ModuleCItem(ModuleDyn::new(module_id, citem.clone())))
+                .collect()
+        } else {
+            future::pending().await
+        }
     }
 
     async fn upgrade_or_hang(&self) -> Arc<RwLock<BTreeMap<ModuleId, DynModuleWithConfig>>> {
