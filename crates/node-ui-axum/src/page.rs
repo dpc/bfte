@@ -40,7 +40,7 @@ impl UiState {
                         }
                     }
 
-                    main {
+                    main ."container" {
                         (main_content)
                     }
                 }
