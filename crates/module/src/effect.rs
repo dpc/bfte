@@ -7,6 +7,12 @@ use derive_more::Deref;
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Encode, Decode)]
 pub struct EffectId(u32);
 
+impl EffectId {
+    pub const fn new(id: u32) -> Self {
+        Self(id)
+    }
+}
+
 pub trait EffectKind {
     const MODULE_KIND: ModuleKind;
     const EFFECT_ID: EffectId;

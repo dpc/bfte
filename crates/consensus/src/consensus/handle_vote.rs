@@ -174,7 +174,7 @@ impl Consensus {
         }
 
         self.check_round_end(ctx, cur_round)
-            .map_err(DbTxError::map)?;
+            .map_err(DbTxError::tx_into)?;
         Ok(())
     }
 

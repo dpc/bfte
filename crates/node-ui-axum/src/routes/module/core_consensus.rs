@@ -59,6 +59,19 @@ impl UiState {
                     }
                 }
             }
+
+            section {
+                h3 { "Add Peer Vote" }
+                form method="post" action=(format!("/ui/module/{}/add_peer_vote", _module_id)) {
+                    fieldset {
+                        label {
+                            "Peer Public Key"
+                            input type="text" name="peer_pubkey" placeholder="Enter peer public key" required;
+                        }
+                        button type="submit" { "Vote to Add Peer" }
+                    }
+                }
+            }
         }
     }
 }

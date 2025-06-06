@@ -9,6 +9,7 @@
 - Try to keep the code uniform, and follow the style of the existing code.
 - Always use standalone Rust modules, avoid inline `mod`s
 - Don't change anything without a good reason.
+- Always prefer "lower than" or "lower than or equal" operators over "greater than" and "greater than or equal" ones.
 
 ## Project structure
 

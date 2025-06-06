@@ -4,21 +4,34 @@ use bfte_module::module::config::ModuleConfig;
 use bfte_util_db::def_table;
 
 def_table! {
+    /// Current list of all initialized modules, along with their configuration
     modules_configs: ModuleId => ModuleConfig
 }
 
 def_table! {
+    /// Set of all voting consensus peers.
+    ///
+    /// Note: this is *the* current logical set of peers who can vote, from which
+    /// `ConsensusParams` are derived. Notably the lower level `consensus`
+    /// applies changes consensus membership changes with a delay, to accommodate
+    /// finalization delay. Consensus items processing should always be verified against
+    /// this table, and not `ConsensusParams`.
     peers: PeerPubkey => ()
 }
 
 def_table! {
+    /// Tracks which new peers existing peers would like to add to the consensus voting.
     add_peer_votes: PeerPubkey /* voter */ => PeerPubkey /* voted to be added */
 }
 
 def_table! {
+    /// Tracks which peers existing peers would like to remove from the consensus voting.
     remove_peer_votes: PeerPubkey /* voter */ => PeerPubkey /* voted to be removed */
 }
 
 def_table! {
+    /// Our own pending vote to add new peer which we want to propose
+    ///
+    /// Once it is processed as a consensus item, it will update `add_peers_votes` table.
     pending_add_peer_vote: () => PeerPubkey
 }

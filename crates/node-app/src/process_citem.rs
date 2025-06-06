@@ -2,12 +2,13 @@ use bfte_consensus_core::block::{BlockHeader, BlockRound};
 use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::module::ModuleId;
 use bfte_consensus_core::peer::PeerPubkey;
+use bfte_consensus_core::peer_set::PeerSet;
 use bfte_db::error::TxSnafu;
 use bfte_module::effect::ModuleCItemEffect;
-use bfte_module::module::db::{ModuleReadTransaction, ModuleWriteTransactionCtx};
+use bfte_module::module::db::ModuleWriteTransactionCtx;
 use bfte_util_error::Whatever;
 use bfte_util_error::fmt::FmtCompact as _;
-use snafu::{OptionExt as _, ResultExt as _, Snafu};
+use snafu::{IntoError as _, OptionExt as _, ResultExt as _, Snafu};
 use tracing::debug;
 
 use super::NodeApp;
@@ -38,12 +39,14 @@ pub enum ProcessCItemError {
 }
 
 pub type ProcessCItemResult<T> = Result<T, ProcessCItemError>;
+
 impl NodeApp {
     pub(crate) async fn process_citem(
         &self,
         (cur_round, cur_citem_idx): (BlockRound, BlockCItemIdx),
         block_header: &BlockHeader,
         peer_pubkey: PeerPubkey,
+        peer_set: &PeerSet,
         citem: &CItem,
     ) {
         if let Err(err) = self
@@ -51,6 +54,7 @@ impl NodeApp {
                 (cur_round, cur_citem_idx),
                 block_header.round,
                 peer_pubkey,
+                peer_set,
                 citem,
             )
             .await
@@ -69,18 +73,18 @@ impl NodeApp {
         (cur_round, cur_citem_idx): (BlockRound, BlockCItemIdx),
         block_round: BlockRound,
         peer_pubkey: PeerPubkey,
+        peer_set: &PeerSet,
         citem: &CItem,
     ) -> ProcessCItemResult<()> {
         let modules = self.modules.read().await;
 
         // First, collect all effects with a read-only transaction
-        let effects = self
-            .db
-            .read_with_expect_falliable(|dbtx| {
-                let mut all_effects = Vec::new();
+        self.db
+            .write_with_expect_falliable(|dbtx| {
+                let mut effects = Vec::with_capacity(8);
 
                 match citem {
-                    CItem::ModuleCItem(module_citem) => {
+                    CItem::PeerCItem(module_citem) => {
                         let module_id = module_citem.module_id();
                         let module = modules
                             .get(&module_id)
@@ -88,20 +92,25 @@ impl NodeApp {
                             .context(TxSnafu)?;
                         let module_kind = module.config.kind;
 
-                        let module_dbtx = ModuleReadTransaction::new(module_id, dbtx);
+                        let module_dbtx = ModuleWriteTransactionCtx::new(module_id, dbtx);
 
-                        let effects = module
-                            .process_citem(
-                                &module_dbtx,
-                                block_round,
-                                peer_pubkey,
-                                module_citem.inner(),
-                            )
-                            .context(ProcessingCItemFailedSnafu { module_id })
-                            .context(TxSnafu)?
-                            .into_iter()
-                            .map(|inner| ModuleCItemEffect::new(module_kind, inner));
-                        all_effects.extend(effects);
+                        effects.extend(
+                            module
+                                .process_citem(
+                                    &module_dbtx,
+                                    block_round,
+                                    peer_pubkey,
+                                    peer_set,
+                                    module_citem.inner(),
+                                )
+                                .map_err(|db_tx_err| {
+                                    db_tx_err.map(|e| {
+                                        (ProcessingCItemFailedSnafu { module_id }).into_error(e)
+                                    })
+                                })?
+                                .into_iter()
+                                .map(|inner| ModuleCItemEffect::new(module_kind, inner)),
+                        );
                     }
                     CItem::Transaction(transaction) => {
                         // Process all inputs
@@ -113,15 +122,19 @@ impl NodeApp {
                                 .context(TxSnafu)?;
                             let module_kind = module.config.kind;
 
-                            let module_dbtx = ModuleReadTransaction::new(module_id, dbtx);
+                            let module_dbtx = ModuleWriteTransactionCtx::new(module_id, dbtx);
 
-                            let effects = module
-                                .process_input(&module_dbtx, input.inner())
-                                .context(ProcessingInputFailedSnafu { module_id })
-                                .context(TxSnafu)?
-                                .into_iter()
-                                .map(|inner| ModuleCItemEffect::new(module_kind, inner));
-                            all_effects.extend(effects);
+                            effects.extend(
+                                module
+                                    .process_input(&module_dbtx, input.inner())
+                                    .map_err(|db_tx_err| {
+                                        db_tx_err.map(|e| {
+                                            (ProcessingInputFailedSnafu { module_id }).into_error(e)
+                                        })
+                                    })?
+                                    .into_iter()
+                                    .map(|inner| ModuleCItemEffect::new(module_kind, inner)),
+                            );
                         }
 
                         // Process all outputs
@@ -133,35 +146,33 @@ impl NodeApp {
                                 .context(TxSnafu)?;
                             let module_kind = module.config.kind;
 
-                            let module_dbtx = ModuleReadTransaction::new(module_id, dbtx);
+                            let module_dbtx = ModuleWriteTransactionCtx::new(module_id, dbtx);
 
-                            let effects = module
-                                .process_output(&module_dbtx, output.inner())
-                                .context(ProcessingOutputFailedSnafu { module_id })
-                                .context(TxSnafu)?
-                                .into_iter()
-                                .map(|inner| ModuleCItemEffect::new(module_kind, inner));
-                            all_effects.extend(effects);
+                            effects.extend(
+                                module
+                                    .process_output(&module_dbtx, output.inner())
+                                    .map_err(|db_tx_err| {
+                                        db_tx_err.map(|e| {
+                                            (ProcessingOutputFailedSnafu { module_id })
+                                                .into_error(e)
+                                        })
+                                    })?
+                                    .into_iter()
+                                    .map(|inner| ModuleCItemEffect::new(module_kind, inner)),
+                            );
                         }
                     }
                 }
 
-                Ok(all_effects)
-            })
-            .await?;
-
-        // If we have effects to process, do it in a writable transaction
-        self.db
-            .write_with_expect_falliable(|dbtx| {
-                for (module_id, module) in &*modules {
-                    let module_dbtx = ModuleWriteTransactionCtx::new(*module_id, dbtx);
+                for (&module_id, module) in &*modules {
+                    let module_dbtx = ModuleWriteTransactionCtx::new(module_id, dbtx);
 
                     module
                         .process_effects(&module_dbtx, &effects)
-                        .context(ProcessingEffectFailedSnafu {
-                            module_id: *module_id,
-                        })
-                        .context(TxSnafu)?;
+                        .map_err(|db_tx_err| {
+                            db_tx_err
+                                .map(|e| (ProcessingEffectFailedSnafu { module_id }).into_error(e))
+                        })?;
                 }
 
                 // Save the current position

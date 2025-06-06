@@ -105,7 +105,7 @@ impl Consensus {
             }
             self.notify_new_votes(ctx);
             self.check_round_end(ctx, cur_round)
-                .map_err(DbTxError::map)?;
+                .map_err(DbTxError::tx_into)?;
             debug_assert!(
                 cur_round.next().expect("Can't run out") <= ctx.get_current_round()?,
                 "Must advance the round after notarized dummy vote received"
@@ -190,7 +190,7 @@ impl Consensus {
         }
 
         self.check_round_end(ctx, cur_round)
-            .map_err(DbTxError::map)?;
+            .map_err(DbTxError::tx_into)?;
 
         Ok(())
     }

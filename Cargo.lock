@@ -563,6 +563,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "bfte-consensus-core",
+ "bfte-db",
  "bfte-module",
  "bfte-util-bincode",
  "bfte-util-db",

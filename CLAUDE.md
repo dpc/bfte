@@ -5,22 +5,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Common Development Commands
 
 ### Build and Test
-- `just build` - Build entire workspace
-- `just test` - Run all tests (builds first)
+
 - `just check` - Run cargo check on workspace
-- `just final-check` - Pre-PR checks (lint, clippy, test)
+- `just build` - Build entire workspace
+- `just test` - Run all tests (builds first) - at the current state of the project, don't use it
 
 ### Code Quality
+
 - `just format` - Format Rust and Nix code
 - `just lint` - Run git pre-commit hooks
 - `just clippy` - Run clippy with deny warnings
 - `just clippy-fix` - Auto-fix clippy issues
 
-### Development
-- `just dev [idx] [args]` - Run development node with hot reloading (default: `just dev 1 init --run`)
-- Uses `systemfd` and `cargo watch` for automatic rebuilds
-- Creates nodes on ports 6911, 6912, etc. based on idx parameter
-- Data stored in `tmp/[idx]/` directories
 
 ## Architecture Overview
 

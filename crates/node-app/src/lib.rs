@@ -104,10 +104,22 @@ impl NodeApp {
                 self.node_api.ack_and_wait_next_block(cur_round_idx.0).await;
             debug!(target: LOG_TARGET, round = %block_header.round, "Processing new block...");
 
+            // Get the current peer set from the CoreConsensus module
+            let peer_set = {
+                let modules = self.modules.read().await;
+                let consensus_module = modules
+                    .get(&CONSENSUS_MODULE_ID)
+                    .expect("Must have consensus module");
+                let consensus_module_ref = (consensus_module.inner.as_ref() as &dyn Any)
+                    .downcast_ref::<CoreConsensusModule>()
+                    .expect("Must be a consensus module");
+                consensus_module_ref.get_peer_set().await
+            };
+
             for (idx, citem) in citems.iter().enumerate() {
                 let idx = BlockCItemIdx::from(u32::try_from(idx).expect("Can't fail"));
                 if cur_round_idx.1 <= idx {
-                    self.process_citem(cur_round_idx, &block_header, peer_pubkey, citem)
+                    self.process_citem(cur_round_idx, &block_header, peer_pubkey, &peer_set, citem)
                         .await;
                 }
                 cur_round_idx.1 = idx;

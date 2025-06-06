@@ -91,6 +91,10 @@ impl ModuleInit for CoreConsensusModuleInit {
 
         let (propose_citems_tx, propose_citems_rx) = watch::channel(Vec::new());
 
+        args.db
+            .write_with_expect(super::CoreConsensusModule::init_db_tx)
+            .await;
+
         Ok(Arc::new(super::CoreConsensusModule {
             db: args.db,
             version: args.module_consensus_version,

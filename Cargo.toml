@@ -28,7 +28,6 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-name = "bfte"
 version = "0.1.0"
 
 authors = ["Dawid Ciężarkiewicz <dpc@dpc.pw>"]

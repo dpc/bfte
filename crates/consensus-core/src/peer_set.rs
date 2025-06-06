@@ -2,6 +2,7 @@ use std::ops;
 
 use bincode::{Decode, Encode};
 
+use crate::num_peers::{NumPeers, ToNumPeers};
 use crate::peer::PeerPubkey;
 
 #[derive(Debug, Clone, Encode, Decode, Default, PartialEq, Eq)]
@@ -42,6 +43,12 @@ impl PeerSet {
         } else {
             false
         }
+    }
+}
+
+impl ToNumPeers for PeerSet {
+    fn to_num_peers(&self) -> NumPeers {
+        self.0.to_num_peers()
     }
 }
 

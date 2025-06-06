@@ -83,7 +83,7 @@ impl WeakSharedModules {
                 if !citems.is_empty() {
                     return citems
                         .iter()
-                        .map(|citem| CItem::ModuleCItem(ModuleDyn::new(module_id, citem.clone())))
+                        .map(|citem| CItem::PeerCItem(ModuleDyn::new(module_id, citem.clone())))
                         .collect();
                 }
             }
@@ -104,7 +104,7 @@ impl WeakSharedModules {
             assert!(!citems.is_empty());
             citems
                 .iter()
-                .map(|citem| CItem::ModuleCItem(ModuleDyn::new(module_id, citem.clone())))
+                .map(|citem| CItem::PeerCItem(ModuleDyn::new(module_id, citem.clone())))
                 .collect()
         } else {
             future::pending().await

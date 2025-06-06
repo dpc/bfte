@@ -17,7 +17,10 @@ use crate::peer::PeerPubkey;
 /// process.
 #[derive(Encode, Decode)]
 pub enum CItem {
-    ModuleCItem(ModuleDyn<CItemRaw>),
+    /// Consensus item proposed by the peer being the round leader for a block
+    /// round.
+    PeerCItem(ModuleDyn<CItemRaw>),
+    /// A signed transaction aggregating inputs and outputs.
     Transaction(Transaction),
 }
 

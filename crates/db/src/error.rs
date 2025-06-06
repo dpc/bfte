@@ -100,13 +100,31 @@ where
     },
 }
 
+impl<E> From<redb::TableError> for DbTxError<E>
+where
+    E: snafu::Error,
+{
+    fn from(value: redb::TableError) -> Self {
+        DbError::from(value).into()
+    }
+}
+
+impl<E> From<redb::StorageError> for DbTxError<E>
+where
+    E: snafu::Error,
+{
+    fn from(value: redb::StorageError) -> Self {
+        DbError::from(value).into()
+    }
+}
+
 pub type DbTxResult<T, E> = std::result::Result<T, DbTxError<E>>;
 
 impl<E> DbTxError<E>
 where
     E: snafu::Error,
 {
-    pub fn map<E2>(self) -> DbTxError<E2>
+    pub fn tx_into<E2>(self) -> DbTxError<E2>
     where
         E2: From<E> + snafu::Error,
     {
@@ -114,6 +132,23 @@ where
             DbTxError::DbError { source, location } => DbTxError::DbError { source, location },
             DbTxError::TxError { source, location } => DbTxError::TxError {
                 source: source.into(),
+                location,
+            },
+        }
+    }
+}
+impl<E> DbTxError<E>
+where
+    E: snafu::Error,
+{
+    pub fn map<E2>(self, f: impl FnOnce(E) -> E2) -> DbTxError<E2>
+    where
+        E2: snafu::Error,
+    {
+        match self {
+            DbTxError::DbError { source, location } => DbTxError::DbError { source, location },
+            DbTxError::TxError { source, location } => DbTxError::TxError {
+                source: f(source),
                 location,
             },
         }
