@@ -91,6 +91,7 @@ impl ModuleInit for CoreConsensusModuleInit {
         Ok(Arc::new(super::CoreConsensusModule {
             db: args.db,
             version: args.module_consensus_version,
+            peer_pubkey: args.peer_pubkey,
         }))
     }
 }

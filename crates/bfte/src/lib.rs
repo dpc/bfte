@@ -143,6 +143,7 @@ impl Bfte {
                                 shared_modules,
                                 pending_transactions_tx,
                             )
+                            .await
                             .run()
                             .await
                         }

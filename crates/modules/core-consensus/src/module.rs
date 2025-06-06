@@ -21,6 +21,7 @@ pub struct CoreConsensusModule {
     #[allow(dead_code)]
     pub(crate) version: ConsensusVersion,
     pub(crate) db: ModuleDatabase,
+    pub(crate) peer_pubkey: Option<PeerPubkey>,
 }
 
 impl CoreConsensusModule {

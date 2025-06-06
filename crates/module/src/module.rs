@@ -34,6 +34,7 @@ pub struct ModuleInitArgs {
     pub db: ModuleDatabase,
     pub module_consensus_version: ConsensusVersion,
     pub config: ModuleParamsRaw,
+    pub peer_pubkey: Option<PeerPubkey>,
 }
 
 pub type DynModuleInit = Arc<dyn ModuleInit + Send + Sync>;
@@ -44,11 +45,13 @@ impl ModuleInitArgs {
         db: Arc<Database>,
         module_consensus_version: ConsensusVersion,
         config: ModuleParamsRaw,
+        peer_pubkey: Option<PeerPubkey>,
     ) -> Self {
         Self {
             db: ModuleDatabase::new(module_id, db),
             module_consensus_version,
             config,
+            peer_pubkey,
         }
     }
 }

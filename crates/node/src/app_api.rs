@@ -35,6 +35,10 @@ impl NodeAppApi {
 
 #[async_trait]
 impl INodeAppApi for NodeAppApi {
+    async fn get_peer_pubkey(&self) -> Option<PeerPubkey> {
+        self.node_ref_wait().await.peer_pubkey
+    }
+
     async fn get_consensus_params(&self, round: BlockRound) -> ConsensusParams {
         self.node_ref_wait()
             .await

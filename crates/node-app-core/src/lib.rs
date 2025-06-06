@@ -32,6 +32,8 @@ pub type NodeAppApi = Arc<dyn INodeAppApi + Send + Sync + 'static>;
 /// The API `bfte-node` exposes to `bfte-node-app`
 #[async_trait]
 pub trait INodeAppApi {
+    async fn get_peer_pubkey(&self) -> Option<PeerPubkey>;
+
     async fn get_consensus_params(&self, round: BlockRound) -> ConsensusParams;
 
     /// Wait for the first finalized block at `round` or higher

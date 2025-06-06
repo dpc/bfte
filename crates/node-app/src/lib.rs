@@ -14,6 +14,7 @@ use std::sync::Arc;
 use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
+use bfte_consensus_core::peer::PeerPubkey;
 use bfte_db::Database;
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::ModuleWriteTransactionCtx;
@@ -55,10 +56,12 @@ pub struct NodeApp {
 
     /// Used to signal pending transactions
     pending_transactions_tx: watch::Sender<Vec<Transaction>>,
+
+    peer_pubkey: Option<PeerPubkey>,
 }
 
 impl NodeApp {
-    pub fn new(
+    pub async fn new(
         db: Arc<Database>,
         node_api: NodeAppApi,
         mut modules_inits: ModulesInits,
@@ -68,12 +71,14 @@ impl NodeApp {
         modules_inits
             .entry(bfte_module_core_consensus::KIND)
             .or_insert_with(|| Arc::new(bfte_module_core_consensus::init::CoreConsensusModuleInit));
+        let peer_pubkey = node_api.get_peer_pubkey().await;
         Self {
             node_api,
             modules_inits,
             modules,
             db,
             pending_transactions_tx,
+            peer_pubkey,
         }
     }
 
@@ -165,6 +170,7 @@ impl NodeApp {
             modules_write,
             new_modules_configs,
             &self.modules_inits,
+            self.peer_pubkey,
         )
         .await
         .whatever_context("Setting up modules failed")
@@ -182,6 +188,7 @@ impl NodeApp {
             modules_write,
             new_modules_configs,
             &self.modules_inits,
+            self.peer_pubkey,
         )
         .await
         .whatever_context("Setting up modules failed")
@@ -192,6 +199,7 @@ impl NodeApp {
         mut modules_write: RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>>,
         new_modules_configs: BTreeMap<ModuleId, ModuleConfig>,
         modules_inits: &BTreeMap<ModuleKind, DynModuleInit>,
+        peer_pubkey: Option<PeerPubkey>,
     ) -> WhateverResult<()> {
         // Put the existing modules aside, to know if all were either reused or
         // destroyed
@@ -229,6 +237,7 @@ impl NodeApp {
                                 db.clone(),
                                 new_module_config.version,
                                 new_module_config.params,
+                                peer_pubkey,
                             ))
                             .await
                             .whatever_context("Failed to setup module")?,
