@@ -8,12 +8,6 @@ body {
 }
 
 
-main {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-
 /* Navbar styling */
 header nav {
   background-color: var(--pico-background-color);
@@ -69,12 +63,23 @@ header nav {
   }
 }
 
+main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
 
 main {
   padding: var(--pico-spacing);
   width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
+}
+
+main .main-content {
+  max-width: 50em;
+}
+
+main:has(.login-form) {
   align-items: center;
 }
 
@@ -104,7 +109,5 @@ main {
   main {
     flex: 1;
     overflow-y: auto;
-    max-width: 1200px;
-    margin: 0 auto;
   }
 }

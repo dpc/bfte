@@ -41,7 +41,9 @@ impl UiState {
                     }
 
                     main ."container" {
-                        (main_content)
+                        div ."main-content" {
+                            (main_content)
+                        }
                     }
                 }
             }

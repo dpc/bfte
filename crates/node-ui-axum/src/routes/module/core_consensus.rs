@@ -20,11 +20,11 @@ impl UiState {
         let peer_set = consensus_module_ref.get_peer_set().await;
         html! {
             header {
-                h1 { "Core consensus module" }
+                h1 { "Core consensus" }
             }
 
             section {
-                h2 { "Current Consensus Peers" }
+                h3 { "Consensus Peers" }
                 ul {
                     @for peer in &peer_set {
                         li { (format!("{peer}")) }
@@ -33,7 +33,7 @@ impl UiState {
             }
 
             section {
-                h2 { "Module Configurations" }
+                h3 { "Active modules" }
                 table {
                     thead {
                         tr {
@@ -46,7 +46,7 @@ impl UiState {
                         @for (module_id, config) in &module_configs {
                             tr {
                                 td { (format!("{module_id}")) }
-                                td { 
+                                td {
                                     @if let Some(kind_name) = get_module_kind_name(config.kind) {
                                         (kind_name)
                                     } @else {
