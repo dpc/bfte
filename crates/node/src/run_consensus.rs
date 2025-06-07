@@ -191,7 +191,10 @@ impl Node {
         let existing_votes = existing_dummy_votes | existing_non_dummy_votes;
         if let Some(our_peer_idx) = our_peer_idx {
             if round.leader_idx(params.num_peers()) == our_peer_idx {
-                if !existing_votes.contains(our_peer_idx) {
+                if existing_votes.contains(our_peer_idx) {
+
+                    info!(target: LOG_TARGET, "Already voted in this round. Will not generate proposal.");
+                } else {
                     round_tasks.spawn(
                         self.clone_strong()
                             .generate_proposal_round_task(round, our_peer_idx),
@@ -288,9 +291,9 @@ impl Node {
         params: &ConsensusParams,
         existing_dummy_votes: VoteSet,
     ) {
-        let current_round_with_timeout_start_rx = self
+        let current_round_with_timeout_rx = self
             .consensus_expect()
-            .current_round_with_timeout_start_rx();
+            .current_round_with_timeout_rx();
 
         if let Some(our_peer_idx) = our_peer_idx {
             if !existing_dummy_votes.contains(our_peer_idx) {
@@ -299,21 +302,33 @@ impl Node {
                     BlockHeader::new_dummy(round, params),
                     self.get_peer_secret_expect(),
                 );
-                let mut current_round_with_timeout_start_rx =
-                    current_round_with_timeout_start_rx.clone();
+
+                let modules = self.weak_shared_modules.clone();
+                let mut current_round_with_timeout_rx =
+                    current_round_with_timeout_rx.clone();
+                let consensus = self.consensus_wait().await.clone();
 
                 round_tasks.spawn({
                     async move {
-                        let Ok((_, duration)) = current_round_with_timeout_start_rx
-                            .wait_for(|(r, t)| {
-                                *r == round && (t.is_some() || is_env_var_set("BFTE_FORCE_TIMEOUT"))
-                            })
-                            .await
-                            .map(|o| *o)
-                        else {
-                            future::pending().await
+                        let wait_for_consensus_timeout_async = current_round_with_timeout_rx
+                            .wait_for(|(r, timeout_enabled)| {
+                                *r == round
+                                    && (*timeout_enabled || is_env_var_set("BFTE_FORCE_TIMEOUT"))
+                            });
+
+                        // We cast a timeout vote if consensus tells us so, or
+                        // we have own citems to broadcast
+                        select! {
+                            _ = wait_for_consensus_timeout_async => {
+                                debug!(target: LOG_TARGET, "Starting round timeout due consensus state");
+                            },
+                            _= modules.wait_consensus_proposal() => {
+                                debug!(target: LOG_TARGET, "Starting round timeout due to own pending citems")
+                                
+                            },
                         };
-                        let duration = duration.unwrap_or(Duration::from_secs(2));
+
+                        let duration = consensus.get_current_round_timeout().await;
 
                         debug!(
                             target: LOG_TARGET,
@@ -382,7 +397,7 @@ impl Node {
             "Running consensus round loop…"
         );
 
-        let current_round_rx = consensus.current_round_with_timeout_start_rx();
+        let current_round_rx = consensus.current_round_with_timeout_rx();
         loop {
             if current_round_rx.borrow().0 != cur_round {
                 break Ok(());
@@ -485,14 +500,6 @@ impl Node {
 
         let mut pending_citems: Vec<CItem> = Default::default();
         loop {
-            // We only want to propose anything, if app layer is up to date with the latest
-            // finality
-            let Ok(_) = node_app_ack_rx
-                .wait_for(|app_ack| *app_ack == *consensus_finality_rx.borrow())
-                .await
-            else {
-                future::pending().await
-            };
 
             if !pending_transactions_rx.borrow().is_empty() {
                 break;
@@ -512,6 +519,25 @@ impl Node {
                 }
             };
 
+            let wait_current_pending_citems_async = {
+                let weak_shared_modules = self.weak_shared_modules.clone();
+
+                let consensus_finality_rx = consensus_finality_rx.clone();
+                let mut node_app_ack_rx = node_app_ack_rx.clone();
+                async move {
+                
+                // We only want to propose anything, if app layer is up to date with the latest
+                // finality
+                let Ok(_) = node_app_ack_rx
+                    .wait_for(|app_ack| *app_ack == *consensus_finality_rx.borrow())
+                    .await
+                else {
+                    future::pending().await
+                };
+                
+                weak_shared_modules.wait_consensus_proposal().await
+            }};
+
             debug!(target: LOG_TARGET, %round, "Awaiting new block proposal trigger…");
             select! {
                 // We check proposed citems from our modules with priority,
@@ -528,7 +554,8 @@ impl Node {
                 //
                 // Since we already have these citems, we record them
                 // in a local variable and break.
-                citems = self.weak_shared_modules.wait_consensus_proposal() => {
+                citems = wait_current_pending_citems_async => {
+                    
                     if !citems.is_empty() {
                         pending_citems = citems;
                         break;
@@ -553,6 +580,10 @@ impl Node {
                 },
 
                 _ = wait_pending_params_change_async => {
+                    debug!(
+                        target: LOG_TARGET,
+                        "Proposing block, just to advance params change"
+                    );
                     break;
                 }
             };

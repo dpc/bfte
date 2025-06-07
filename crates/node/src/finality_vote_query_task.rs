@@ -38,6 +38,12 @@ impl Node {
             // No point querring oneself
             return;
         }
+
+        debug!(
+            target: LOG_TARGET,
+            %peer_pubkey,
+            "Starting finality query task"
+        );
         loop {
             { || async { self.peer_finality_vote_query(peer_pubkey).await } }
                 .retry(RPC_BACKOFF)
@@ -69,6 +75,12 @@ impl Node {
 
         let resp = rpc::wait_finality_vote(&mut conn, peer_pubkey, prev_vote).await?;
 
+        debug!(
+            target: LOG_TARGET,
+            %peer_pubkey,
+            ?resp,
+            "Finality update response"
+        );
         self.consensus_expect()
             .process_finality_vote_update_response(peer_pubkey, resp)
             .await

@@ -8,7 +8,6 @@ mod init;
 mod version;
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use bfte_consensus_core::Signature;
 use bfte_consensus_core::block::{
@@ -41,8 +40,8 @@ pub struct Consensus {
     /// Own [`PeerPubkey`], `None` if the peer does not and can not participate
     /// in the consensu and is just a non-voting replica.
     our_peer_pubkey: Option<PeerPubkey>,
-    current_round_with_timeout_start_tx: watch::Sender<(BlockRound, Option<Duration>)>,
-    current_round_with_timeout_start_rx: watch::Receiver<(BlockRound, Option<Duration>)>,
+    current_round_with_timeout_tx: watch::Sender<(BlockRound, bool)>,
+    current_round_with_timeout_rx: watch::Receiver<(BlockRound, bool)>,
 
     /// The consensus on the finality height
     ///

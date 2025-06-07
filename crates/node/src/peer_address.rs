@@ -18,7 +18,7 @@ use bincode::{Decode, Encode};
 use iroh_dpc_rpc::RpcExt as _;
 use rand::Rng as _;
 use snafu::{ResultExt as _, Whatever};
-use tracing::{debug, instrument, warn};
+use tracing::{debug, instrument, trace, warn};
 
 use crate::Node;
 use crate::rpc::{self, RPC_ID_PUSH_PEER_ADDR_UPDATE};
@@ -98,7 +98,7 @@ impl Node {
                 continue;
             }
 
-            debug!(
+            trace!(
                 target: LOG_TARGET,
                 dst_peer = %peer_pubkey,
                 src_peer = %address_update.peer_pubkey,
@@ -333,7 +333,7 @@ impl Node {
                     return Ok(());
                 }
             }
-            debug!(
+            trace!(
                 target: LOG_TARGET,
                 %peer_pubkey,
                 "Updated peer address"

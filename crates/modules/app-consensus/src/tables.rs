@@ -23,8 +23,7 @@ def_table! {
     /// Note: this is *the* current logical set of peers who can vote, from which
     /// `ConsensusParams` are derived. Notably the lower level `consensus`
     /// applies changes consensus membership changes with a delay, to accommodate
-    /// finalization delay. Consensus items processing should always be verified against
-    /// this table, and not `ConsensusParams`.
+    /// finalization delay.
     peers: PeerPubkey => ()
 }
 

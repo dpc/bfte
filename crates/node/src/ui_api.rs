@@ -1,7 +1,6 @@
 use std::convert::Infallible;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
@@ -70,15 +69,13 @@ impl INodeUiApi for NodeUiApi {
             .whatever_context("Failed to join consensus")?)
     }
 
-    fn get_round_and_timeout_rx(
-        &self,
-    ) -> WhateverResult<watch::Receiver<(BlockRound, Option<Duration>)>> {
+    fn get_round_and_timeout_rx(&self) -> WhateverResult<watch::Receiver<(BlockRound, bool)>> {
         Ok(self
             .node_ref()?
             .consensus()
             .as_ref()
             .whatever_context("Consensus not initialized")?
-            .current_round_with_timeout_start_rx())
+            .current_round_with_timeout_rx())
     }
 }
 

@@ -1,4 +1,4 @@
-mod core_consensus;
+mod app_consensus;
 
 use std::any::Any;
 use std::str::FromStr;

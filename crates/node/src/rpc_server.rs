@@ -103,9 +103,7 @@ impl RpcServer {
             whatever!("We have no peer pubkey")
         };
 
-        let mut cur_round_rx = node_ref
-            .consensus_expect()
-            .current_round_with_timeout_start_rx();
+        let mut cur_round_rx = node_ref.consensus_expect().current_round_with_timeout_rx();
 
         // We can't respond with a vote until we reached or passed a given round
         cur_round_rx
@@ -195,9 +193,7 @@ impl RpcServer {
 
         let seckey = node_ref.get_peer_secret_expect();
 
-        let mut cur_round_rx = node_ref
-            .consensus_expect()
-            .current_round_with_timeout_start_rx();
+        let mut cur_round_rx = node_ref.consensus_expect().current_round_with_timeout_rx();
 
         // We can't respond with a vote until we reached or passed a given round
         cur_round_rx
@@ -259,9 +255,7 @@ impl RpcServer {
 
         let min_notarized_round = req.min_notarized_round;
 
-        let mut cur_round_rx = node_ref
-            .consensus_expect()
-            .current_round_with_timeout_start_rx();
+        let mut cur_round_rx = node_ref.consensus_expect().current_round_with_timeout_rx();
 
         // We can't respond with a vote until we reached or passed a given round
         cur_round_rx

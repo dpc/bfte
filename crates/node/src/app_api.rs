@@ -54,33 +54,44 @@ impl INodeAppApi for NodeAppApi {
 
     async fn ack_and_wait_next_block<'f>(
         &self,
-        round: BlockRound,
+        mut req_round: BlockRound,
     ) -> (BlockHeader, PeerPubkey, Arc<[CItem]>) {
         let node_ref = self.node_ref_wait().await;
 
-        node_ref.node_app_ack_tx.send_replace(round);
+        node_ref.node_app_ack_tx.send_replace(req_round);
         let consensus = node_ref.consensus_wait().await;
 
-        // Wait for finality to reach the requested block
-        let Ok(_finality) = consensus
-            .finality_consensus_rx()
-            .wait_for(|finality| round < *finality)
-            .await
-            .map(|f| *f)
-        else {
-            future::pending().await
+        let mut current_round_with_timeout_rx = consensus.current_round_with_timeout_rx();
+        let mut finality_consensus_rx = consensus.finality_consensus_rx();
+
+        let block = loop {
+            current_round_with_timeout_rx.mark_unchanged();
+            // Wait for finality to reach the requested block
+            let Ok(cur_finality) = finality_consensus_rx
+                .wait_for(|finality| req_round < *finality)
+                .await
+                .map(|f| *f)
+            else {
+                future::pending().await
+            };
+
+            let Some(block) = consensus.get_next_notarized_block(req_round).await else {
+                let _ = current_round_with_timeout_rx.changed().await;
+                continue;
+            };
+            if cur_finality <= block.round {
+                // Notarized block can only get replaced with a notarized block
+                // of a higher round, so it's OK to
+                // to ack cur_finality as node_app_ack, as nothing
+                // else can appear in between anymore.
+                node_ref.node_app_ack_tx.send_replace(cur_finality);
+                req_round = block.round;
+                continue;
+            }
+            break block;
         };
-        let Ok(_) = consensus
-            .current_round_with_timeout_start_rx()
-            .wait_for(|cur_round| round < cur_round.0)
-            .await
-        else {
-            future::pending().await
-        };
-        let block = consensus
-            .get_next_notarized_block(round)
-            .await
-            .expect("Must have notarized block for consensus finality");
+
+        assert!(block.round < *finality_consensus_rx.borrow());
 
         let block_payload = consensus
             .get_block_payload(block.payload_hash)

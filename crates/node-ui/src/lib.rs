@@ -3,7 +3,6 @@
 use std::convert::Infallible;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
@@ -38,7 +37,5 @@ pub trait INodeUiApi {
     async fn consensus_init(&self, extra_peers: Vec<PeerPubkey>) -> WhateverResult<()>;
     async fn consensus_join(&self, invite: &Invite) -> WhateverResult<()>;
 
-    fn get_round_and_timeout_rx(
-        &self,
-    ) -> WhateverResult<watch::Receiver<(BlockRound, Option<Duration>)>>;
+    fn get_round_and_timeout_rx(&self) -> WhateverResult<watch::Receiver<(BlockRound, bool)>>;
 }

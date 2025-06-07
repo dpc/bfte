@@ -55,7 +55,7 @@ impl Consensus {
         db: Arc<Database>,
         our_peer_pubkey: Option<PeerPubkey>,
     ) -> Self {
-        let (round_timeout_tx, round_timeout_rx) = tokio::sync::watch::channel((cur_round, None));
+        let (round_timeout_tx, round_timeout_rx) = tokio::sync::watch::channel((cur_round, false));
         let (new_votes_tx, new_votes_rx) = tokio::sync::watch::channel(());
         let (new_proposal_tx, new_proposal_rx) = tokio::sync::watch::channel(());
         let first_unfinalized_round = db
@@ -67,8 +67,8 @@ impl Consensus {
 
         let s = Self {
             db,
-            current_round_with_timeout_start_rx: round_timeout_rx,
-            current_round_with_timeout_start_tx: round_timeout_tx,
+            current_round_with_timeout_rx: round_timeout_rx,
+            current_round_with_timeout_tx: round_timeout_tx,
             finality_cons_tx,
             finality_cons_rx,
             our_peer_pubkey,

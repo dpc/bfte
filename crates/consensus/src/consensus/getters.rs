@@ -20,10 +20,8 @@ use crate::tables::{cons_blocks_notarized, cons_blocks_payloads};
 use crate::vote_set::VoteSet;
 
 impl Consensus {
-    pub fn current_round_with_timeout_start_rx(
-        &self,
-    ) -> watch::Receiver<(BlockRound, Option<Duration>)> {
-        self.current_round_with_timeout_start_rx.clone()
+    pub fn current_round_with_timeout_rx(&self) -> watch::Receiver<(BlockRound, bool)> {
+        self.current_round_with_timeout_rx.clone()
     }
 
     pub fn finality_consensus_rx(&self) -> watch::Receiver<BlockRound> {
@@ -42,6 +40,23 @@ impl Consensus {
         self.db
             .read_with_expect(|ctx| ctx.get_current_round())
             .await
+    }
+
+    pub async fn get_current_round_timeout(&self) -> Duration {
+        let finality = *self.finality_cons_rx.borrow();
+        let cur_round = self.current_round_with_timeout_rx.borrow().0;
+        let num_peers = self.get_consensus_params(cur_round).await.num_peers();
+
+        let finality_lag = cur_round
+            .to_number()
+            .checked_sub(
+                finality.to_number() + u64::try_from(num_peers.total()).expect("Can't overfolow"),
+            )
+            .unwrap_or_default();
+
+        let multiplier = 1 << finality_lag.min(32);
+        let base_timeout_millis = 200;
+        Duration::from_millis(base_timeout_millis * multiplier)
     }
 
     pub async fn get_prev_notarized_block(&self, round: BlockRound) -> Option<BlockHeader> {
@@ -270,9 +285,7 @@ impl Consensus {
             "Scheduling consensus params change"
         );
 
-        assert!(
-            self.current_round_with_timeout_start_tx.borrow().0 < new_consensus_params.apply_round
-        );
+        assert!(self.current_round_with_timeout_tx.borrow().0 < new_consensus_params.apply_round);
 
         ctx.insert_consensus_params(new_consensus_params.apply_round, &new_consensus_params)?;
 

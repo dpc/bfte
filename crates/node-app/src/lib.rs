@@ -131,19 +131,11 @@ impl NodeApp {
             );
             let (block_header, peer_pubkey, citems) =
                 self.node_api.ack_and_wait_next_block(cur_round_idx.0).await;
+            let consensus_params = self.node_api.get_consensus_params(cur_round_idx.0).await;
             debug!(target: LOG_TARGET, round = %block_header.round, "Processing new block…");
 
-            // Get the current peer set from the AppConsensus module
-            let peer_set = {
-                let modules = self.modules.read().await;
-                let consensus_module = modules
-                    .get(&APP_CONSENSUS_MODULE_ID)
-                    .expect("Must have consensus module");
-                let consensus_module_ref = (consensus_module.inner.as_ref() as &dyn Any)
-                    .downcast_ref::<AppConsensusModule>()
-                    .expect("Must be a consensus module");
-                consensus_module_ref.get_peer_set().await
-            };
+            // Get the current (effective) peer set from the consensus params
+            let peer_set = consensus_params.peers;
 
             for (idx, citem) in citems.iter().enumerate() {
                 let idx = BlockCItemIdx::from(u32::try_from(idx).expect("Can't fail"));

@@ -112,7 +112,7 @@ impl Consensus {
                 target: LOG_TARGET,
                 %prev_finality_cons,
                 %finality_cons,
-                "Finalization went backwards. This can temporarily happen after new peers were added."
+                "Finality consensus went backwards. This can temporarily happen after new peers were added."
             );
             // Just ignore the new, backward consensus;
             prev_finality_cons

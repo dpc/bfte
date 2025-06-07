@@ -128,7 +128,10 @@ impl AppConsensusModule {
         }
         let peer_set = self.get_peer_set().await;
         if peer_set.len() == 1 {
-            whatever!("Cannot remove the last peer from the consensus")
+            whatever!(
+                "Cannot remove the last peer from the consensus: {}",
+                peer_to_remove
+            );
         }
         self.db
             .write_with_expect(|dbtx| {
@@ -226,10 +229,7 @@ impl AppConsensusModule {
     }
 
     /// Get the current peer set within a transaction context
-    fn get_peer_set_in_tx(
-        &self,
-        dbtx: &ModuleWriteTransactionCtx,
-    ) -> DbTxResult<PeerSet, Whatever> {
+    fn get_peer_set_tx(&self, dbtx: &ModuleWriteTransactionCtx) -> DbTxResult<PeerSet, Whatever> {
         let tbl = dbtx.open_table(&tables::peers::TABLE)?;
         let peers = tbl
             .range(..)?
@@ -248,37 +248,35 @@ impl AppConsensusModule {
         peer_set: &PeerSet,
         peer_to_add: PeerPubkey,
     ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
-        // Verify the voter is actually in the current peer set
-        if !peer_set.iter().any(|&p| p == voter_pubkey) {
-            None.whatever_context("Voter {voter_pubkey} is not in the current peer set")
-                .context(TxSnafu)?;
+        {
+            // Changes being voted on, are to be made on the latest (possibly not yet
+            // effective) peer set
+            let latest_peer_set = self.get_peer_set_tx(dbtx)?;
+
+            // Check if the peer to remove is actually in the peer set
+            if latest_peer_set.contains(&peer_to_add) {
+                None.whatever_context("Peer already part of the peer set")
+                    .context(TxSnafu)?;
+            }
         }
 
         // Open the votes table for reading and writing
-        let mut tbl = dbtx.open_table(&tables::add_peer_votes::TABLE)?;
-
-        // Check if this vote creates a change
-        let existing_vote = tbl.get(&voter_pubkey)?.map(|v| v.value());
-
-        if existing_vote == Some(peer_to_add) {
-            // Vote already recorded, no change needed
-            return Ok(vec![]);
-        }
+        let mut add_peer_votes_tbl = dbtx.open_table(&tables::add_peer_votes::TABLE)?;
 
         // Record the vote directly in the database
-        tbl.insert(&voter_pubkey, &peer_to_add)?;
+        add_peer_votes_tbl.insert(&voter_pubkey, &peer_to_add)?;
 
         // If this vote is from ourselves, clear the pending vote to stop proposing the
         // same citem
         if Some(voter_pubkey) == self.peer_pubkey {
-            let mut pending_tbl = dbtx.open_table(&tables::pending_add_peer_vote::TABLE)?;
-            pending_tbl.remove(&())?;
+            dbtx.open_table(&tables::pending_add_peer_vote::TABLE)?
+                .remove(&())?;
         }
 
         // Count votes for the peer_to_add from all peer set members
         let mut votes_for_candidate = 0;
         for peer in peer_set.iter() {
-            match tbl.get(peer)? {
+            match add_peer_votes_tbl.get(peer)? {
                 Some(vote) if vote.value() == peer_to_add => {
                     votes_for_candidate += 1;
                 }
@@ -294,23 +292,7 @@ impl AppConsensusModule {
         if votes_for_candidate >= threshold {
             // Threshold reached - add the peer immediately and emit effect
 
-            // Clear all votes for adding this peer since it's now being added
-            // (we already have the table open, so we can reuse it)
-            let peers_to_clear: Vec<PeerPubkey> = tbl
-                .range(..)?
-                .filter_map(|kv| {
-                    let (voter, voted_for) = kv.ok()?;
-                    if voted_for.value() == peer_to_add {
-                        Some(voter.value())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            for voter in peers_to_clear {
-                tbl.remove(&voter)?;
-            }
+            add_peer_votes_tbl.retain(|_k, vote| *vote != peer_to_add)?;
 
             // Insert the peer into the peers table
             {
@@ -318,15 +300,16 @@ impl AppConsensusModule {
                 peers_tbl.insert(&peer_to_add, &())?;
             }
 
-            let add_peer_effect = AddPeerEffect { peer: peer_to_add };
-            effects.push(EffectKindExt::encode(&add_peer_effect));
-
             // Get the updated peer set and emit PeerSetChange effect
-            let updated_peer_set = self.get_peer_set_in_tx(dbtx)?;
-            let peer_set_change_effect = ConsensusParamsChange {
-                peer_set: updated_peer_set,
-            };
-            effects.push(EffectKindExt::encode(&peer_set_change_effect));
+            let updated_peer_set = self.get_peer_set_tx(dbtx)?;
+
+            effects.push((AddPeerEffect { peer: peer_to_add }).encode());
+            effects.push(
+                (ConsensusParamsChange {
+                    peer_set: updated_peer_set,
+                })
+                .encode(),
+            );
         }
 
         Ok(effects)
@@ -336,32 +319,32 @@ impl AppConsensusModule {
         &self,
         dbtx: &ModuleWriteTransactionCtx,
         voter_pubkey: PeerPubkey,
-        peer_set: &PeerSet,
+        cur_effective_peer_set: &PeerSet,
         peer_to_remove: PeerPubkey,
     ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
-        // Verify the voter is actually in the current peer set
-        if !peer_set.iter().any(|&p| p == voter_pubkey) {
-            None.whatever_context("Voter {voter_pubkey} is not in the current peer set")
-                .context(TxSnafu)?;
-        }
+        {
+            // Changes being voted on, are to be made on the latest (possibly not yet
+            // effective) peer set
+            let latest_peer_set = self.get_peer_set_tx(dbtx)?;
 
-        // Check if this would be the last peer - don't allow removing the last peer
-        if peer_set.len() == 1 {
-            None.whatever_context("Cannot remove the last peer from the consensus")
-                .context(TxSnafu)?;
-        }
+            // Check if the peer to remove is actually in the peer set
+            if !latest_peer_set.contains(&peer_to_remove) {
+                None.whatever_context("Peer to remove is not in the latest peer set")
+                    .context(TxSnafu)?;
+            }
 
-        // Check if the peer to remove is actually in the peer set
-        if !peer_set.iter().any(|&p| p == peer_to_remove) {
-            None.whatever_context("Peer to remove is not in the current peer set")
-                .context(TxSnafu)?;
+            // Check if this would be the last peer - don't allow removing the last peer
+            if latest_peer_set.len() == 1 {
+                None.whatever_context("Cannot remove the last peer from the consensus")
+                    .context(TxSnafu)?;
+            }
         }
 
         // Open the votes table for reading and writing
-        let mut tbl = dbtx.open_table(&tables::remove_peer_votes::TABLE)?;
+        let mut remove_peer_votes_tbl = dbtx.open_table(&tables::remove_peer_votes::TABLE)?;
 
         // Check if this vote creates a change
-        let existing_vote = tbl.get(&voter_pubkey)?.map(|v| v.value());
+        let existing_vote = remove_peer_votes_tbl.get(&voter_pubkey)?.map(|v| v.value());
 
         if existing_vote == Some(peer_to_remove) {
             // Vote already recorded, no change needed
@@ -369,19 +352,19 @@ impl AppConsensusModule {
         }
 
         // Record the vote directly in the database
-        tbl.insert(&voter_pubkey, &peer_to_remove)?;
+        remove_peer_votes_tbl.insert(&voter_pubkey, &peer_to_remove)?;
 
         // If this vote is from ourselves, clear the pending vote to stop proposing the
         // same citem
         if Some(voter_pubkey) == self.peer_pubkey {
-            let mut pending_tbl = dbtx.open_table(&tables::pending_remove_peer_vote::TABLE)?;
-            pending_tbl.remove(&())?;
+            dbtx.open_table(&tables::pending_remove_peer_vote::TABLE)?
+                .remove(&())?;
         }
 
         // Count votes for the peer_to_remove from all peer set members
         let mut votes_for_removal = 0;
-        for peer in peer_set.iter() {
-            match tbl.get(peer)? {
+        for peer in cur_effective_peer_set.iter() {
+            match remove_peer_votes_tbl.get(peer)? {
                 Some(vote) if vote.value() == peer_to_remove => {
                     votes_for_removal += 1;
                 }
@@ -390,30 +373,11 @@ impl AppConsensusModule {
         }
 
         // Check if threshold is reached
-        let num_peers = peer_set.to_num_peers();
-        let threshold = num_peers.threshold();
+        let threshold = cur_effective_peer_set.to_num_peers().threshold();
 
         let mut effects = vec![];
         if votes_for_removal >= threshold {
             // Threshold reached - remove the peer immediately and emit effect
-
-            // Clear all votes for removing this peer since it's now being removed
-            // (we already have the table open, so we can reuse it)
-            let peers_to_clear: Vec<PeerPubkey> = tbl
-                .range(..)?
-                .filter_map(|kv| {
-                    let (voter, voted_for) = kv.ok()?;
-                    if voted_for.value() == peer_to_remove {
-                        Some(voter.value())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            for voter in peers_to_clear {
-                tbl.remove(&voter)?;
-            }
 
             // Remove the peer from the peers table
             {
@@ -421,17 +385,26 @@ impl AppConsensusModule {
                 peers_tbl.remove(&peer_to_remove)?;
             }
 
-            let remove_peer_effect = RemovePeerEffect {
-                peer: peer_to_remove,
-            };
-            effects.push(EffectKindExt::encode(&remove_peer_effect));
-
             // Get the updated peer set and emit PeerSetChange effect
-            let updated_peer_set = self.get_peer_set_in_tx(dbtx)?;
-            let peer_set_change_effect = ConsensusParamsChange {
-                peer_set: updated_peer_set,
-            };
-            effects.push(EffectKindExt::encode(&peer_set_change_effect));
+            let updated_peer_set = self.get_peer_set_tx(dbtx)?;
+
+            // Clear votes that don't make sense anymore
+            remove_peer_votes_tbl
+                .retain(|k, vote| updated_peer_set.contains(k) && *vote != peer_to_remove)?;
+
+            effects.push(
+                (RemovePeerEffect {
+                    peer: peer_to_remove,
+                })
+                .encode(),
+            );
+
+            effects.push(
+                (ConsensusParamsChange {
+                    peer_set: updated_peer_set,
+                })
+                .encode(),
+            );
         }
 
         Ok(effects)
@@ -466,6 +439,7 @@ impl IModule for AppConsensusModule {
         peer_set: &PeerSet,
         citem: &CItemRaw,
     ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
+        assert!(peer_set.contains(&peer_pubkey));
         let citem = AppConsensusCitem::decode_from_raw(citem).context(TxSnafu)?;
 
         let res = match citem {

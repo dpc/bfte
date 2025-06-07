@@ -79,7 +79,7 @@ pub struct WaitFinalityVoteRequest {
 /// Response to [`WaitFinalityVoteUpdateRequest`]
 ///
 /// `round` with an update (higher than `prev` in the request)
-#[derive(Decode, Encode, Clone)]
+#[derive(Decode, Encode, Clone, Debug)]
 pub struct WaitFinalityVoteResponse {
     pub update: Signed<FinalityVoteUpdate>,
 }

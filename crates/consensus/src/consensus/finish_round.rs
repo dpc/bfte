@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use bfte_consensus_core::block::BlockRound;
 use bfte_db::ctx::WriteTransactionCtx;
 use bfte_db::error::{DbTxResult, TxSnafu};
@@ -124,11 +122,11 @@ impl Consensus {
         // Similarly, we only need to update notification if the round
         // was updated, or the timeout was set to `true`
         if cur_round != cur_round_start || cur_round_needs_a_timeout {
-            let round_timeout_tx = self.current_round_with_timeout_start_tx.clone();
+            let round_timeout_tx = self.current_round_with_timeout_tx.clone();
             ctx.on_commit(move || {
                 round_timeout_tx.send_if_modified(|value| {
                     let prev = *value;
-                    if value.0 == cur_round && value.1.is_some() {
+                    if value.0 == cur_round && value.1 {
                         // If we already had a timeout set, we should never revert
                         debug_assert!(cur_round_needs_a_timeout);
                         return false;
@@ -137,7 +135,7 @@ impl Consensus {
                         cur_round,
                         // TODO: make the timeout duration exponential based on how many
                         // unfinalized rounds we already have
-                        cur_round_needs_a_timeout.then_some(Duration::from_secs(1)),
+                        cur_round_needs_a_timeout,
                     );
                     prev != *value
                 });
