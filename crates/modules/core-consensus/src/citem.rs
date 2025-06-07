@@ -9,6 +9,7 @@ use snafu::whatever;
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub enum CoreConsensusCitem {
     VoteAddPeer(PeerPubkey),
+    VoteRemovePeer(PeerPubkey),
 }
 
 impl CoreConsensusCitem {

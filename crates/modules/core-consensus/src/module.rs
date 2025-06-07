@@ -18,7 +18,7 @@ use snafu::{OptionExt as _, ResultExt as _, whatever};
 use tokio::sync::watch;
 
 use crate::citem::CoreConsensusCitem;
-use crate::effects::AddPeerEffect;
+use crate::effects::{AddPeerEffect, RemovePeerEffect};
 use crate::tables;
 
 pub struct CoreConsensusModule {
@@ -179,7 +179,7 @@ impl CoreConsensusModule {
         let mut effects = vec![];
         if votes_for_candidate >= threshold {
             // Threshold reached - add the peer immediately and emit effect
-            
+
             // Clear all votes for adding this peer since it's now being added
             // (we already have the table open, so we can reuse it)
             let peers_to_clear: Vec<PeerPubkey> = tbl
@@ -197,7 +197,7 @@ impl CoreConsensusModule {
             for voter in peers_to_clear {
                 tbl.remove(&voter)?;
             }
-            
+
             // Insert the peer into the peers table
             {
                 let mut peers_tbl = dbtx.open_table(&tables::peers::TABLE)?;
@@ -206,6 +206,97 @@ impl CoreConsensusModule {
 
             let add_peer_effect = AddPeerEffect { peer: peer_to_add };
             effects.push(EffectKindExt::encode(&add_peer_effect));
+        }
+
+        Ok(effects)
+    }
+
+    fn process_vote_remove_peer(
+        &self,
+        dbtx: &ModuleWriteTransactionCtx,
+        voter_pubkey: PeerPubkey,
+        peer_set: &PeerSet,
+        peer_to_remove: PeerPubkey,
+    ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
+        // Verify the voter is actually in the current peer set
+        if !peer_set.iter().any(|&p| p == voter_pubkey) {
+            None.whatever_context("Voter {voter_pubkey} is not in the current peer set")
+                .context(TxSnafu)?;
+        }
+
+        // Check if this would be the last peer - don't allow removing the last peer
+        if peer_set.len() == 1 {
+            None.whatever_context("Cannot remove the last peer from the consensus")
+                .context(TxSnafu)?;
+        }
+
+        // Check if the peer to remove is actually in the peer set
+        if !peer_set.iter().any(|&p| p == peer_to_remove) {
+            None.whatever_context("Peer to remove is not in the current peer set")
+                .context(TxSnafu)?;
+        }
+
+        // Open the votes table for reading and writing
+        let mut tbl = dbtx.open_table(&tables::remove_peer_votes::TABLE)?;
+
+        // Check if this vote creates a change
+        let existing_vote = tbl.get(&voter_pubkey)?.map(|v| v.value());
+
+        if existing_vote == Some(peer_to_remove) {
+            // Vote already recorded, no change needed
+            return Ok(vec![]);
+        }
+
+        // Record the vote directly in the database
+        tbl.insert(&voter_pubkey, &peer_to_remove)?;
+
+        // Count votes for the peer_to_remove from all peer set members
+        let mut votes_for_removal = 0;
+        for peer in peer_set.iter() {
+            match tbl.get(peer)? {
+                Some(vote) if vote.value() == peer_to_remove => {
+                    votes_for_removal += 1;
+                }
+                _ => {} // No vote or vote for different peer
+            }
+        }
+
+        // Check if threshold is reached
+        let num_peers = peer_set.to_num_peers();
+        let threshold = num_peers.threshold();
+
+        let mut effects = vec![];
+        if votes_for_removal >= threshold {
+            // Threshold reached - remove the peer immediately and emit effect
+
+            // Clear all votes for removing this peer since it's now being removed
+            // (we already have the table open, so we can reuse it)
+            let peers_to_clear: Vec<PeerPubkey> = tbl
+                .range(..)?
+                .filter_map(|kv| {
+                    let (voter, voted_for) = kv.ok()?;
+                    if voted_for.value() == peer_to_remove {
+                        Some(voter.value())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            for voter in peers_to_clear {
+                tbl.remove(&voter)?;
+            }
+
+            // Remove the peer from the peers table
+            {
+                let mut peers_tbl = dbtx.open_table(&tables::peers::TABLE)?;
+                peers_tbl.remove(&peer_to_remove)?;
+            }
+
+            let remove_peer_effect = RemovePeerEffect {
+                peer: peer_to_remove,
+            };
+            effects.push(EffectKindExt::encode(&remove_peer_effect));
         }
 
         Ok(effects)
@@ -244,6 +335,9 @@ impl IModule for CoreConsensusModule {
         match citem {
             CoreConsensusCitem::VoteAddPeer(peer_to_add) => {
                 self.process_vote_add_peer(dbtx, peer_pubkey, peer_set, peer_to_add)
+            }
+            CoreConsensusCitem::VoteRemovePeer(peer_to_remove) => {
+                self.process_vote_remove_peer(dbtx, peer_pubkey, peer_set, peer_to_remove)
             }
         }
     }

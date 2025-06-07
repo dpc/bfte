@@ -15,6 +15,17 @@ impl EffectKind for AddPeerEffect {
 }
 
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
+pub struct RemovePeerEffect {
+    pub peer: PeerPubkey,
+}
+
+impl EffectKind for RemovePeerEffect {
+    const MODULE_KIND: ModuleKind = crate::KIND;
+    const EFFECT_ID: EffectId = EffectId::new(1);
+}
+
+#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub enum CoreConsensusCItemEffect {
     AddPeer(PeerPubkey),
+    RemovePeer(PeerPubkey),
 }
