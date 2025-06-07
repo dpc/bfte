@@ -8,19 +8,19 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt as _;
 
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
-pub enum CoreConsensusCitem {
+pub enum AppConsensusCitem {
     VoteAddPeer(PeerPubkey),
     VoteRemovePeer(PeerPubkey),
 }
 
-impl CoreConsensusCitem {
-    pub fn to_citem_raw(&self) -> CItemRaw {
+impl AppConsensusCitem {
+    pub fn encode_to_raw(&self) -> CItemRaw {
         let serialized = bincode::encode_to_vec(self, CONSENSUS_BINCODE_CONFIG)
             .expect("encoding should not fail");
         CItemRaw(serialized.into())
     }
 
-    pub fn from_citem_raw(citem_raw: &CItemRaw) -> WhateverResult<Self> {
+    pub fn decode_from_raw(citem_raw: &CItemRaw) -> WhateverResult<Self> {
         decode_whole(citem_raw, CONSENSUS_BINCODE_CONFIG)
             .whatever_context("Failed to decode CoreConsensusCitem")
     }

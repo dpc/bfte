@@ -8,7 +8,7 @@ use axum::extract::{Path, State};
 use axum::response::{IntoResponse, Redirect};
 use bfte_consensus_core::module::ModuleId;
 use bfte_consensus_core::peer::PeerPubkey;
-use bfte_module_core_consensus::CoreConsensusModule;
+use bfte_module_app_consensus::AppConsensusModule;
 use bfte_util_error::fmt::FmtCompact as _;
 use maud::{Markup, html};
 use serde::Deserialize;
@@ -47,9 +47,9 @@ pub async fn post_add_peer_vote(
         return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
     };
 
-    if module.config.kind == bfte_module_core_consensus::KIND {
+    if module.config.kind == bfte_module_app_consensus::KIND {
         let Some(consensus_module_ref) =
-            (module.inner.as_ref() as &dyn Any).downcast_ref::<CoreConsensusModule>()
+            (module.inner.as_ref() as &dyn Any).downcast_ref::<AppConsensusModule>()
         else {
             return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
         };
@@ -73,9 +73,9 @@ impl UiState {
         };
 
         match module.config.kind {
-            bfte_module_core_consensus::KIND => {
+            bfte_module_app_consensus::KIND => {
                 let Some(consensus_module_ref) =
-                    (module.inner.as_ref() as &dyn Any).downcast_ref::<CoreConsensusModule>()
+                    (module.inner.as_ref() as &dyn Any).downcast_ref::<AppConsensusModule>()
                 else {
                     return html! { "Module instance is not a recognized consensus module" };
                 };

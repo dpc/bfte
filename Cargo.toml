@@ -8,7 +8,7 @@ members = [
   "crates/derive-secret",
   "crates/invite",
   "crates/module",
-  "crates/modules/core-consensus",
+  "crates/modules/app-consensus",
   "crates/node",
   "crates/node-app",
   "crates/node-app-core",
@@ -48,7 +48,7 @@ bfte-db = { path = "./crates/db" }
 bfte-derive-secret = { path = "./crates/derive-secret" }
 bfte-invite = { path = "./crates/invite" }
 bfte-module = { path = "./crates/module" }
-bfte-module-core-consensus = { path = "./crates/modules/core-consensus" }
+bfte-module-app-consensus = { path = "./crates/modules/app-consensus" }
 bfte-node = { path = "./crates/node" }
 bfte-node-app = { path = "./crates/node-app" }
 bfte-node-app-core = { path = "./crates/node-app-core" }

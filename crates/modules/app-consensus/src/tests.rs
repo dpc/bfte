@@ -11,10 +11,10 @@ use bfte_module::module::{IModule, ModuleInit, ModuleInitArgs};
 use bfte_util_error::BoxedErrorResult;
 
 use crate::CURRENT_VERSION;
-use crate::citem::CoreConsensusCitem;
+use crate::citem::AppConsensusCitem;
 use crate::effects::{AddPeerEffect, ConsensusParamsChange, RemovePeerEffect};
-use crate::init::CoreConsensusModuleInit;
-use crate::module::CoreConsensusModule;
+use crate::init::AppConsensusModuleInit;
+use crate::module::AppConsensusModule;
 
 struct TestSetup {
     pub module: Arc<dyn IModule + Send + Sync>,
@@ -39,7 +39,7 @@ impl TestSetup {
         // Bootstrap the consensus module with the initial peer set
         let module_config = module_db
             .write_with_expect(|module_dbtx| {
-                let module_init = CoreConsensusModuleInit;
+                let module_init = AppConsensusModuleInit;
                 let peer_set: PeerSet = vec![peer_pubkey].into();
                 module_init.bootstrap_consensus(module_dbtx, module_id, peer_set)
             })
@@ -47,7 +47,7 @@ impl TestSetup {
 
         // Create the module via CoreConsensusModuleInit::init
         // Note: init() will call init_db_tx which creates all needed tables
-        let module_init = CoreConsensusModuleInit;
+        let module_init = AppConsensusModuleInit;
         let module = module_init
             .init(ModuleInitArgs::new(
                 module_id,
@@ -66,8 +66,8 @@ impl TestSetup {
 
     /// Downcast the module to CoreConsensusModule for accessing concrete
     /// implementation methods
-    fn core_module(&self) -> Arc<CoreConsensusModule> {
-        Arc::downcast::<CoreConsensusModule>(self.module.clone())
+    fn core_module(&self) -> Arc<AppConsensusModule> {
+        Arc::downcast::<AppConsensusModule>(self.module.clone())
             .expect("Module should be CoreConsensusModule")
     }
 }
@@ -81,7 +81,7 @@ impl MultiPeerTestSetup {
         // Bootstrap the consensus module with the initial peer set
         let module_config = module_db
             .write_with_expect(|module_dbtx| {
-                let module_init = CoreConsensusModuleInit;
+                let module_init = AppConsensusModuleInit;
                 let peer_set: PeerSet = peer_pubkeys.clone().into();
                 module_init.bootstrap_consensus(module_dbtx, module_id, peer_set)
             })
@@ -89,7 +89,7 @@ impl MultiPeerTestSetup {
 
         // Create the module via CoreConsensusModuleInit::init
         // Note: init() will call init_db_tx which creates all needed tables
-        let module_init = CoreConsensusModuleInit;
+        let module_init = AppConsensusModuleInit;
         let module = module_init
             .init(ModuleInitArgs::new(
                 module_id,
@@ -108,8 +108,8 @@ impl MultiPeerTestSetup {
 
     /// Downcast the module to CoreConsensusModule for accessing concrete
     /// implementation methods
-    fn core_module(&self) -> Arc<CoreConsensusModule> {
-        Arc::downcast::<CoreConsensusModule>(self.module.clone())
+    fn core_module(&self) -> Arc<AppConsensusModule> {
+        Arc::downcast::<AppConsensusModule>(self.module.clone())
             .expect("Module should be CoreConsensusModule")
     }
 }
@@ -123,8 +123,8 @@ async fn test_vote_add_peer_produces_effect() -> BoxedErrorResult<()> {
     let new_peer_pubkey = new_peer_seckey.pubkey();
 
     // Create a VoteAddPeer citem
-    let vote_citem = CoreConsensusCitem::VoteAddPeer(new_peer_pubkey);
-    let citem_raw = vote_citem.to_citem_raw();
+    let vote_citem = AppConsensusCitem::VoteAddPeer(new_peer_pubkey);
+    let citem_raw = vote_citem.encode_to_raw();
 
     // Get current peer set (should only contain the initial peer)
     let peer_set: PeerSet = vec![setup.peer_pubkey].into();
@@ -210,8 +210,8 @@ async fn test_two_peers_voting_to_add_third() -> BoxedErrorResult<()> {
     let new_peer_pubkey = new_peer_seckey.pubkey();
 
     // Create a VoteAddPeer citem
-    let vote_citem = CoreConsensusCitem::VoteAddPeer(new_peer_pubkey);
-    let citem_raw = vote_citem.to_citem_raw();
+    let vote_citem = AppConsensusCitem::VoteAddPeer(new_peer_pubkey);
+    let citem_raw = vote_citem.encode_to_raw();
 
     // Get current peer set (should contain both initial peers)
     let peer_set: PeerSet = vec![peer1_pubkey, peer2_pubkey].into();
@@ -337,8 +337,8 @@ async fn test_two_peers_voting_to_remove_one() -> BoxedErrorResult<()> {
     let setup = MultiPeerTestSetup::bootstrap_with_peers(vec![peer1_pubkey, peer2_pubkey]).await?;
 
     // Create a VoteRemovePeer citem to remove peer2
-    let vote_citem = CoreConsensusCitem::VoteRemovePeer(peer2_pubkey);
-    let citem_raw = vote_citem.to_citem_raw();
+    let vote_citem = AppConsensusCitem::VoteRemovePeer(peer2_pubkey);
+    let citem_raw = vote_citem.encode_to_raw();
 
     // Get current peer set (should contain both initial peers)
     let peer_set: PeerSet = vec![peer1_pubkey, peer2_pubkey].into();

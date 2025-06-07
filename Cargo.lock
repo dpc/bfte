@@ -559,7 +559,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bfte-module-core-consensus"
+name = "bfte-module-app-consensus"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -620,7 +620,7 @@ dependencies = [
  "bfte-consensus-core",
  "bfte-db",
  "bfte-module",
- "bfte-module-core-consensus",
+ "bfte-module-app-consensus",
  "bfte-node-app-core",
  "bfte-node-shared-modules",
  "bfte-util-db",
@@ -691,7 +691,7 @@ dependencies = [
  "axum",
  "bfte-consensus-core",
  "bfte-invite",
- "bfte-module-core-consensus",
+ "bfte-module-app-consensus",
  "bfte-node-shared-modules",
  "bfte-node-ui",
  "bfte-util-error",

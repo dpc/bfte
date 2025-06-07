@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: MIT
 
+//! Application level node logic
+//!
+//! "Application level" can be understood as the layer above "core" layer -
+//! consuming what the core consensus agreed on (finalized) between the peers,
+//! and sending it new things to agree on.
 mod db;
 mod init;
 mod process_citem;
@@ -25,8 +30,8 @@ use bfte_module::effect::{EffectKind as _, EffectKindExt as _, ModuleCItemEffect
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{ModuleDatabase, ModuleWriteTransactionCtx};
 use bfte_module::module::{DynModuleInit, DynModuleWithConfig, ModuleInit, ModuleInitArgs};
-use bfte_module_core_consensus::effects::ConsensusParamsChange;
-use bfte_module_core_consensus::{CoreConsensusModule, CoreConsensusModuleInit};
+use bfte_module_app_consensus::effects::ConsensusParamsChange;
+use bfte_module_app_consensus::{AppConsensusModule, AppConsensusModuleInit};
 use bfte_node_app_core::NodeAppApi;
 use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
@@ -36,7 +41,7 @@ use tokio::sync::{RwLockWriteGuard, watch};
 use tracing::{debug, info};
 
 /// Consensus module is auto-initialized and always there at a fixed id
-const CONSENSUS_MODULE_ID: ModuleId = ModuleId::new(0);
+const APP_CONSENSUS_MODULE_ID: ModuleId = ModuleId::new(0);
 const LOG_TARGET: &str = "bfte::app";
 
 pub type ModulesInits = BTreeMap<ModuleKind, DynModuleInit>;
@@ -81,8 +86,8 @@ impl NodeApp {
         pending_transactions_tx: watch::Sender<Vec<Transaction>>,
     ) -> Self {
         modules_inits
-            .entry(bfte_module_core_consensus::KIND)
-            .or_insert_with(|| Arc::new(bfte_module_core_consensus::init::CoreConsensusModuleInit));
+            .entry(bfte_module_app_consensus::KIND)
+            .or_insert_with(|| Arc::new(bfte_module_app_consensus::init::AppConsensusModuleInit));
         let peer_pubkey = node_api.get_peer_pubkey().await;
         let consensus = node_api.get_consensus().await;
         Self {
@@ -118,14 +123,14 @@ impl NodeApp {
                 self.node_api.ack_and_wait_next_block(cur_round_idx.0).await;
             debug!(target: LOG_TARGET, round = %block_header.round, "Processing new block...");
 
-            // Get the current peer set from the CoreConsensus module
+            // Get the current peer set from the AppConsensus module
             let peer_set = {
                 let modules = self.modules.read().await;
                 let consensus_module = modules
-                    .get(&CONSENSUS_MODULE_ID)
+                    .get(&APP_CONSENSUS_MODULE_ID)
                     .expect("Must have consensus module");
                 let consensus_module_ref = (consensus_module.inner.as_ref() as &dyn Any)
-                    .downcast_ref::<CoreConsensusModule>()
+                    .downcast_ref::<AppConsensusModule>()
                     .expect("Must be a consensus module");
                 consensus_module_ref.get_peer_set().await
             };
@@ -154,13 +159,13 @@ impl NodeApp {
     fn get_consensus_module<'s>(
         &'s self,
         modules_write: &'s RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>>,
-    ) -> &'s CoreConsensusModule {
+    ) -> &'s AppConsensusModule {
         let consensus_module = modules_write
-            .get(&CONSENSUS_MODULE_ID)
-            .expect("Must have a core consensus module");
+            .get(&APP_CONSENSUS_MODULE_ID)
+            .expect("Must have a app consensus module");
 
         (consensus_module.inner.as_ref() as &dyn Any)
-            .downcast_ref::<CoreConsensusModule>()
+            .downcast_ref::<AppConsensusModule>()
             .expect("Must be a core consensus module")
     }
 
@@ -173,24 +178,24 @@ impl NodeApp {
         assert!(modules_write.is_empty());
         let consensus_module_init = self
             .modules_inits
-            .get(&CoreConsensusModuleInit.kind())
+            .get(&AppConsensusModuleInit.kind())
             .whatever_context("Missing module init for consensus module kind")?;
         let consensus_module_init = (consensus_module_init.as_ref() as &dyn Any)
-            .downcast_ref::<CoreConsensusModuleInit>()
+            .downcast_ref::<AppConsensusModuleInit>()
             .expect("Must be a consensus module");
         let default_config = self
             .db
             .write_with_expect(|dbtx| {
-                let dbtx = &ModuleWriteTransactionCtx::new(CONSENSUS_MODULE_ID, dbtx);
+                let dbtx = &ModuleWriteTransactionCtx::new(APP_CONSENSUS_MODULE_ID, dbtx);
 
                 consensus_module_init.bootstrap_consensus(
                     dbtx,
-                    CONSENSUS_MODULE_ID,
+                    APP_CONSENSUS_MODULE_ID,
                     consensus_params.peers,
                 )
             })
             .await;
-        let new_modules_configs = BTreeMap::from([(CONSENSUS_MODULE_ID, default_config)]);
+        let new_modules_configs = BTreeMap::from([(APP_CONSENSUS_MODULE_ID, default_config)]);
         Self::setup_modules_to(
             &self.db,
             modules_write,
@@ -206,7 +211,7 @@ impl NodeApp {
     async fn setup_modules(&mut self) -> WhateverResult<()> {
         let modules_write = self.modules.write().await;
 
-        let new_modules_configs = if modules_write.contains_key(&CONSENSUS_MODULE_ID) {
+        let new_modules_configs = if modules_write.contains_key(&APP_CONSENSUS_MODULE_ID) {
             let consensus_module = self.get_consensus_module(&modules_write);
 
             consensus_module.get_modules_configs().await
@@ -215,14 +220,17 @@ impl NodeApp {
             // we use special function on the init.
             let consensus_module_init = self
                 .modules_inits
-                .get(&CoreConsensusModuleInit.kind())
+                .get(&AppConsensusModuleInit.kind())
                 .whatever_context("Missing module init for consensus module kind")?;
             let consensus_module_init = (consensus_module_init.as_ref() as &dyn Any)
-                .downcast_ref::<CoreConsensusModuleInit>()
+                .downcast_ref::<AppConsensusModuleInit>()
                 .expect("Must be a consensus module");
 
             consensus_module_init
-                .get_modules_configs(&ModuleDatabase::new(CONSENSUS_MODULE_ID, self.db.clone()))
+                .get_modules_configs(&ModuleDatabase::new(
+                    APP_CONSENSUS_MODULE_ID,
+                    self.db.clone(),
+                ))
                 .await
         };
         Self::setup_modules_to(
@@ -304,7 +312,7 @@ impl NodeApp {
     ) -> DbResult<()> {
         for effect in effects {
             // Only process effects from our own module
-            if effect.module_kind() != bfte_module_core_consensus::KIND {
+            if effect.module_kind() != bfte_module_app_consensus::KIND {
                 continue;
             }
 

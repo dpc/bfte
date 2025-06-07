@@ -14,13 +14,13 @@ use bfte_module::module::{
 use snafu::ensure;
 use tokio::sync::watch;
 
-use super::CoreConsensusModule;
+use super::AppConsensusModule;
 use crate::tables::{self, modules_configs};
 use crate::{CURRENT_VERSION, KIND};
 
-pub struct CoreConsensusModuleInit;
+pub struct AppConsensusModuleInit;
 
-impl CoreConsensusModuleInit {
+impl AppConsensusModuleInit {
     /// Initialize consensus module
     ///
     /// Since consensus module is the one storing consensus configs for itself
@@ -68,12 +68,12 @@ impl CoreConsensusModuleInit {
         &self,
         db: &ModuleDatabase,
     ) -> BTreeMap<ModuleId, ModuleConfig> {
-        CoreConsensusModule::get_module_configs_static(db).await
+        AppConsensusModule::get_module_configs_static(db).await
     }
 }
 
 #[async_trait]
-impl ModuleInit for CoreConsensusModuleInit {
+impl ModuleInit for AppConsensusModuleInit {
     fn kind(&self) -> ModuleKind {
         crate::KIND
     }
@@ -103,10 +103,10 @@ impl ModuleInit for CoreConsensusModuleInit {
         let (propose_citems_tx, propose_citems_rx) = watch::channel(Vec::new());
 
         args.db
-            .write_with_expect(CoreConsensusModule::init_db_tx)
+            .write_with_expect(AppConsensusModule::init_db_tx)
             .await;
 
-        let module = CoreConsensusModule {
+        let module = AppConsensusModule {
             db: args.db,
             version: args.module_consensus_version,
             peer_pubkey: args.peer_pubkey,

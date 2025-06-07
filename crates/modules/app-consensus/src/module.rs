@@ -17,11 +17,11 @@ use bfte_util_error::{Whatever, WhateverResult};
 use snafu::{OptionExt as _, ResultExt as _, whatever};
 use tokio::sync::watch;
 
-use crate::citem::CoreConsensusCitem;
+use crate::citem::AppConsensusCitem;
 use crate::effects::{AddPeerEffect, ConsensusParamsChange, RemovePeerEffect};
 use crate::tables;
 
-pub struct CoreConsensusModule {
+pub struct AppConsensusModule {
     #[allow(dead_code)]
     pub(crate) version: ConsensusVersion,
     pub(crate) db: ModuleDatabase,
@@ -30,7 +30,7 @@ pub struct CoreConsensusModule {
     pub(crate) propose_citems_tx: watch::Sender<Vec<CItemRaw>>,
 }
 
-impl CoreConsensusModule {
+impl AppConsensusModule {
     pub(crate) async fn get_module_configs_static(
         db: &ModuleDatabase,
     ) -> BTreeMap<ModuleId, ModuleConfig> {
@@ -130,8 +130,8 @@ impl CoreConsensusModule {
                 .await;
 
             if current_vote != Some(pending_peer) {
-                let citem = CoreConsensusCitem::VoteAddPeer(pending_peer);
-                proposals.push(citem.to_citem_raw());
+                let citem = AppConsensusCitem::VoteAddPeer(pending_peer);
+                proposals.push(citem.encode_to_raw());
             }
         }
 
@@ -347,7 +347,7 @@ impl CoreConsensusModule {
 }
 
 #[async_trait]
-impl IModule for CoreConsensusModule {
+impl IModule for AppConsensusModule {
     fn display_name(&self) -> &'static str {
         "Core Consensus"
     }
@@ -364,13 +364,13 @@ impl IModule for CoreConsensusModule {
         peer_set: &PeerSet,
         citem: &CItemRaw,
     ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
-        let citem = CoreConsensusCitem::from_citem_raw(citem).context(TxSnafu)?;
+        let citem = AppConsensusCitem::decode_from_raw(citem).context(TxSnafu)?;
 
         match citem {
-            CoreConsensusCitem::VoteAddPeer(peer_to_add) => {
+            AppConsensusCitem::VoteAddPeer(peer_to_add) => {
                 self.process_vote_add_peer(dbtx, peer_pubkey, peer_set, peer_to_add)
             }
-            CoreConsensusCitem::VoteRemovePeer(peer_to_remove) => {
+            AppConsensusCitem::VoteRemovePeer(peer_to_remove) => {
                 self.process_vote_remove_peer(dbtx, peer_pubkey, peer_set, peer_to_remove)
             }
         }
