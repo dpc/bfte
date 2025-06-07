@@ -5,7 +5,7 @@ use bfte_db::Database;
 use bfte_db::ctx::WriteTransactionCtx;
 pub use bfte_db::error::{DbError, DbResult, DbTxResult};
 use redb_bincode::redb::{TableError, TableHandle as _};
-use redb_bincode::{ReadOnlyTable, ReadTransaction, Table, TableDefinition};
+use redb_bincode::{ReadOnlyTable, ReadTransaction, ReadableTable, Table, TableDefinition};
 
 /// A wrapper around [`Database`] that encapsulates module's tables
 ///
@@ -124,10 +124,7 @@ impl ModuleDatabase {
 
 pub struct ModuleWriteTransactionCtx<'a> {
     module_id: ModuleId,
-    inner: &'a WriteTransactionCtx, /* commit_hook_order_lock: Arc<std::sync::Mutex<()>>,
-                                     * dbtx: WriteTransaction,
-                                     * on_commit: std::sync::Mutex<Vec<Box<dyn FnOnce() +
-                                     * 'static>>>, */
+    inner: &'a WriteTransactionCtx,
 }
 
 impl<'s> ModuleWriteTransactionCtx<'s> {
@@ -148,6 +145,10 @@ impl<'s> ModuleWriteTransactionCtx<'s> {
             table_def.as_raw().name()
         )))
     }
+
+    pub fn on_commit(&self, f: impl FnOnce() + 'static) {
+        self.inner.on_commit(f);
+    }
 }
 
 pub struct ModuleReadTransaction<'a> {
@@ -163,6 +164,66 @@ impl<'s> ModuleReadTransaction<'s> {
         &self,
         table_def: &TableDefinition<'_, K, V>,
     ) -> Result<ReadOnlyTable<K, V>, TableError>
+    where
+        K: bincode::Encode + bincode::Decode<()>,
+        V: bincode::Encode + bincode::Decode<()>,
+    {
+        self.inner.open_table(&TableDefinition::new(&format!(
+            "module_{}_{}",
+            self.module_id,
+            table_def.as_raw().name()
+        )))
+    }
+}
+
+pub trait ModuleReadableTransaction<'s> {
+    type Table<K, V>: ReadableTable<K, V>
+    where
+        K: bincode::Encode + bincode::Decode<()>,
+        V: bincode::Encode + bincode::Decode<()>;
+
+    fn open_table<K, V>(
+        &self,
+        table_def: &TableDefinition<'_, K, V>,
+    ) -> Result<Self::Table<K, V>, TableError>
+    where
+        K: bincode::Encode + bincode::Decode<()>,
+        V: bincode::Encode + bincode::Decode<()>;
+}
+
+impl<'s> ModuleReadableTransaction<'s> for ModuleReadTransaction<'s> {
+    type Table<K, V>
+        = ReadOnlyTable<K, V>
+    where
+        K: bincode::Encode + bincode::Decode<()>,
+        V: bincode::Encode + bincode::Decode<()>;
+    fn open_table<K, V>(
+        &self,
+        table_def: &TableDefinition<'_, K, V>,
+    ) -> Result<ReadOnlyTable<K, V>, TableError>
+    where
+        K: bincode::Encode + bincode::Decode<()>,
+        V: bincode::Encode + bincode::Decode<()>,
+    {
+        self.inner.open_table(&TableDefinition::new(&format!(
+            "module_{}_{}",
+            self.module_id,
+            table_def.as_raw().name()
+        )))
+    }
+}
+
+impl<'s> ModuleReadableTransaction<'s> for ModuleWriteTransactionCtx<'s> {
+    type Table<K, V>
+        = Table<'s, K, V>
+    where
+        K: bincode::Encode + bincode::Decode<()>,
+        V: bincode::Encode + bincode::Decode<()>;
+
+    fn open_table<K, V>(
+        &self,
+        table_def: &TableDefinition<'_, K, V>,
+    ) -> Result<Table<'s, K, V>, TableError>
     where
         K: bincode::Encode + bincode::Decode<()>,
         V: bincode::Encode + bincode::Decode<()>,
