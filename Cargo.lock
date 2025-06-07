@@ -616,6 +616,7 @@ dependencies = [
 name = "bfte-node-app"
 version = "0.1.0"
 dependencies = [
+ "bfte-consensus",
  "bfte-consensus-core",
  "bfte-db",
  "bfte-module",
@@ -636,6 +637,7 @@ name = "bfte-node-app-core"
 version = "0.1.0"
 dependencies = [
  "async-trait",
+ "bfte-consensus",
  "bfte-consensus-core",
  "bfte-db",
  "bfte-node-shared-modules",

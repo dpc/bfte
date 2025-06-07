@@ -33,8 +33,8 @@ impl Setup {
             consensus_params_format_version: ConsensusParams::FORMAT_VERSION,
             init_core_module_cons_version,
             timestamp: Timestamp::now(),
-            scheduled_round: 0.into(),
-            applied_round: 0.into(),
+            schedule_round: 0.into(),
+            apply_round: 0.into(),
         };
         let consensus = temp_consensus(&cons_params, Some(seckeys[0].pubkey())).await?;
 

@@ -12,7 +12,7 @@ use bfte_util_error::BoxedErrorResult;
 
 use crate::CURRENT_VERSION;
 use crate::citem::CoreConsensusCitem;
-use crate::effects::{AddPeerEffect, PeerSetChange, RemovePeerEffect};
+use crate::effects::{AddPeerEffect, ConsensusParamsChange, RemovePeerEffect};
 use crate::init::CoreConsensusModuleInit;
 use crate::module::CoreConsensusModule;
 
@@ -148,8 +148,8 @@ async fn test_vote_add_peer_produces_effect() -> BoxedErrorResult<()> {
     assert_eq!(effects.len(), 2, "Expected exactly two effects");
 
     // Check that the first effect is an AddPeerEffect with the correct peer
-    let add_peer_effect: AddPeerEffect =
-        EffectKindExt::decode(&effects[0]).map_err(|e| format!("Failed to decode AddPeerEffect: {e}"))?;
+    let add_peer_effect: AddPeerEffect = EffectKindExt::decode(&effects[0])
+        .map_err(|e| format!("Failed to decode AddPeerEffect: {e}"))?;
 
     assert_eq!(
         add_peer_effect.peer, new_peer_pubkey,
@@ -157,11 +157,12 @@ async fn test_vote_add_peer_produces_effect() -> BoxedErrorResult<()> {
     );
 
     // Check that the second effect is a PeerSetChange with the updated peer set
-    let peer_set_change_effect: PeerSetChange =
-        EffectKindExt::decode(&effects[1]).map_err(|e| format!("Failed to decode PeerSetChange: {e}"))?;
+    let peer_set_change_effect = ConsensusParamsChange::decode(&effects[1])
+        .map_err(|e| format!("Failed to decode PeerSetChange: {e}"))?;
 
     assert_eq!(
-        peer_set_change_effect.peer_set.len(), 2,
+        peer_set_change_effect.peer_set.len(),
+        2,
         "PeerSetChange should contain 2 peers"
     );
     assert!(
@@ -272,8 +273,8 @@ async fn test_two_peers_voting_to_add_third() -> BoxedErrorResult<()> {
     );
 
     // Check that the first effect is an AddPeerEffect with the correct peer
-    let add_peer_effect: AddPeerEffect =
-        EffectKindExt::decode(&effects2[0]).map_err(|e| format!("Failed to decode AddPeerEffect: {e}"))?;
+    let add_peer_effect: AddPeerEffect = EffectKindExt::decode(&effects2[0])
+        .map_err(|e| format!("Failed to decode AddPeerEffect: {e}"))?;
 
     assert_eq!(
         add_peer_effect.peer, new_peer_pubkey,
@@ -281,11 +282,12 @@ async fn test_two_peers_voting_to_add_third() -> BoxedErrorResult<()> {
     );
 
     // Check that the second effect is a PeerSetChange with the updated peer set
-    let peer_set_change_effect: PeerSetChange =
-        EffectKindExt::decode(&effects2[1]).map_err(|e| format!("Failed to decode PeerSetChange: {e}"))?;
+    let peer_set_change_effect = ConsensusParamsChange::decode(&effects2[1])
+        .map_err(|e| format!("Failed to decode PeerSetChange: {e}"))?;
 
     assert_eq!(
-        peer_set_change_effect.peer_set.len(), 3,
+        peer_set_change_effect.peer_set.len(),
+        3,
         "PeerSetChange should contain 3 peers"
     );
     assert!(
@@ -398,8 +400,8 @@ async fn test_two_peers_voting_to_remove_one() -> BoxedErrorResult<()> {
     );
 
     // Check that the first effect is a RemovePeerEffect with the correct peer
-    let remove_peer_effect: RemovePeerEffect =
-        EffectKindExt::decode(&effects2[0]).map_err(|e| format!("Failed to decode RemovePeerEffect: {e}"))?;
+    let remove_peer_effect: RemovePeerEffect = EffectKindExt::decode(&effects2[0])
+        .map_err(|e| format!("Failed to decode RemovePeerEffect: {e}"))?;
 
     assert_eq!(
         remove_peer_effect.peer, peer2_pubkey,
@@ -407,11 +409,12 @@ async fn test_two_peers_voting_to_remove_one() -> BoxedErrorResult<()> {
     );
 
     // Check that the second effect is a PeerSetChange with the updated peer set
-    let peer_set_change_effect: PeerSetChange =
-        EffectKindExt::decode(&effects2[1]).map_err(|e| format!("Failed to decode PeerSetChange: {e}"))?;
+    let peer_set_change_effect: ConsensusParamsChange = EffectKindExt::decode(&effects2[1])
+        .map_err(|e| format!("Failed to decode PeerSetChange: {e}"))?;
 
     assert_eq!(
-        peer_set_change_effect.peer_set.len(), 1,
+        peer_set_change_effect.peer_set.len(),
+        1,
         "PeerSetChange should contain 1 peer after removal"
     );
     assert!(

@@ -1,5 +1,7 @@
 use bfte_consensus_core::Signature;
-use bfte_consensus_core::block::{BlockHeader, BlockRound, VerifyWithContentError};
+use bfte_consensus_core::block::{
+    BlockHeader, BlockPayloadRaw, BlockRound, VerifyWithContentError,
+};
 use bfte_consensus_core::msg::WaitVoteResponse;
 use bfte_consensus_core::peer::PeerIdx;
 use bfte_db::ctx::WriteTransactionCtx;
@@ -29,6 +31,7 @@ pub enum ProcessVoteError {
         peer_idx: PeerIdx,
         existing: Signature,
     },
+    VoteForADifferentProposal,
     NotALeader,
     #[snafu(display("Proposed a dummy block"))]
     Dummy,
@@ -90,15 +93,15 @@ impl Consensus {
         }
 
         // Given the round, look up peers for it
-        let consensus_param = ctx.get_consensus_params(cur_round)?;
-        let consensus_params_hash = consensus_param.hash();
-        let consensus_params_len = consensus_param.len();
+        let consensus_params = ctx.get_consensus_params(cur_round)?;
+        let consensus_params_hash = consensus_params.hash();
+        let consensus_params_len = consensus_params.len();
 
         let vote = match resp {
             WaitVoteResponse::Vote { block } => block,
             WaitVoteResponse::Proposal { block, payload } => {
                 // Only leader can propose a block
-                if consensus_param.leader_idx(cur_round) != peer_idx {
+                if consensus_params.leader_idx(cur_round) != peer_idx {
                     return Err(ProcessVoteError::NotALeader).context(TxSnafu)?;
                 }
 
@@ -147,14 +150,31 @@ impl Consensus {
 
         // Check signature (this will revert inserting a proposal, so OK to do
         // afterwards)
-        vote.verify_sig_peer_idx(peer_idx, &consensus_param.peers)
+        vote.verify_sig_peer_idx(peer_idx, &consensus_params.peers)
             .ok()
             .context(InvalidSignatureSnafu)
             .context(TxSnafu)?;
 
         let vote_insert_outcome = if vote.inner.is_dummy() {
+            vote.inner
+                .verify_with_content(
+                    consensus_params_hash,
+                    consensus_params_len,
+                    &BlockPayloadRaw::empty(),
+                )
+                .context(InvalidContentSnafu)
+                .context(TxSnafu)?;
+            debug_assert_eq!(
+                vote.inner,
+                BlockHeader::new_dummy(vote.inner.round, &consensus_params)
+            );
             ctx.insert_dummy_vote(cur_round, peer_idx, vote.sig)?
         } else {
+            if let Some(proposal) = ctx.get_proposal(cur_round)? {
+                if proposal != vote.inner {
+                    VoteForADifferentProposalSnafu.fail().context(TxSnafu)?;
+                }
+            }
             ctx.insert_block_vote(cur_round, peer_idx, vote)?
                 .map(|x| x.sig)
         };

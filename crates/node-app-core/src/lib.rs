@@ -5,12 +5,12 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use bfte_consensus::consensus::Consensus;
 use bfte_consensus_core::block::{BlockHeader, BlockRound};
 use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::peer::PeerPubkey;
-use bfte_consensus_core::peer_set::PeerSet;
 use bfte_db::Database;
 use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
@@ -33,6 +33,7 @@ pub type NodeAppApi = Arc<dyn INodeAppApi + Send + Sync + 'static>;
 /// The API `bfte-node` exposes to `bfte-node-app`
 #[async_trait]
 pub trait INodeAppApi {
+    async fn get_consensus(&self) -> Arc<Consensus>;
     async fn get_peer_pubkey(&self) -> Option<PeerPubkey>;
 
     async fn get_consensus_params(&self, round: BlockRound) -> ConsensusParams;
@@ -45,7 +46,4 @@ pub trait INodeAppApi {
         &self,
         round: BlockRound,
     ) -> (BlockHeader, PeerPubkey, Arc<[CItem]>);
-
-    /// Notify node logic that a consensus params changed
-    async fn consensus_params_change(&self, round: BlockRound, new_peer_set: PeerSet);
 }

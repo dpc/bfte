@@ -105,7 +105,7 @@ impl CoreConsensusModule {
         Ok(())
     }
 
-    async fn refresh_consensus_proposals(&self) {
+    pub(crate) async fn refresh_consensus_proposals(&self) {
         let mut proposals = Vec::new();
 
         let Some(peer_pubkey) = self.peer_pubkey else {
@@ -399,29 +399,6 @@ impl IModule for CoreConsensusModule {
         _dbtx: &ModuleWriteTransactionCtx,
         _effects: &[ModuleCItemEffect],
     ) -> DbTxResult<(), Whatever> {
-        // Effect processing is commented out - database changes happen directly in
-        // process_vote_add_peer when the threshold is reached
-
-        // for effect in effects {
-        //     // Only process effects from our own module
-        //     if effect.module_kind() != crate::KIND {
-        //         continue;
-        //     }
-
-        //     // Check if this is our AddPeer effect (effect ID 0)
-        //     if effect.inner().effect_id == EffectId::new(0) {
-        //         // Decode the AddPeerEffect
-        //         let add_peer_effect: AddPeerEffect =
-        // EffectKindExt::decode(effect.inner())             .map_err(|e|
-        // format!("Failed to decode AddPeerEffect: {e}"))
-        // .whatever_context("Decoding AddPeerEffect")
-        // .context(TxSnafu)?;
-
-        //         // Process the peer addition
-        //         self.process_add_peer_effect(dbtx, add_peer_effect.peer)?;
-        //     }
-        // }
-
         Ok(())
     }
 }

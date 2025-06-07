@@ -99,7 +99,6 @@ impl WeakSharedModules {
         drop(read);
 
         use tokio_stream::StreamExt as _;
-
         if let Some((module_id, citems)) = stream_map.next().await {
             assert!(!citems.is_empty());
             citems

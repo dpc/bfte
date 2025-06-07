@@ -107,9 +107,18 @@ impl Consensus {
             .update_finality_consensus(finality_cons)?
             .unwrap_or_default();
 
-        if finality_cons < prev_finality_cons {
-            panic!("Finalization went backwards: {finality_cons} < {prev_finality_cons}");
-        }
+        let finality_cons = if finality_cons < prev_finality_cons {
+            warn!(
+                target: LOG_TARGET,
+                %prev_finality_cons,
+                %finality_cons,
+                "Finalization went backwards. This can temporarily happen after new peers were added."
+            );
+            // Just ignore the new, backward consensus;
+            prev_finality_cons
+        } else {
+            finality_cons
+        };
 
         let tx = self.finality_cons_tx.clone();
 

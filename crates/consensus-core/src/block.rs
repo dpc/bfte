@@ -225,7 +225,7 @@ impl BlockHeader {
             header_version: 0,
             padding: [0u8; 3],
             timestamp: Timestamp::ZERO,
-            seq: BlockSeq::default(),
+            seq: BlockSeq::ZERO,
             round,
             prev_block_hash: BlockHash::ZERO,
             consensus_params_len,

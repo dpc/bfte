@@ -6,9 +6,13 @@ use bfte_consensus_core::msg::{
     WaitNotarizedBlockRequest, WaitNotarizedBlockResponse, WaitVoteResponse,
 };
 use bfte_consensus_core::peer::{PeerIdx, PeerPubkey};
+use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::signed::{Notarized, Signed};
+use bfte_consensus_core::timestamp::Timestamp;
+use bfte_db::ctx::WriteTransactionCtx;
+use bfte_db::error::DbResult;
 use tokio::sync::watch;
-use tracing::warn;
+use tracing::{info, warn};
 
 use super::{Consensus, ConsensusReadDbOps as _};
 use crate::consensus::{ConsensusWriteDbOps as _, LOG_TARGET};
@@ -146,17 +150,6 @@ impl Consensus {
             .await
     }
 
-    pub async fn schedule_consensus_params(&self, consensus_params: &ConsensusParams) {
-        assert!(
-            self.current_round_with_timeout_start_tx.borrow().0 < consensus_params.scheduled_round
-        );
-        self.db
-            .write_with_expect(|ctx| {
-                ctx.insert_consensus_params(consensus_params.scheduled_round, consensus_params)
-            })
-            .await;
-    }
-
     pub async fn has_pending_consensus_params_change(&self, round: BlockRound) -> bool {
         self.db
             .read_with_expect(|ctx| ctx.has_pending_consensus_params_change(round))
@@ -249,5 +242,40 @@ impl Consensus {
             .await?;
 
         Some(block)
+    }
+
+    pub fn consensus_params_change_tx(
+        &self,
+        ctx: &WriteTransactionCtx,
+        round: BlockRound,
+        block_timestamp: Timestamp,
+        new_peer_set: PeerSet,
+    ) -> DbResult<()> {
+        let current_params = ctx.get_consensus_params(round)?;
+
+        let prev_mid_block = ctx.get_prev_notarized_block(round.half())?;
+
+        let new_consensus_params = current_params.make_change(
+            round,
+            block_timestamp,
+            new_peer_set,
+            prev_mid_block.map(|b| (b.round, b.hash())),
+        );
+
+        info!(
+            target: LOG_TARGET,
+            schedule_round = %new_consensus_params.schedule_round,
+            apply_round = %new_consensus_params.apply_round,
+            peers_len = %new_consensus_params.peers.len(),
+            "Scheduling consensus params change"
+        );
+
+        assert!(
+            self.current_round_with_timeout_start_tx.borrow().0 < new_consensus_params.apply_round
+        );
+
+        ctx.insert_consensus_params(new_consensus_params.apply_round, &new_consensus_params)?;
+
+        Ok(())
     }
 }

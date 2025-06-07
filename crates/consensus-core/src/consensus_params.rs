@@ -72,10 +72,11 @@ pub struct ConsensusParams {
     /// Given an amount of peers at that round, a certain delay is added, to
     /// ensure some time for all peers to reach a finality and add it to
     /// their consensus params schedule.
-    pub scheduled_round: BlockRound,
+    pub schedule_round: BlockRound,
 
-    /// [`BlockRound`] this consensus parameters was/will be applied.
-    pub applied_round: BlockRound,
+    /// [`BlockRound`] this consensus parameters was/will be applied and
+    /// effective in the consensus core.
+    pub apply_round: BlockRound,
 
     /// Block round and hash of some (potentially distant) historical notarized
     /// block.
@@ -100,6 +101,11 @@ pub struct ConsensusParams {
 
 impl ConsensusParams {
     pub const FORMAT_VERSION: u8 = 0;
+
+    /// Minimum base delay (in rounds) before application level
+    /// consensus changes are applied on the core consensus.
+    pub const CONSENSUS_PARAMS_CORE_APPLY_DELAY_BASE: u64 = 32;
+
     /// New, empty, zeroed, possibly nonsensical consensus params
     ///
     /// Useful mostly for testing.
@@ -110,32 +116,34 @@ impl ConsensusParams {
             consensus_params_format_version: 0,
             init_core_module_cons_version: ConsensusVersion::new(0, 0),
             timestamp: Timestamp::ZERO,
-            scheduled_round: 0.into(),
-            applied_round: 0.into(),
+            schedule_round: 0.into(),
+            apply_round: 0.into(),
         }
     }
 
     pub fn make_change(
         self,
+        schedule_round: BlockRound,
+        block_timestamp: Timestamp,
         peer_set: PeerSet,
         prev_mid_block: Option<(BlockRound, BlockHash)>,
-        scheduled_round: BlockRound,
     ) -> Self {
-        let applied_round = scheduled_round
+        let apply_round = schedule_round
             .checked_add(self.consensus_params_schedulign_delay())
             .expect("Can't ran out of u64 of rounds");
         Self {
             peers: peer_set,
-            timestamp: Timestamp::now(),
+            timestamp: block_timestamp,
             prev_mid_block,
-            scheduled_round,
-            applied_round,
+            schedule_round,
+            apply_round,
             ..self
         }
     }
 
     pub fn consensus_params_schedulign_delay(&self) -> u64 {
-        u64::try_from(self.peers.to_num_peers().total()).expect("Can't fail") + 32
+        u64::try_from(self.peers.to_num_peers().total()).expect("Can't fail")
+            + Self::CONSENSUS_PARAMS_CORE_APPLY_DELAY_BASE
     }
 
     pub fn num_peers(&self) -> NumPeers {

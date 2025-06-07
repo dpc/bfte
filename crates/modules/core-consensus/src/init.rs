@@ -14,8 +14,9 @@ use bfte_module::module::{
 use snafu::ensure;
 use tokio::sync::watch;
 
+use super::CoreConsensusModule;
 use crate::tables::{self, modules_configs};
-use crate::{CURRENT_VERSION, CoreConsensusModule, KIND};
+use crate::{CURRENT_VERSION, KIND};
 
 pub struct CoreConsensusModuleInit;
 
@@ -102,15 +103,19 @@ impl ModuleInit for CoreConsensusModuleInit {
         let (propose_citems_tx, propose_citems_rx) = watch::channel(Vec::new());
 
         args.db
-            .write_with_expect(super::CoreConsensusModule::init_db_tx)
+            .write_with_expect(CoreConsensusModule::init_db_tx)
             .await;
 
-        Ok(Arc::new(super::CoreConsensusModule {
+        let module = CoreConsensusModule {
             db: args.db,
             version: args.module_consensus_version,
             peer_pubkey: args.peer_pubkey,
             propose_citems_rx,
             propose_citems_tx,
-        }))
+        };
+
+        module.refresh_consensus_proposals().await;
+
+        Ok(Arc::new(module))
     }
 }

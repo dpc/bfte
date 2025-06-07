@@ -68,7 +68,23 @@ impl Node {
         round: BlockRound,
         params: ConsensusParams,
     ) -> WhateverResult<()> {
+        // Do not race too much ahead over what node-app was able to process.
+        let Ok(_) = self
+            .node_app_ack_rx
+            .clone()
+            .wait_for(|node_app_ack| {
+                round
+                    < node_app_ack
+                        .checked_add(ConsensusParams::CONSENSUS_PARAMS_CORE_APPLY_DELAY_BASE)
+                        .expect("Can't run out of u64 rounds ")
+            })
+            .await
+        else {
+            future::pending().await
+        };
+
         let consensus = self.consensus_expect();
+
         // Set of all the tasks specific for this round.
         //
         // Takes care of cancelling on drop. Each task produces (potentially)
@@ -468,12 +484,11 @@ impl Node {
         pending_transactions_rx.mark_unchanged();
 
         let mut pending_citems: Vec<CItem> = Default::default();
-
         loop {
             // We only want to propose anything, if app layer is up to date with the latest
             // finality
-            let Ok(_) = consensus_finality_rx
-                .wait_for(|finality| *finality == *node_app_ack_rx.borrow())
+            let Ok(_) = node_app_ack_rx
+                .wait_for(|app_ack| *app_ack == *consensus_finality_rx.borrow())
                 .await
             else {
                 future::pending().await
@@ -483,7 +498,7 @@ impl Node {
                 break;
             }
 
-            let pending_params_change_fn = async {
+            let wait_pending_params_change_async = async {
                 // If consensus has any params changes pending, we want to produce
                 // a round, even if empty, just to trigger the change in a timely maner.
                 sleep(Duration::from_millis(500)).await;
@@ -497,6 +512,7 @@ impl Node {
                 }
             };
 
+            debug!(target: LOG_TARGET, %round, "Awaiting new block proposal trigger");
             select! {
                 // We check proposed citems from our modules with priority,
                 // and add pending transactions to this list.
@@ -536,7 +552,7 @@ impl Node {
                     continue;
                 },
 
-                _ = pending_params_change_fn => {
+                _ = wait_pending_params_change_async => {
                     break;
                 }
             };
@@ -586,6 +602,7 @@ impl Node {
             payload,
         )
     }
+
     async fn request_peer_vote(
         connection_pool: ConnectionPool,
         round: BlockRound,
@@ -594,7 +611,14 @@ impl Node {
         only_dummy: bool,
     ) -> RoundEvent {
         {
-            debug!(target: LOG_TARGET, %peer_idx, %peer_pubkey, %only_dummy, "Requesting vote from peer");
+            debug!(
+                target: LOG_TARGET,
+                %peer_idx,
+                %peer_pubkey,
+                %only_dummy,
+                %round,
+                "Requesting vote from peer"
+            );
             || async {
                 let mut conn = connection_pool
                     .connect(peer_pubkey)
@@ -637,7 +661,13 @@ impl Node {
         peer_pubkey: PeerPubkey,
         prev_notarized_block: Option<BlockHeader>,
     ) -> RoundEvent {
-        debug!(target: LOG_TARGET, %peer_idx, %peer_pubkey, "Requesting notarized block from peer");
+        debug!(
+            target: LOG_TARGET,
+            %peer_idx,
+            %peer_pubkey,
+            %round,
+            "Requesting notarized block from peer"
+        );
         {
             || async {
                 let mut conn = connection_pool

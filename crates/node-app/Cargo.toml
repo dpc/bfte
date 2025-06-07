@@ -5,6 +5,7 @@ edition.workspace = true
 version.workspace = true
 
 [dependencies]
+bfte-consensus = { workspace = true }
 bfte-consensus-core = { workspace = true }
 bfte-db = { workspace = true }
 bfte-module = { workspace = true }

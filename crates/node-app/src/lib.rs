@@ -11,14 +11,21 @@ use std::convert::Infallible;
 use std::mem;
 use std::sync::Arc;
 
+use bfte_consensus::consensus::Consensus;
+use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::PeerPubkey;
+use bfte_consensus_core::timestamp::Timestamp;
 use bfte_db::Database;
+use bfte_db::ctx::WriteTransactionCtx;
+use bfte_db::error::DbResult;
+use bfte_module::effect::{EffectKind as _, EffectKindExt as _, ModuleCItemEffect};
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{ModuleDatabase, ModuleWriteTransactionCtx};
 use bfte_module::module::{DynModuleInit, DynModuleWithConfig, ModuleInit, ModuleInitArgs};
+use bfte_module_core_consensus::effects::ConsensusParamsChange;
 use bfte_module_core_consensus::{CoreConsensusModule, CoreConsensusModuleInit};
 use bfte_node_app_core::NodeAppApi;
 use bfte_node_shared_modules::SharedModules;
@@ -41,6 +48,11 @@ pub type ModulesInits = BTreeMap<ModuleKind, DynModuleInit>;
 pub struct NodeApp {
     /// Database storing tables of this and other core modules
     db: Arc<Database>,
+
+    /// Direct reference to the consensus
+    ///
+    /// Should only be used to schedule consensus param changes.
+    consensus: Arc<Consensus>,
 
     /// Api to call [`bfte-node`]
     node_api: NodeAppApi,
@@ -72,6 +84,7 @@ impl NodeApp {
             .entry(bfte_module_core_consensus::KIND)
             .or_insert_with(|| Arc::new(bfte_module_core_consensus::init::CoreConsensusModuleInit));
         let peer_pubkey = node_api.get_peer_pubkey().await;
+        let consensus = node_api.get_consensus().await;
         Self {
             node_api,
             modules_inits,
@@ -79,6 +92,7 @@ impl NodeApp {
             db,
             pending_transactions_tx,
             peer_pubkey,
+            consensus,
         }
     }
 
@@ -278,6 +292,34 @@ impl NodeApp {
             "Some existing modules are without config in the new round: {:?}",
             existing_modules.keys()
         );
+        Ok(())
+    }
+
+    fn process_consensus_change_effects(
+        &self,
+        dbtx: &WriteTransactionCtx,
+        round: BlockRound,
+        block_timestamp: Timestamp,
+        effects: &[ModuleCItemEffect],
+    ) -> DbResult<()> {
+        for effect in effects {
+            // Only process effects from our own module
+            if effect.module_kind() != bfte_module_core_consensus::KIND {
+                continue;
+            }
+
+            if effect.inner().effect_id == ConsensusParamsChange::EFFECT_ID {
+                // Decode the AddPeerEffect
+                let change =
+                    ConsensusParamsChange::decode(effect.inner()).expect("Can't fail to decode");
+                self.consensus.consensus_params_change_tx(
+                    dbtx,
+                    round,
+                    block_timestamp,
+                    change.peer_set,
+                )?;
+            }
+        }
         Ok(())
     }
 }

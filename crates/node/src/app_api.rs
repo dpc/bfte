@@ -3,12 +3,12 @@ use std::future;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use bfte_consensus::consensus::Consensus;
 use bfte_consensus_core::block::{BlockHeader, BlockRound};
 use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::peer::PeerPubkey;
-use bfte_consensus_core::peer_set::PeerSet;
 use bfte_db::Database;
 use bfte_node_app_core::{INodeAppApi, RunNodeAppFn};
 use bfte_node_shared_modules::SharedModules;
@@ -36,6 +36,9 @@ impl NodeAppApi {
 
 #[async_trait]
 impl INodeAppApi for NodeAppApi {
+    async fn get_consensus(&self) -> Arc<Consensus> {
+        self.node_ref_wait().await.consensus_wait().await.clone()
+    }
     async fn get_peer_pubkey(&self) -> Option<PeerPubkey> {
         self.node_ref_wait().await.peer_pubkey
     }
@@ -56,16 +59,24 @@ impl INodeAppApi for NodeAppApi {
         let node_ref = self.node_ref_wait().await;
 
         node_ref.node_app_ack_tx.send_replace(round);
-
         let consensus = node_ref.consensus_wait().await;
-        let Ok(_) = consensus
+
+        // Wait for finality to reach the requested block
+        let Ok(_finality) = consensus
             .finality_consensus_rx()
             .wait_for(|finality| round < *finality)
+            .await
+            .map(|f| *f)
+        else {
+            future::pending().await
+        };
+        let Ok(_) = consensus
+            .current_round_with_timeout_start_rx()
+            .wait_for(|cur_round| round < cur_round.0)
             .await
         else {
             future::pending().await
         };
-
         let block = consensus
             .get_next_notarized_block(round)
             .await
@@ -89,24 +100,6 @@ impl INodeAppApi for NodeAppApi {
         let block_payload = block_payload.decode_citems().expect("Can't fail");
 
         (block, *peer_pubkey, block_payload)
-    }
-
-    async fn consensus_params_change(&self, round: BlockRound, new_peer_set: PeerSet) {
-        let consensus = self.node_ref_wait().await.consensus_expect();
-
-        let current_params = consensus.get_consensus_params(round).await;
-
-        let prev_mid_block = consensus.get_prev_notarized_block(round.half()).await;
-
-        let new_consensus_params = current_params.make_change(
-            new_peer_set,
-            prev_mid_block.map(|b| (b.round, b.hash())),
-            round,
-        );
-
-        consensus
-            .schedule_consensus_params(new_consensus_params)
-            .await
     }
 }
 

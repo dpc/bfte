@@ -3,6 +3,7 @@ use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::module::ModuleId;
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::peer_set::PeerSet;
+use bfte_consensus_core::timestamp::Timestamp;
 use bfte_db::error::TxSnafu;
 use bfte_module::effect::ModuleCItemEffect;
 use bfte_module::module::db::ModuleWriteTransactionCtx;
@@ -53,6 +54,7 @@ impl NodeApp {
             .process_citem_try(
                 (cur_round, cur_citem_idx),
                 block_header.round,
+                block_header.timestamp,
                 peer_pubkey,
                 peer_set,
                 citem,
@@ -72,6 +74,7 @@ impl NodeApp {
         &self,
         (cur_round, cur_citem_idx): (BlockRound, BlockCItemIdx),
         block_round: BlockRound,
+        block_timestamp: Timestamp,
         peer_pubkey: PeerPubkey,
         peer_set: &PeerSet,
         citem: &CItem,
@@ -173,6 +176,13 @@ impl NodeApp {
                             db_tx_err
                                 .map(|e| (ProcessingEffectFailedSnafu { module_id }).into_error(e))
                         })?;
+
+                    self.process_consensus_change_effects(
+                        dbtx,
+                        cur_round,
+                        block_timestamp,
+                        &effects,
+                    )?;
                 }
 
                 // Save the current position

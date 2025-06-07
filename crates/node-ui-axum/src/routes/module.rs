@@ -9,13 +9,15 @@ use axum::response::{IntoResponse, Redirect};
 use bfte_consensus_core::module::ModuleId;
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_module_core_consensus::CoreConsensusModule;
+use bfte_util_error::fmt::FmtCompact as _;
 use maud::{Markup, html};
 use serde::Deserialize;
+use tracing::warn;
 
 use crate::error::RequestResult;
 use crate::misc::Maud;
 use crate::page::NavbarSelector;
-use crate::{ArcUiState, UiState};
+use crate::{ArcUiState, LOG_TARGET, UiState};
 
 #[axum::debug_handler]
 pub async fn get(
@@ -55,7 +57,9 @@ pub async fn post_add_peer_vote(
         if let Ok(peer_pubkey) = PeerPubkey::from_str(&form.peer_pubkey) {
             let _ = consensus_module_ref
                 .set_pending_add_peer_vote(peer_pubkey)
-                .await;
+                .await.inspect_err(|err| {
+                    warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit add per vote");
+                });
         }
     }
 
