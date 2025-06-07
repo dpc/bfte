@@ -6,8 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Build and Test
 
-- `just check` - Run cargo check on workspace
-- `just build` - Build entire workspace
+- `just check -q` - Run cargo check on workspace (prefer it for checking if things compile)
+- `just build -q` - Build entire workspace
 - `just test` - Run all tests (builds first) - at the current state of the project, don't use it
 
 ### Code Quality

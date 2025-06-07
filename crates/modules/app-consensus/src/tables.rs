@@ -44,3 +44,10 @@ def_table! {
     /// Once it is processed as a consensus item, it will update `add_peers_votes` table.
     pending_add_peer_vote: () => PeerPubkey
 }
+
+def_table! {
+    /// Our own pending vote to remove a peer which we want to propose
+    ///
+    /// Once it is processed as a consensus item, it will update `remove_peers_votes` table.
+    pending_remove_peer_vote: () => PeerPubkey
+}

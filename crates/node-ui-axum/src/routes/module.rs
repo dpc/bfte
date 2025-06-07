@@ -37,6 +37,11 @@ pub struct AddPeerVoteForm {
     peer_pubkey: String,
 }
 
+#[derive(Deserialize)]
+pub struct RemovePeerVoteForm {
+    peer_pubkey: String,
+}
+
 #[axum::debug_handler]
 pub async fn post_add_peer_vote(
     Path(module_id): Path<ModuleId>,
@@ -59,6 +64,35 @@ pub async fn post_add_peer_vote(
                 .set_pending_add_peer_vote(peer_pubkey)
                 .await.inspect_err(|err| {
                     warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit add per vote");
+                });
+        }
+    }
+
+    Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response())
+}
+
+#[axum::debug_handler]
+pub async fn post_remove_peer_vote(
+    Path(module_id): Path<ModuleId>,
+    state: State<ArcUiState>,
+    Form(form): Form<RemovePeerVoteForm>,
+) -> RequestResult<impl IntoResponse> {
+    let Some(module) = state.modules.get_module(module_id).await else {
+        return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
+    };
+
+    if module.config.kind == bfte_module_app_consensus::KIND {
+        let Some(consensus_module_ref) =
+            (module.inner.as_ref() as &dyn Any).downcast_ref::<AppConsensusModule>()
+        else {
+            return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
+        };
+
+        if let Ok(peer_pubkey) = PeerPubkey::from_str(&form.peer_pubkey) {
+            let _ = consensus_module_ref
+                .set_pending_remove_peer_vote(peer_pubkey)
+                .await.inspect_err(|err| {
+                    warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit remove peer vote");
                 });
         }
     }
