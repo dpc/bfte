@@ -1,11 +1,12 @@
 use std::ops;
 
 use bincode::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 
 use crate::num_peers::{NumPeers, ToNumPeers};
 use crate::peer::PeerPubkey;
 
-#[derive(Debug, Clone, Encode, Decode, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Encode, Decode, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PeerSet(Vec<PeerPubkey>);
 
 impl ops::Deref for PeerSet {

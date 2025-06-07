@@ -18,7 +18,7 @@ use snafu::{OptionExt as _, ResultExt as _, whatever};
 use tokio::sync::watch;
 
 use crate::citem::CoreConsensusCitem;
-use crate::effects::{AddPeerEffect, RemovePeerEffect};
+use crate::effects::{AddPeerEffect, ConsensusParamsChange, RemovePeerEffect};
 use crate::tables;
 
 pub struct CoreConsensusModule {
@@ -31,29 +31,33 @@ pub struct CoreConsensusModule {
 }
 
 impl CoreConsensusModule {
+    pub(crate) async fn get_module_configs_static(
+        db: &ModuleDatabase,
+    ) -> BTreeMap<ModuleId, ModuleConfig> {
+        db.read_with_expect(|dbtx| {
+            let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+
+            tbl.range(..)?
+                .map(|kv| {
+                    let (k, v) = kv?;
+
+                    let module_id = k.value();
+                    let value = v.value();
+                    Ok((
+                        module_id,
+                        ModuleConfig {
+                            kind: value.kind,
+                            version: value.version,
+                            params: value.params,
+                        },
+                    ))
+                })
+                .collect()
+        })
+        .await
+    }
     pub async fn get_modules_configs(&self) -> BTreeMap<ModuleId, ModuleConfig> {
-        self.db
-            .read_with_expect(|dbtx| {
-                let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
-
-                tbl.range(..)?
-                    .map(|kv| {
-                        let (k, v) = kv?;
-
-                        let module_id = k.value();
-                        let value = v.value();
-                        Ok((
-                            module_id,
-                            ModuleConfig {
-                                kind: value.kind,
-                                version: value.version,
-                                params: value.params,
-                            },
-                        ))
-                    })
-                    .collect()
-            })
-            .await
+        Self::get_module_configs_static(&self.db).await
     }
 
     pub async fn get_peer_set(&self) -> PeerSet {
@@ -134,6 +138,22 @@ impl CoreConsensusModule {
         self.propose_citems_tx.send_replace(proposals);
     }
 
+    /// Get the current peer set within a transaction context
+    fn get_peer_set_in_tx(
+        &self,
+        dbtx: &ModuleWriteTransactionCtx,
+    ) -> DbTxResult<PeerSet, Whatever> {
+        let tbl = dbtx.open_table(&tables::peers::TABLE)?;
+        let peers = tbl
+            .range(..)?
+            .map(|kv| {
+                let (k, _) = kv.map_err(bfte_db::error::DbTxError::from)?;
+                Ok(k.value())
+            })
+            .collect::<Result<Vec<_>, bfte_db::error::DbTxError<_>>>()?;
+        Ok(peers.into())
+    }
+
     fn process_vote_add_peer(
         &self,
         dbtx: &ModuleWriteTransactionCtx,
@@ -206,6 +226,13 @@ impl CoreConsensusModule {
 
             let add_peer_effect = AddPeerEffect { peer: peer_to_add };
             effects.push(EffectKindExt::encode(&add_peer_effect));
+
+            // Get the updated peer set and emit PeerSetChange effect
+            let updated_peer_set = self.get_peer_set_in_tx(dbtx)?;
+            let peer_set_change_effect = ConsensusParamsChange {
+                peer_set: updated_peer_set,
+            };
+            effects.push(EffectKindExt::encode(&peer_set_change_effect));
         }
 
         Ok(effects)
@@ -297,6 +324,13 @@ impl CoreConsensusModule {
                 peer: peer_to_remove,
             };
             effects.push(EffectKindExt::encode(&remove_peer_effect));
+
+            // Get the updated peer set and emit PeerSetChange effect
+            let updated_peer_set = self.get_peer_set_in_tx(dbtx)?;
+            let peer_set_change_effect = ConsensusParamsChange {
+                peer_set: updated_peer_set,
+            };
+            effects.push(EffectKindExt::encode(&peer_set_change_effect));
         }
 
         Ok(effects)

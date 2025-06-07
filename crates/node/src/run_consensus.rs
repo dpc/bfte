@@ -22,6 +22,7 @@ use iroh_dpc_rpc::bincode::RpcExtBincode as _;
 use snafu::{ResultExt as _, Whatever};
 use tokio::select;
 use tokio::task::JoinSet;
+use tokio::time::sleep;
 use tracing::{debug, info, instrument, trace, warn};
 
 use crate::connection_pool::ConnectionPool;
@@ -482,6 +483,20 @@ impl Node {
                 break;
             }
 
+            let pending_params_change_fn = async {
+                // If consensus has any params changes pending, we want to produce
+                // a round, even if empty, just to trigger the change in a timely maner.
+                sleep(Duration::from_millis(500)).await;
+                if !self
+                    .consensus_wait()
+                    .await
+                    .has_pending_consensus_params_change(round)
+                    .await
+                {
+                    future::pending().await
+                }
+            };
+
             select! {
                 // We check proposed citems from our modules with priority,
                 // and add pending transactions to this list.
@@ -520,6 +535,10 @@ impl Node {
 
                     continue;
                 },
+
+                _ = pending_params_change_fn => {
+                    break;
+                }
             };
         }
 

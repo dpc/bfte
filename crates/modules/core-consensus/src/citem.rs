@@ -1,10 +1,11 @@
 use bfte_consensus_core::bincode::CONSENSUS_BINCODE_CONFIG;
 use bfte_consensus_core::citem::CItemRaw;
 use bfte_consensus_core::peer::PeerPubkey;
+use bfte_util_bincode::decode_whole;
 use bfte_util_error::WhateverResult;
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
-use snafu::whatever;
+use snafu::ResultExt as _;
 
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub enum CoreConsensusCitem {
@@ -20,9 +21,7 @@ impl CoreConsensusCitem {
     }
 
     pub fn from_citem_raw(citem_raw: &CItemRaw) -> WhateverResult<Self> {
-        match bincode::decode_from_slice(citem_raw, CONSENSUS_BINCODE_CONFIG) {
-            Ok((citem, _)) => Ok(citem),
-            Err(e) => whatever!("Failed to decode CoreConsensusCitem: {e}"),
-        }
+        decode_whole(citem_raw, CONSENSUS_BINCODE_CONFIG)
+            .whatever_context("Failed to decode CoreConsensusCitem")
     }
 }

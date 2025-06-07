@@ -8,6 +8,7 @@ use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::peer::PeerPubkey;
+use bfte_consensus_core::peer_set::PeerSet;
 use bfte_db::Database;
 use bfte_node_app_core::{INodeAppApi, RunNodeAppFn};
 use bfte_node_shared_modules::SharedModules;
@@ -90,8 +91,22 @@ impl INodeAppApi for NodeAppApi {
         (block, *peer_pubkey, block_payload)
     }
 
-    async fn schedule_consensus_params(&self, _consensus_params: ConsensusParams) {
-        todo!()
+    async fn consensus_params_change(&self, round: BlockRound, new_peer_set: PeerSet) {
+        let consensus = self.node_ref_wait().await.consensus_expect();
+
+        let current_params = consensus.get_consensus_params(round).await;
+
+        let prev_mid_block = consensus.get_prev_notarized_block(round.half()).await;
+
+        let new_consensus_params = current_params.make_change(
+            new_peer_set,
+            prev_mid_block.map(|b| (b.round, b.hash())),
+            round,
+        );
+
+        consensus
+            .schedule_consensus_params(new_consensus_params)
+            .await
     }
 }
 

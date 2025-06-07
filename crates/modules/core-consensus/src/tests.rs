@@ -12,7 +12,7 @@ use bfte_util_error::BoxedErrorResult;
 
 use crate::CURRENT_VERSION;
 use crate::citem::CoreConsensusCitem;
-use crate::effects::{AddPeerEffect, RemovePeerEffect};
+use crate::effects::{AddPeerEffect, PeerSetChange, RemovePeerEffect};
 use crate::init::CoreConsensusModuleInit;
 use crate::module::CoreConsensusModule;
 
@@ -144,17 +144,33 @@ async fn test_vote_add_peer_produces_effect() -> BoxedErrorResult<()> {
         })
         .await?;
 
-    // Check that exactly one effect was produced
-    assert_eq!(effects.len(), 1, "Expected exactly one effect");
+    // Check that exactly two effects were produced (AddPeerEffect + PeerSetChange)
+    assert_eq!(effects.len(), 2, "Expected exactly two effects");
 
-    // Check that the effect is an AddPeerEffect with the correct peer
-    let effect = &effects[0];
-    let decoded_effect: AddPeerEffect =
-        EffectKindExt::decode(effect).map_err(|e| format!("Failed to decode effect: {e}"))?;
+    // Check that the first effect is an AddPeerEffect with the correct peer
+    let add_peer_effect: AddPeerEffect =
+        EffectKindExt::decode(&effects[0]).map_err(|e| format!("Failed to decode AddPeerEffect: {e}"))?;
 
     assert_eq!(
-        decoded_effect.peer, new_peer_pubkey,
-        "Effect should contain the new peer's pubkey"
+        add_peer_effect.peer, new_peer_pubkey,
+        "AddPeerEffect should contain the new peer's pubkey"
+    );
+
+    // Check that the second effect is a PeerSetChange with the updated peer set
+    let peer_set_change_effect: PeerSetChange =
+        EffectKindExt::decode(&effects[1]).map_err(|e| format!("Failed to decode PeerSetChange: {e}"))?;
+
+    assert_eq!(
+        peer_set_change_effect.peer_set.len(), 2,
+        "PeerSetChange should contain 2 peers"
+    );
+    assert!(
+        peer_set_change_effect.peer_set.contains(&setup.peer_pubkey),
+        "PeerSetChange should contain the original peer"
+    );
+    assert!(
+        peer_set_change_effect.peer_set.contains(&new_peer_pubkey),
+        "PeerSetChange should contain the new peer"
     );
 
     // Verify that the new peer was actually added to the peers table
@@ -248,21 +264,41 @@ async fn test_two_peers_voting_to_add_third() -> BoxedErrorResult<()> {
         })
         .await?;
 
-    // Should have exactly one effect now (threshold reached)
+    // Should have exactly two effects now (threshold reached)
     assert_eq!(
         effects2.len(),
-        1,
-        "Expected exactly one effect after reaching threshold"
+        2,
+        "Expected exactly two effects after reaching threshold"
     );
 
-    // Check that the effect is an AddPeerEffect with the correct peer
-    let effect = &effects2[0];
-    let decoded_effect: AddPeerEffect =
-        EffectKindExt::decode(effect).map_err(|e| format!("Failed to decode effect: {e}"))?;
+    // Check that the first effect is an AddPeerEffect with the correct peer
+    let add_peer_effect: AddPeerEffect =
+        EffectKindExt::decode(&effects2[0]).map_err(|e| format!("Failed to decode AddPeerEffect: {e}"))?;
 
     assert_eq!(
-        decoded_effect.peer, new_peer_pubkey,
-        "Effect should contain the new peer's pubkey"
+        add_peer_effect.peer, new_peer_pubkey,
+        "AddPeerEffect should contain the new peer's pubkey"
+    );
+
+    // Check that the second effect is a PeerSetChange with the updated peer set
+    let peer_set_change_effect: PeerSetChange =
+        EffectKindExt::decode(&effects2[1]).map_err(|e| format!("Failed to decode PeerSetChange: {e}"))?;
+
+    assert_eq!(
+        peer_set_change_effect.peer_set.len(), 3,
+        "PeerSetChange should contain 3 peers"
+    );
+    assert!(
+        peer_set_change_effect.peer_set.contains(&peer1_pubkey),
+        "PeerSetChange should contain peer1"
+    );
+    assert!(
+        peer_set_change_effect.peer_set.contains(&peer2_pubkey),
+        "PeerSetChange should contain peer2"
+    );
+    assert!(
+        peer_set_change_effect.peer_set.contains(&new_peer_pubkey),
+        "PeerSetChange should contain the new peer"
     );
 
     // Verify that the new peer was actually added to the peers table
@@ -354,21 +390,37 @@ async fn test_two_peers_voting_to_remove_one() -> BoxedErrorResult<()> {
         })
         .await?;
 
-    // Should have exactly one effect now (threshold reached)
+    // Should have exactly two effects now (threshold reached)
     assert_eq!(
         effects2.len(),
-        1,
-        "Expected exactly one effect after reaching threshold"
+        2,
+        "Expected exactly two effects after reaching threshold"
     );
 
-    // Check that the effect is a RemovePeerEffect with the correct peer
-    let effect = &effects2[0];
-    let decoded_effect: RemovePeerEffect =
-        EffectKindExt::decode(effect).map_err(|e| format!("Failed to decode effect: {e}"))?;
+    // Check that the first effect is a RemovePeerEffect with the correct peer
+    let remove_peer_effect: RemovePeerEffect =
+        EffectKindExt::decode(&effects2[0]).map_err(|e| format!("Failed to decode RemovePeerEffect: {e}"))?;
 
     assert_eq!(
-        decoded_effect.peer, peer2_pubkey,
-        "Effect should contain the removed peer's pubkey"
+        remove_peer_effect.peer, peer2_pubkey,
+        "RemovePeerEffect should contain the removed peer's pubkey"
+    );
+
+    // Check that the second effect is a PeerSetChange with the updated peer set
+    let peer_set_change_effect: PeerSetChange =
+        EffectKindExt::decode(&effects2[1]).map_err(|e| format!("Failed to decode PeerSetChange: {e}"))?;
+
+    assert_eq!(
+        peer_set_change_effect.peer_set.len(), 1,
+        "PeerSetChange should contain 1 peer after removal"
+    );
+    assert!(
+        peer_set_change_effect.peer_set.contains(&peer1_pubkey),
+        "PeerSetChange should contain only peer1 after removal"
+    );
+    assert!(
+        !peer_set_change_effect.peer_set.contains(&peer2_pubkey),
+        "PeerSetChange should not contain the removed peer"
     );
 
     // Verify that peer2 was actually removed from the peers table

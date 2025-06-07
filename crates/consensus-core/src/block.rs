@@ -51,6 +51,10 @@ impl BlockRound {
 
         idx.into()
     }
+
+    pub fn half(self) -> Self {
+        Self::from(self.to_number() / 2)
+    }
 }
 
 impl Hashable for BlockRound {}

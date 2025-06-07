@@ -1,7 +1,16 @@
 use bfte_consensus_core::module::ModuleId;
 use bfte_consensus_core::peer::PeerPubkey;
+use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_module::module::config::ModuleConfig;
 use bfte_util_db::def_table;
+
+def_table! {
+    /// Own current consensus version
+    ///
+    /// This is stored separately, in case `modules_configs` table ever needs to change,
+    /// so that core-consensus-module can figure out easily own current version.
+    self_version: () => ConsensusVersion
+}
 
 def_table! {
     /// Current list of all initialized modules, along with their configuration

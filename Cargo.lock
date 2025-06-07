@@ -549,6 +549,7 @@ dependencies = [
  "async-trait",
  "bfte-consensus-core",
  "bfte-db",
+ "bfte-util-bincode",
  "bfte-util-error",
  "bincode",
  "derive_more 2.0.1",

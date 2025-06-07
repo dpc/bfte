@@ -17,7 +17,7 @@ use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_db::Database;
 use bfte_module::module::config::ModuleConfig;
-use bfte_module::module::db::ModuleWriteTransactionCtx;
+use bfte_module::module::db::{ModuleDatabase, ModuleWriteTransactionCtx};
 use bfte_module::module::{DynModuleInit, DynModuleWithConfig, ModuleInit, ModuleInitArgs};
 use bfte_module_core_consensus::{CoreConsensusModule, CoreConsensusModuleInit};
 use bfte_node_app_core::NodeAppApi;
@@ -143,11 +143,11 @@ impl NodeApp {
     ) -> &'s CoreConsensusModule {
         let consensus_module = modules_write
             .get(&CONSENSUS_MODULE_ID)
-            .expect("Must have consensus module");
+            .expect("Must have a core consensus module");
 
         (consensus_module.inner.as_ref() as &dyn Any)
             .downcast_ref::<CoreConsensusModule>()
-            .expect("Must be a consensus module")
+            .expect("Must be a core consensus module")
     }
 
     /// Setup modules to initial (fresh consensus) position
@@ -191,10 +191,26 @@ impl NodeApp {
     /// Setup modules using existing settings tracked by the consensus module
     async fn setup_modules(&mut self) -> WhateverResult<()> {
         let modules_write = self.modules.write().await;
-        let consensus_module = self.get_consensus_module(&modules_write);
 
-        let new_modules_configs = consensus_module.get_modules_configs().await;
+        let new_modules_configs = if modules_write.contains_key(&CONSENSUS_MODULE_ID) {
+            let consensus_module = self.get_consensus_module(&modules_write);
 
+            consensus_module.get_modules_configs().await
+        } else {
+            // In case we don't have the core consensus module initialized yet,
+            // we use special function on the init.
+            let consensus_module_init = self
+                .modules_inits
+                .get(&CoreConsensusModuleInit.kind())
+                .whatever_context("Missing module init for consensus module kind")?;
+            let consensus_module_init = (consensus_module_init.as_ref() as &dyn Any)
+                .downcast_ref::<CoreConsensusModuleInit>()
+                .expect("Must be a consensus module");
+
+            consensus_module_init
+                .get_modules_configs(&ModuleDatabase::new(CONSENSUS_MODULE_ID, self.db.clone()))
+                .await
+        };
         Self::setup_modules_to(
             &self.db,
             modules_write,

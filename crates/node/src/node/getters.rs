@@ -22,6 +22,7 @@ impl Node {
     pub(crate) fn ui_pass_hash(&self) -> &std::sync::Mutex<blake3::Hash> {
         &self.ui_pass_hash
     }
+
     pub(crate) fn ui_pass_is_temporary(&self) -> &AtomicBool {
         &self.ui_pass_is_temporary
     }

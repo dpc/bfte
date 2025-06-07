@@ -10,6 +10,7 @@ use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::peer::PeerPubkey;
+use bfte_consensus_core::peer_set::PeerSet;
 use bfte_db::Database;
 use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
@@ -45,6 +46,6 @@ pub trait INodeAppApi {
         round: BlockRound,
     ) -> (BlockHeader, PeerPubkey, Arc<[CItem]>);
 
-    /// Notify node logic that a [`ConsensusParams`] were scheduled to change
-    async fn schedule_consensus_params(&self, consensus_params: ConsensusParams);
+    /// Notify node logic that a consensus params changed
+    async fn consensus_params_change(&self, round: BlockRound, new_peer_set: PeerSet);
 }

@@ -11,7 +11,7 @@ use tokio::sync::watch;
 use tracing::warn;
 
 use super::{Consensus, ConsensusReadDbOps as _};
-use crate::consensus::LOG_TARGET;
+use crate::consensus::{ConsensusWriteDbOps as _, LOG_TARGET};
 use crate::tables::{cons_blocks_notarized, cons_blocks_payloads};
 use crate::vote_set::VoteSet;
 
@@ -143,6 +143,23 @@ impl Consensus {
     pub async fn get_consensus_params(&self, round: BlockRound) -> ConsensusParams {
         self.db
             .read_with_expect(|ctx| ctx.get_consensus_params(round))
+            .await
+    }
+
+    pub async fn schedule_consensus_params(&self, consensus_params: &ConsensusParams) {
+        assert!(
+            self.current_round_with_timeout_start_tx.borrow().0 < consensus_params.scheduled_round
+        );
+        self.db
+            .write_with_expect(|ctx| {
+                ctx.insert_consensus_params(consensus_params.scheduled_round, consensus_params)
+            })
+            .await;
+    }
+
+    pub async fn has_pending_consensus_params_change(&self, round: BlockRound) -> bool {
+        self.db
+            .read_with_expect(|ctx| ctx.has_pending_consensus_params_change(round))
             .await
     }
 

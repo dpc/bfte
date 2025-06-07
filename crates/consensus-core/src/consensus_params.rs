@@ -96,8 +96,6 @@ pub struct ConsensusParams {
 
     /// Set of voting peers
     pub peers: PeerSet,
-    // TODO: no, the core module should keep track of module params
-    // pub modules: BTreeMap<ModuleId, (ModuleKind, ConsensusVersion, ModuleConfigRaw)>,
 }
 
 impl ConsensusParams {
@@ -116,6 +114,30 @@ impl ConsensusParams {
             applied_round: 0.into(),
         }
     }
+
+    pub fn make_change(
+        self,
+        peer_set: PeerSet,
+        prev_mid_block: Option<(BlockRound, BlockHash)>,
+        scheduled_round: BlockRound,
+    ) -> Self {
+        let applied_round = scheduled_round
+            .checked_add(self.consensus_params_schedulign_delay())
+            .expect("Can't ran out of u64 of rounds");
+        Self {
+            peers: peer_set,
+            timestamp: Timestamp::now(),
+            prev_mid_block,
+            scheduled_round,
+            applied_round,
+            ..self
+        }
+    }
+
+    pub fn consensus_params_schedulign_delay(&self) -> u64 {
+        u64::try_from(self.peers.to_num_peers().total()).expect("Can't fail") + 32
+    }
+
     pub fn num_peers(&self) -> NumPeers {
         self.peers.to_num_peers()
     }

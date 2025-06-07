@@ -7,7 +7,7 @@ use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::ver::{ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module::module::config::ModuleConfig;
-use bfte_module::module::db::{DbResult, ModuleWriteTransactionCtx};
+use bfte_module::module::db::{DbResult, ModuleDatabase, ModuleWriteTransactionCtx};
 use bfte_module::module::{
     IModule, ModuleInit, ModuleInitArgs, ModuleInitResult, UnsupportedVersionSnafu,
 };
@@ -15,7 +15,7 @@ use snafu::ensure;
 use tokio::sync::watch;
 
 use crate::tables::{self, modules_configs};
-use crate::{CURRENT_VERSION, KIND};
+use crate::{CURRENT_VERSION, CoreConsensusModule, KIND};
 
 pub struct CoreConsensusModuleInit;
 
@@ -44,6 +44,11 @@ impl CoreConsensusModuleInit {
         };
 
         {
+            let mut tbl = dbtx.open_table(&tables::self_version::TABLE)?;
+            assert!(tbl.insert(&(), &CURRENT_VERSION)?.is_none());
+        }
+
+        {
             let mut tbl = dbtx.open_table(&modules_configs::TABLE)?;
             tbl.insert(&module_id, &config)?;
         }
@@ -56,6 +61,13 @@ impl CoreConsensusModuleInit {
         }
 
         Ok(config)
+    }
+
+    pub async fn get_modules_configs(
+        &self,
+        db: &ModuleDatabase,
+    ) -> BTreeMap<ModuleId, ModuleConfig> {
+        CoreConsensusModule::get_module_configs_static(db).await
     }
 }
 

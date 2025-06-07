@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use bfte_consensus_core::module::ModuleKind;
+use bfte_util_bincode::decode_whole;
 use bincode::{Decode, Encode};
 use derive_more::Deref;
 
@@ -32,8 +33,7 @@ pub trait EffectKindExt: EffectKind {
         if effect.effect_id != Self::EFFECT_ID {
             return Err(bincode::error::DecodeError::Other("effect ID mismatch"));
         }
-        let (decoded, _) = bincode::decode_from_slice(&effect.raw, bincode::config::standard())?;
-        Ok(decoded)
+        decode_whole(&effect.raw, bincode::config::standard())
     }
 }
 

@@ -67,6 +67,7 @@ pub(crate) trait ConsensusReadDbOps {
             .get_consensus_params_opt(round)?
             .expect("Initialized consensus database must set consensus params for round 0"))
     }
+    fn has_pending_consensus_params_change(&self, round: BlockRound) -> DbResult<bool>;
     fn get_consensus_params_opt(&self, round: BlockRound) -> DbResult<Option<ConsensusParams>>;
     fn get_finality_consensus(&self) -> DbResult<Option<BlockRound>>;
 
@@ -252,6 +253,11 @@ macro_rules! impl_consensus_read_db_ops {
                 Ok(Some(params))
             }
 
+            fn has_pending_consensus_params_change(&self, round: BlockRound) -> DbResult<bool> {
+                let tbl = self.open_table(&cons_params_schedule::TABLE)?;
+
+                Ok(tbl.range(round..)?.next().transpose()?.is_some())
+            }
             fn get_finality_consensus(&self) -> DbResult<Option<BlockRound>> {
                 let tbl = self.open_table(&cons_finality_consensus::TABLE)?;
 
