@@ -34,7 +34,7 @@ impl Database {
     pub async fn open(path: impl Into<PathBuf>) -> DbResult<Database> {
         let path = path.into();
         tokio::fs::create_dir_all(path.parent().context(InvalidPathSnafu)?).await?;
-        debug!(target: LOG_TARGET, path = %path.display(), "Opening database");
+        debug!(target: LOG_TARGET, path = %path.display(), "Opening database…");
 
         let inner = tokio::task::spawn_blocking(move || {
             let mut db = redb::Database::create(path)?;

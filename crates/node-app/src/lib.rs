@@ -109,19 +109,29 @@ impl NodeApp {
         let mut cur_round_idx = self.load_cur_round_and_idx().await;
 
         if cur_round_idx == Default::default() {
-            info!(target: LOG_TARGET, ?cur_round_idx, "Initializing app level consensus processing...");
+            info!(target: LOG_TARGET, ?cur_round_idx, "Initializing app level consensus processing…");
             let consensus_params = self.node_api.get_consensus_params(cur_round_idx.0).await;
             self.setup_modules_init(consensus_params).await?;
         } else {
-            info!(target: LOG_TARGET, ?cur_round_idx, "Started node app level processing");
+            info!(
+               target: LOG_TARGET,
+               round = %cur_round_idx.0,
+               citem_idx = %cur_round_idx.1,
+               "Started node app level processing"
+            );
             self.setup_modules().await?;
         }
 
         loop {
-            debug!(target: LOG_TARGET, ?cur_round_idx, "Awaiting next round...");
+            debug!(
+                target: LOG_TARGET,
+                round = %cur_round_idx.0,
+                citem_idx = %cur_round_idx.1,
+                "Awaiting block data…"
+            );
             let (block_header, peer_pubkey, citems) =
                 self.node_api.ack_and_wait_next_block(cur_round_idx.0).await;
-            debug!(target: LOG_TARGET, round = %block_header.round, "Processing new block...");
+            debug!(target: LOG_TARGET, round = %block_header.round, "Processing new block…");
 
             // Get the current peer set from the AppConsensus module
             let peer_set = {

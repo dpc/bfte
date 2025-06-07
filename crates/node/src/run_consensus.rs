@@ -120,7 +120,7 @@ impl Node {
             our_peer_idx = %our_peer_idx.fmt_option(),
             leader_idx = %round.leader_idx(params.num_peers()),
             %finality_consensus,
-            "Running round..."
+            "Running core consensus round…"
         );
 
         for (_, peer_pubkey) in params.iter_peers() {
@@ -377,9 +377,9 @@ impl Node {
         mut round_tasks: JoinSet<RoundEvent>,
     ) -> WhateverResult<()> {
         let consensus = self.consensus_expect();
-        debug!(
+        trace!(
             target: LOG_TARGET,
-            "Running consensus round loop"
+            "Running consensus round loop…"
         );
 
         let current_round_rx = consensus.current_round_with_timeout_start_rx();
@@ -512,7 +512,7 @@ impl Node {
                 }
             };
 
-            debug!(target: LOG_TARGET, %round, "Awaiting new block proposal trigger");
+            debug!(target: LOG_TARGET, %round, "Awaiting new block proposal trigger…");
             select! {
                 // We check proposed citems from our modules with priority,
                 // and add pending transactions to this list.
@@ -617,7 +617,7 @@ impl Node {
                 %peer_pubkey,
                 %only_dummy,
                 %round,
-                "Requesting vote from peer"
+                "Requesting vote from peer…"
             );
             || async {
                 let mut conn = connection_pool
@@ -666,7 +666,7 @@ impl Node {
             %peer_idx,
             %peer_pubkey,
             %round,
-            "Requesting notarized block from peer"
+            "Requesting notarized block from peer…"
         );
         {
             || async {

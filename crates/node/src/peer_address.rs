@@ -102,7 +102,7 @@ impl Node {
                 target: LOG_TARGET,
                 dst_peer = %peer_pubkey,
                 src_peer = %address_update.peer_pubkey,
-                "Sending peer address gossip"
+                "Sending peer address gossip…"
             );
             if let Err(err) = self.send_push_gossip(peer_pubkey, address_update).await {
                 debug!(

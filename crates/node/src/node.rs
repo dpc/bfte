@@ -124,7 +124,7 @@ pub type NodeInitResult<T> = Result<T, NodeInitError>;
 impl Node {
     pub async fn open_db(db_path: Option<PathBuf>) -> NodeInitResult<Database> {
         let db = if let Some(db_path) = db_path {
-            info!(target: LOG_TARGET, path = %db_path.display(), "Opening redb database...");
+            info!(target: LOG_TARGET, path = %db_path.display(), "Opening redb database…");
             Database::open(db_path).await.context(DbSnafu)?
         } else {
             warn!(target: LOG_TARGET, "Using ephemeral in-memory database!");
@@ -380,7 +380,7 @@ impl Node {
         info!(
             target: LOG_TARGET,
             peer_pubkey = %self.peer_pubkey.fmt_option(),
-            "Starting node..."
+            "Starting node…"
         );
         let invite = self.generate_invite_code().await?;
         info!(target: LOG_TARGET, %invite, "Invite code");
