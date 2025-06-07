@@ -18,10 +18,14 @@ impl UiState {
     ) -> maud::PreEscaped<String> {
         let module_configs = consensus_module_ref.get_modules_configs().await;
         let peer_set = consensus_module_ref.get_peer_set().await;
+        let add_peer_votes = consensus_module_ref.get_add_peer_votes().await;
+        let remove_peer_votes = consensus_module_ref.get_remove_peer_votes().await;
         html! {
             header {
-                h1 { "Core consensus" }
+                h1 { "App Consensus" }
             }
+
+            h2 { "Membership" }
 
             section {
                 h3 { "Consensus Peers" }
@@ -31,6 +35,50 @@ impl UiState {
                     }
                 }
             }
+
+            section {
+                h3 { "Add Peer" }
+                @if !add_peer_votes.is_empty() {
+                    h4 { "Current Add Peer Votes:" }
+                    ul {
+                        @for (voter, voted_for) in &add_peer_votes {
+                            li { (format!("{} → {}", voter, voted_for)) }
+                        }
+                    }
+                }
+                form method="post" action=(format!("/ui/module/{}/add_peer_vote", _module_id)) {
+                    fieldset {
+                        label {
+                            "Peer Public Key"
+                            input type="text" name="peer_pubkey" placeholder="Enter peer public key" required;
+                        }
+                        button type="submit" { "Vote to Add Peer" }
+                    }
+                }
+            }
+
+            section {
+                h3 { "Remove Peer" }
+                @if !remove_peer_votes.is_empty() {
+                    h4 { "Current Remove Peer Votes:" }
+                    ul {
+                        @for (voter, voted_for) in &remove_peer_votes {
+                            li { (format!("{} → {}", voter, voted_for)) }
+                        }
+                    }
+                }
+                form method="post" action=(format!("/ui/module/{}/remove_peer_vote", _module_id)) {
+                    fieldset {
+                        label {
+                            "Peer Public Key"
+                            input type="text" name="peer_pubkey" placeholder="Enter peer public key" required;
+                        }
+                        button type="submit" { "Vote to Remove Peer" }
+                    }
+                }
+            }
+
+            h2 { "Modules" }
 
             section {
                 h3 { "Active modules" }
@@ -56,32 +104,6 @@ impl UiState {
                                 td { (format!("{}", config.version)) }
                             }
                         }
-                    }
-                }
-            }
-
-            section {
-                h3 { "Add Peer Vote" }
-                form method="post" action=(format!("/ui/module/{}/add_peer_vote", _module_id)) {
-                    fieldset {
-                        label {
-                            "Peer Public Key"
-                            input type="text" name="peer_pubkey" placeholder="Enter peer public key" required;
-                        }
-                        button type="submit" { "Vote to Add Peer" }
-                    }
-                }
-            }
-
-            section {
-                h3 { "Remove Peer Vote" }
-                form method="post" action=(format!("/ui/module/{}/remove_peer_vote", _module_id)) {
-                    fieldset {
-                        label {
-                            "Peer Public Key"
-                            input type="text" name="peer_pubkey" placeholder="Enter peer public key" required;
-                        }
-                        button type="submit" { "Vote to Remove Peer" }
                     }
                 }
             }

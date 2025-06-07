@@ -12,9 +12,10 @@ use bfte_module_app_consensus::AppConsensusModule;
 use bfte_util_error::fmt::FmtCompact as _;
 use maud::{Markup, html};
 use serde::Deserialize;
+use snafu::ResultExt as _;
 use tracing::warn;
 
-use crate::error::RequestResult;
+use crate::error::{RequestResult, UserSnafu};
 use crate::misc::Maud;
 use crate::page::NavbarSelector;
 use crate::{ArcUiState, LOG_TARGET, UiState};
@@ -59,15 +60,15 @@ pub async fn post_add_peer_vote(
             return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
         };
 
-        if let Ok(peer_pubkey) = PeerPubkey::from_str(&form.peer_pubkey) {
-            let _ = consensus_module_ref
+        let peer_pubkey = PeerPubkey::from_str(&form.peer_pubkey)
+            .whatever_context("Failed to deserialize pubkey")
+            .context(UserSnafu)?;
+        consensus_module_ref
                 .set_pending_add_peer_vote(peer_pubkey)
                 .await.inspect_err(|err| {
-                    warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit add per vote");
-                });
-        }
+                    warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit add peer vote");
+                }).context(UserSnafu)?;
     }
-
     Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response())
 }
 
@@ -88,13 +89,14 @@ pub async fn post_remove_peer_vote(
             return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
         };
 
-        if let Ok(peer_pubkey) = PeerPubkey::from_str(&form.peer_pubkey) {
-            let _ = consensus_module_ref
+        let peer_pubkey = PeerPubkey::from_str(&form.peer_pubkey)
+            .whatever_context("Failed to deserialize pubkey")
+            .context(UserSnafu)?;
+        consensus_module_ref
                 .set_pending_remove_peer_vote(peer_pubkey)
                 .await.inspect_err(|err| {
                     warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit remove peer vote");
-                });
-        }
+                }).context(UserSnafu)?;
     }
 
     Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response())

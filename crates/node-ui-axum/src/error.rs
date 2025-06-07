@@ -45,7 +45,7 @@ pub enum RequestError {
     LoginRequired,
 
     #[snafu(visibility(pub(crate)))]
-    User { source: UserRequestError },
+    User { source: Whatever },
 }
 pub type RequestResult<T> = std::result::Result<T, RequestError>;
 

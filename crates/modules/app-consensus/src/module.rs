@@ -115,7 +115,6 @@ impl AppConsensusModule {
         if self.peer_pubkey.is_none() {
             whatever!("Cannot cast votes: not a voting peer")
         }
-
         let peer_exists = self
             .db
             .read_with_expect(|dbtx| {
@@ -127,12 +126,10 @@ impl AppConsensusModule {
         if !peer_exists {
             return Ok(());
         }
-
         let peer_set = self.get_peer_set().await;
         if peer_set.len() == 1 {
             whatever!("Cannot remove the last peer from the consensus")
         }
-
         self.db
             .write_with_expect(|dbtx| {
                 let mut tbl = dbtx.open_table(&tables::pending_remove_peer_vote::TABLE)?;
@@ -140,10 +137,36 @@ impl AppConsensusModule {
                 Ok(())
             })
             .await;
-
         self.refresh_consensus_proposals().await;
-
         Ok(())
+    }
+
+    pub async fn get_add_peer_votes(&self) -> BTreeMap<PeerPubkey, PeerPubkey> {
+        self.db
+            .read_with_expect(|dbtx| {
+                let tbl = dbtx.open_table(&tables::add_peer_votes::TABLE)?;
+                tbl.range(..)?
+                    .map(|kv| {
+                        let (voter, voted_for) = kv?;
+                        Ok((voter.value(), voted_for.value()))
+                    })
+                    .collect()
+            })
+            .await
+    }
+
+    pub async fn get_remove_peer_votes(&self) -> BTreeMap<PeerPubkey, PeerPubkey> {
+        self.db
+            .read_with_expect(|dbtx| {
+                let tbl = dbtx.open_table(&tables::remove_peer_votes::TABLE)?;
+                tbl.range(..)?
+                    .map(|kv| {
+                        let (voter, voted_for) = kv?;
+                        Ok((voter.value(), voted_for.value()))
+                    })
+                    .collect()
+            })
+            .await
     }
 
     pub(crate) async fn refresh_consensus_proposals(&self) {
@@ -428,7 +451,7 @@ impl AppConsensusModule {
 #[async_trait]
 impl IModule for AppConsensusModule {
     fn display_name(&self) -> &'static str {
-        "Core Consensus"
+        "App Consensus"
     }
 
     async fn propose_citems_rx(&self) -> watch::Receiver<Vec<CItemRaw>> {
