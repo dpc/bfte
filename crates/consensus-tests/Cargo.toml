@@ -16,6 +16,7 @@ bfte-consensus-core = { workspace = true }
 bfte-db = { workspace = true }
 bfte-util-error = { workspace = true }
 redb-bincode = { workspace = true }
+snafu = { workspace = true }
 test-log = { workspace = true, features = ["trace"] }
 tokio = { workspace = true }
 tokio-test = { workspace = true }

@@ -498,6 +498,7 @@ dependencies = [
  "bfte-db",
  "bfte-util-error",
  "redb-bincode",
+ "snafu",
  "test-log",
  "tokio",
  "tokio-test",

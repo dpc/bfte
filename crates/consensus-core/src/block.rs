@@ -29,7 +29,7 @@ array_type_fixed_size_define! {
     ///
     /// It's fixed sized encoded, to make the size of the [`BlockHeader`] constant.
     #[derive(Encode, Decode, Clone, Copy)]
-    pub struct BlockSeq(u64);
+    pub struct BlockSeq(u32);
 }
 
 array_type_fixed_size_define! {
@@ -65,11 +65,11 @@ impl Hashable for BlockRound {}
 fn block_round_leader_test() {
     for (n, r, leader_fixture) in [
         (1u8, 0, 0),
-        (15, 0, 1),
-        (15, 1, 7),
-        (15, 2, 10),
-        (10, 0, 1),
-        (10, 1, 2),
+        (15, 0, 12),
+        (15, 1, 13),
+        (15, 2, 7),
+        (10, 0, 7),
+        (10, 1, 3),
     ] {
         let leader_now = BlockRound::from(r).leader_idx(NumPeers::from(n));
         assert_eq!(
@@ -112,9 +112,9 @@ pub struct BlockHeader {
     /// conditions, etc.)
     padding: [u8; 3], // 3B
 
-    pub timestamp: Timestamp, // 8B
     pub seq: BlockSeq,        // 8B
     pub round: BlockRound,    // 8B
+    pub timestamp: Timestamp, // 8B
 
     /// Commits to [`BlockPayload`]'s length
     ///
@@ -169,9 +169,7 @@ impl BlockHeader {
             header_version: 0,
             padding: [0u8; 3],
             timestamp,
-            seq: prev
-                .map(|p| p.seq.next().expect("Can't ran out"))
-                .unwrap_or_default(),
+            seq: prev.map(|p| p.seq.next_wrapping()).unwrap_or_default(),
             round,
             payload_len: payload.len(),
             prev_block_hash: prev.map(|p| p.hash()).unwrap_or_default(),
@@ -244,7 +242,7 @@ impl BlockHeader {
 
     pub fn does_directly_extend(&self, prev_notarized_block: Option<BlockHeader>) -> bool {
         if let Some(prev_block) = prev_notarized_block {
-            prev_block.seq.next() == Some(self.seq)
+            prev_block.seq.next_wrapping() == self.seq
                 && prev_block.round < self.round
                 && prev_block.hash() == self.prev_block_hash
         } else {

@@ -10,7 +10,8 @@ use bfte_consensus_core::signed::{Notarized, Signable as _, Signed};
 use bfte_consensus_core::timestamp::Timestamp;
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_db::Database;
-use bfte_util_error::BoxedErrorResult;
+use bfte_util_error::{BoxedErrorResult, WhateverResult};
+use snafu::ResultExt as _;
 
 struct Setup {
     pub consensus: Consensus,
@@ -22,7 +23,7 @@ impl Setup {
     async fn bootstrap(
         num_peers: NumPeers,
         init_core_module_cons_version: ConsensusVersion,
-    ) -> BoxedErrorResult<Self> {
+    ) -> WhateverResult<Self> {
         let seckeys: Vec<_> = (0..num_peers.total())
             .map(|_| PeerSeckey::generate())
             .collect();
@@ -36,7 +37,9 @@ impl Setup {
             schedule_round: 0.into(),
             apply_round: 0.into(),
         };
-        let consensus = temp_consensus(&cons_params, Some(seckeys[0].pubkey())).await?;
+        let consensus = temp_consensus(&cons_params, Some(seckeys[0].pubkey()))
+            .await
+            .whatever_context("Failed to create temporary consensus")?;
 
         Ok(Self {
             consensus,
@@ -143,7 +146,7 @@ async fn starting_consensus_and_generating_first_block_via_notarization() -> Box
 }
 
 #[test_log::test(tokio::test(flavor = "multi_thread"))]
-async fn two_peers_first_round() -> BoxedErrorResult<()> {
+async fn two_peers_first_round() -> WhateverResult<()> {
     let num_peers: NumPeers = 2.into();
     let setup = Setup::bootstrap(num_peers, ConsensusVersion::new(0, 0)).await?;
     let payload = BlockPayloadRaw::empty();
@@ -166,7 +169,8 @@ async fn two_peers_first_round() -> BoxedErrorResult<()> {
                 payload,
             },
         )
-        .await?;
+        .await
+        .whatever_context("Failed to process first proposal from peer 1")?;
 
     assert_eq!(
         BlockRound::from(0),
@@ -186,7 +190,8 @@ async fn two_peers_first_round() -> BoxedErrorResult<()> {
                 block: Signed::new_sign(block, setup.seckeys[0]),
             },
         )
-        .await?;
+        .await
+        .whatever_context("Failed to process first vote from peer 0")?;
 
     assert_eq!(
         BlockRound::from(1),
@@ -206,7 +211,8 @@ async fn two_peers_first_round() -> BoxedErrorResult<()> {
                 update: Signed::new_sign(FinalityVoteUpdate::new(1.into()), setup.seckeys[1]),
             },
         )
-        .await?;
+        .await
+        .whatever_context("Failed to process finality vote from peer 1")?;
 
     Ok(())
 }
