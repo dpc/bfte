@@ -94,6 +94,11 @@ main:has(.login-form) {
   max-width: 60em;
 }
 
+/* Form styling */
+fieldset input[type="submit"] {
+  min-width: 10em;
+}
+
 /* Break the navbar on left side on large displays */
 @media (min-width: 992px) {
   body {
