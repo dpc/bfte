@@ -40,6 +40,12 @@ collapsible_else_if = "allow"
 collapsible_if = "allow"
 
 [workspace.dependencies]
+anyhow = "1.0"
+assert_matches = "1.5.0"
+async-stream = "0.3.6"
+async-trait = "0.1.88"
+axum = "*"
+backon = "1.5.0"
 bfte = { path = "./crates/bfte" }
 bfte-consensus = { path = "./crates/consensus" }
 bfte-consensus-core = { path = "./crates/consensus-core" }
@@ -63,13 +69,6 @@ bfte-util-core = { path = "./crates/util-core" }
 bfte-util-db = { path = "./crates/util-db" }
 bfte-util-error = { path = "./crates/util-error" }
 bfte-util-fmt-opt = { path = "./crates/util-fmt-opt" }
-
-anyhow = "1.0"
-assert_matches = "1.5.0"
-async-stream = "0.3.6"
-async-trait = "0.1.88"
-axum = "*"
-backon = "1.5.0"
 bincode = { version = "2.0.0", features = ["derive"] }
 bip39 = "2.0.0"
 bit-set = { version = "0.8" }
@@ -111,6 +110,7 @@ tower-http = "0.5"
 tower-sessions = "0.14.0"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+urlencoding = "*"
 
 
 [profile]

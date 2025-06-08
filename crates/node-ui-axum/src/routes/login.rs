@@ -1,5 +1,5 @@
 use axum::Form;
-use axum::extract::State;
+use axum::extract::{Query, State};
 use axum::response::{IntoResponse, Redirect, Response};
 use maud::{Markup, html};
 use serde::Deserialize;
@@ -12,14 +12,22 @@ use crate::middleware::{SESSION_KEY, UserAuth};
 use crate::misc::Maud;
 use crate::{ArcUiState, ROUTE_LOGIN, ROUTE_UI, UiState};
 
-pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
-    Ok(Maud(state.render_login_page().await?).into_response())
+#[derive(Deserialize)]
+pub struct GetInput {
+    redirect: Option<String>,
+}
+pub async fn get(
+    state: State<ArcUiState>,
+    Query(query): Query<GetInput>,
+) -> RequestResult<impl IntoResponse> {
+    Ok(Maud(state.render_login_page(query.redirect).await?).into_response())
 }
 
 #[derive(Deserialize)]
 pub struct Input {
     temp_password: Option<String>,
     password: String,
+    redirect: Option<String>,
 }
 
 pub async fn post(
@@ -40,7 +48,10 @@ pub async fn post(
         if blake3::hash(temp_pass.trim().as_bytes())
             != state.node_api.get_ui_password_hash().context(OtherSnafu)?
         {
-            return LoginRequiredSnafu.fail();
+            return (LoginRequiredSnafu {
+                path: form.redirect,
+            })
+            .fail();
         }
 
         state
@@ -52,7 +63,10 @@ pub async fn post(
         if blake3::hash(form.password.trim().as_bytes())
             != state.node_api.get_ui_password_hash().context(OtherSnafu)?
         {
-            return LoginRequiredSnafu.fail();
+            return (LoginRequiredSnafu {
+                path: form.redirect,
+            })
+            .fail();
         }
     }
 
@@ -62,11 +76,15 @@ pub async fn post(
         .whatever_context("Could not create session")
         .context(OtherSnafu)?;
 
-    Ok(Redirect::to(ROUTE_UI).into_response())
+    let redirect_url = form.redirect.as_deref().unwrap_or(ROUTE_UI);
+    Ok(Redirect::to(redirect_url).into_response())
 }
 
 impl UiState {
-    pub(crate) async fn render_login_page(&self) -> RequestResult<Markup> {
+    pub(crate) async fn render_login_page(
+        &self,
+        redirect: Option<String>,
+    ) -> RequestResult<Markup> {
         let pass_is_temporary = self
             .node_api
             .is_ui_password_temporary()
@@ -78,6 +96,9 @@ impl UiState {
                     h2 { "Sign in" }
                 }
                 form method="post" action=(ROUTE_LOGIN) {
+                    @if let Some(ref redirect_url) = redirect {
+                        input type="hidden" name="redirect" value=(redirect_url);
+                    }
                     @if pass_is_temporary {
                         (
                             labeled_input()

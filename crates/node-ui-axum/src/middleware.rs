@@ -73,7 +73,10 @@ pub(crate) async fn require_auth(
         }
         Ok(None) => {
             // No user session, return login required error
-            Err(LoginRequiredSnafu.build())
+            Err((LoginRequiredSnafu {
+                path: Some(req.uri().path().to_owned()),
+            })
+            .build())
         }
         Err(e) => Err(e),
     }

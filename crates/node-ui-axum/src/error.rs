@@ -42,7 +42,7 @@ pub enum RequestError {
     InternalServerError { msg: &'static str },
 
     #[snafu(visibility(pub(crate)))]
-    LoginRequired,
+    LoginRequired { path: Option<String> },
 
     #[snafu(visibility(pub(crate)))]
     User { source: Whatever },
@@ -56,7 +56,7 @@ impl IntoResponse for RequestError {
                 return user_err.into_response();
             }
             _ => match self {
-                RequestError::LoginRequired => {
+                RequestError::LoginRequired { path } => {
                     // let headers = [
                     //     (
                     //         HeaderName::from_static("hx-redirect"),
@@ -66,7 +66,12 @@ impl IntoResponse for RequestError {
                     // ];
                     // return (StatusCode::SEE_OTHER, headers).into_response();
 
-                    return Redirect::to(ROUTE_LOGIN).into_response();
+                    return Redirect::to(&if let Some(path) = path {
+                        format!("{}?redirect={}", ROUTE_LOGIN, &urlencoding::encode(&path))
+                    } else {
+                        ROUTE_LOGIN.to_string()
+                    })
+                    .into_response();
                 }
                 _ => (
                     StatusCode::INTERNAL_SERVER_ERROR,
