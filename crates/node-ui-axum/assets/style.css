@@ -76,7 +76,8 @@ main {
 }
 
 main .main-content {
-  max-width: 50em;
+  max-width: 45em;
+  margin-right: 1em;
 }
 
 main:has(.login-form) {

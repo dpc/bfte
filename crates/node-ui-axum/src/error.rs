@@ -42,7 +42,10 @@ pub enum RequestError {
     InternalServerError { msg: &'static str },
 
     #[snafu(visibility(pub(crate)))]
-    LoginRequired { path: Option<String> },
+    LoginRequired {
+        /// Path to redirect to after successful login
+        path: Option<String>,
+    },
 
     #[snafu(visibility(pub(crate)))]
     User { source: Whatever },

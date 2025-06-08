@@ -191,20 +191,24 @@ impl AppConsensusModule {
             return Ok(proposals);
         };
 
+        let peer_set = self.get_peer_set_tx(dbtx)?;
+
         let pending_add_vote = {
             let tbl = dbtx.open_table(&tables::pending_add_peer_vote::TABLE)?;
             tbl.get(&())?.map(|v| v.value())
         };
 
         if let Some(pending_peer) = pending_add_vote {
-            let current_vote = {
-                let tbl = dbtx.open_table(&tables::add_peer_votes::TABLE)?;
-                tbl.get(&peer_pubkey)?.map(|v| v.value())
-            };
+            if !peer_set.contains(&pending_peer) {
+                let current_vote = {
+                    let tbl = dbtx.open_table(&tables::add_peer_votes::TABLE)?;
+                    tbl.get(&peer_pubkey)?.map(|v| v.value())
+                };
 
-            if current_vote != Some(pending_peer) {
-                let citem = AppConsensusCitem::VoteAddPeer(pending_peer);
-                proposals.push(citem.encode_to_raw());
+                if current_vote != Some(pending_peer) {
+                    let citem = AppConsensusCitem::VoteAddPeer(pending_peer);
+                    proposals.push(citem.encode_to_raw());
+                }
             }
         }
 
@@ -214,31 +218,34 @@ impl AppConsensusModule {
         };
 
         if let Some(pending_peer) = pending_remove_vote {
-            let current_vote = {
-                let tbl = dbtx.open_table(&tables::remove_peer_votes::TABLE)?;
-                tbl.get(&peer_pubkey)?.map(|v| v.value())
-            };
+            if peer_set.contains(&pending_peer) {
+                let current_vote = {
+                    let tbl = dbtx.open_table(&tables::remove_peer_votes::TABLE)?;
+                    tbl.get(&peer_pubkey)?.map(|v| v.value())
+                };
 
-            if current_vote != Some(pending_peer) {
-                let citem = AppConsensusCitem::VoteRemovePeer(pending_peer);
-                proposals.push(citem.encode_to_raw());
+                if current_vote != Some(pending_peer) {
+                    let citem = AppConsensusCitem::VoteRemovePeer(pending_peer);
+                    proposals.push(citem.encode_to_raw());
+                }
             }
         }
 
         Ok(proposals)
     }
 
-    /// Get the current peer set within a transaction context
-    fn get_peer_set_tx(&self, dbtx: &ModuleWriteTransactionCtx) -> DbTxResult<PeerSet, Whatever> {
+    /// Get the current peer set within a read transaction context
+    fn get_peer_set_tx<'dbtx>(
+        &self,
+        dbtx: &impl ModuleReadableTransaction<'dbtx>,
+    ) -> DbResult<PeerSet> {
         let tbl = dbtx.open_table(&tables::peers::TABLE)?;
-        let peers = tbl
-            .range(..)?
+        tbl.range(..)?
             .map(|kv| {
-                let (k, _) = kv.map_err(bfte_db::error::DbTxError::from)?;
+                let (k, _) = kv?;
                 Ok(k.value())
             })
-            .collect::<Result<Vec<_>, bfte_db::error::DbTxError<_>>>()?;
-        Ok(peers.into())
+            .collect()
     }
 
     fn process_citem_vote_add_peer(
@@ -392,6 +399,9 @@ impl AppConsensusModule {
             remove_peer_votes_tbl
                 .retain(|k, vote| updated_peer_set.contains(k) && *vote != peer_to_remove)?;
 
+            dbtx.open_table(&tables::add_peer_votes::TABLE)?
+                .retain(|k, _vote| updated_peer_set.contains(k))?;
+
             effects.push(
                 (RemovePeerEffect {
                     peer: peer_to_remove,
@@ -428,6 +438,7 @@ impl IModule for AppConsensusModule {
     }
 
     async fn propose_citems_rx(&self) -> watch::Receiver<Vec<CItemRaw>> {
+        self.refresh_consensus_proposals().await;
         self.propose_citems_rx.clone()
     }
 

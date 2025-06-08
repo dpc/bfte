@@ -1,7 +1,7 @@
 use axum::Extension;
 use axum::extract::Request;
-use axum::http::HeaderValue;
-use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE};
+use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, REFERER};
+use axum::http::{HeaderValue, Method};
 use axum::middleware::Next;
 use axum::response::{IntoResponse as _, Redirect, Response};
 use serde::{Deserialize, Serialize};
@@ -74,7 +74,20 @@ pub(crate) async fn require_auth(
         Ok(None) => {
             // No user session, return login required error
             Err((LoginRequiredSnafu {
-                path: Some(req.uri().path().to_owned()),
+                path: if req.method() == Method::GET {
+                    // Only redirect after login if the call was GET, otherwise things get weird
+                    Some(req.uri().path().to_owned())
+                } else {
+                    // For other calls, redirect to the referer, if available
+                    req.headers()
+                        .get(REFERER)
+                        .and_then(|value| value.to_str().ok())
+                        .and_then(|value_s| {
+                            url::Url::parse(value_s)
+                                .ok()
+                                .map(|url| url.path().to_string())
+                        })
+                },
             })
             .build())
         }

@@ -28,7 +28,7 @@ impl UiState {
             h2 { "Membership" }
 
             section {
-                h3 { "Consensus Peers" }
+                h3 { "Current Peers" }
                 ul {
                     @for peer in &peer_set {
                         li { (format!("{peer}")) }
@@ -39,7 +39,7 @@ impl UiState {
             section {
                 h3 { "Add Peer" }
                 @if !add_peer_votes.is_empty() {
-                    h4 { "Current Add Peer Votes:" }
+                    h4 { "Pending Votes:" }
                     ul {
                         @for (voter, voted_for) in &add_peer_votes {
                             li { (format!("{} → {}", voter, voted_for)) }
@@ -47,12 +47,9 @@ impl UiState {
                     }
                 }
                 form method="post" action=(format!("/ui/module/{}/add_peer_vote", _module_id)) {
-                    fieldset {
-                        label {
-                            "Peer Public Key"
-                            input type="text" name="peer_pubkey" placeholder="Enter peer public key" required;
-                        }
-                        button type="submit" { "Vote to Add Peer" }
+                    fieldset role="group" {
+                        input type="text" name="peer_pubkey" placeholder="Peer's public key" required;
+                        input type="submit" value="Add";
                     }
                 }
             }
@@ -60,7 +57,7 @@ impl UiState {
             section {
                 h3 { "Remove Peer" }
                 @if !remove_peer_votes.is_empty() {
-                    h4 { "Current Remove Peer Votes:" }
+                    h4 { "Pending Votes:" }
                     ul {
                         @for (voter, voted_for) in &remove_peer_votes {
                             li { (format!("{} → {}", voter, voted_for)) }
@@ -68,12 +65,9 @@ impl UiState {
                     }
                 }
                 form method="post" action=(format!("/ui/module/{}/remove_peer_vote", _module_id)) {
-                    fieldset {
-                        label {
-                            "Peer Public Key"
-                            input type="text" name="peer_pubkey" placeholder="Enter peer public key" required;
-                        }
-                        button type="submit" { "Vote to Remove Peer" }
+                    fieldset role="group" {
+                        input type="text" name="peer_pubkey" placeholder="Peer's public key" required;
+                        input type="submit" value ="Remove";
                     }
                 }
             }

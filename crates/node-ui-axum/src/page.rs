@@ -75,14 +75,14 @@ impl UiState {
                                 li {
                                     a ."secondary"
                                         data-discover="true"
-                                        href="/ui/tdb"
+                                        href="/ui/"
                                         aria-current=[active_nabvar.is_consensus().then_some("page")]
                                     {
                                         "Consensus Status"
                                     }
                                 }
                                 li {
-                                    a ."secondary" data-discover="true" href="/ui/tdb" { "Test 2" }
+                                    a ."secondary" data-discover="true" href="/ui/tdb" { "TBD" }
                                 }
                             }
                         }
