@@ -275,6 +275,80 @@ impl AppConsensusModule {
             .collect()
     }
 
+    /// Check for module version upgrades and append effects for any upgrades
+    ///
+    /// Takes tables as arguments to avoid accidentally trying to open
+    /// already opened tables.
+    fn check_module_version_upgrades(
+        &self,
+        dbtx: &ModuleWriteTransactionCtx,
+        modules_configs_tbl: &mut tables::modules_configs::Table,
+        versions_votes_tbl: &mut tables::modules_versions_votes::Table,
+        peer_set: &PeerSet,
+        effects: &mut Vec<CItemEffect>,
+    ) -> DbTxResult<(), Whatever> {
+        // Collect all modules that need upgrades first
+        let mut upgrades = Vec::new();
+
+        for kv in modules_configs_tbl.range(..)? {
+            let (module_id, current_config) = kv?;
+            let module_id = module_id.value();
+            let current_config = current_config.value();
+
+            // Find the minimum version across all peers in the peer set for this module
+            let mut min_minor_version: Option<ConsensusVersionMinor> = None;
+            for peer in peer_set.iter() {
+                let peer_vote = versions_votes_tbl
+                    .get(&(*peer, module_id))?
+                    .map(|v| v.value().minor())
+                    .unwrap_or_else(|| ConsensusVersionMinor::new(0)); // Default to 0 if missing
+
+                min_minor_version = Some(match min_minor_version {
+                    None => peer_vote,
+                    Some(current_min) => std::cmp::min(current_min, peer_vote),
+                });
+            }
+
+            if let Some(agreed_minor) = min_minor_version {
+                // Check if the agreed version is higher than current
+                if agreed_minor > current_config.version.minor() {
+                    let old_version = current_config.version;
+                    let new_agreed_version =
+                        ConsensusVersion::new(current_config.version.major(), agreed_minor);
+
+                    upgrades.push((module_id, current_config, old_version, new_agreed_version));
+                }
+            }
+        }
+
+        // Apply the upgrades and emit effects
+        if !upgrades.is_empty() {
+            let mut modules_configs_tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+
+            for (module_id, current_config, old_version, new_agreed_version) in upgrades {
+                // Update the module configuration
+                let updated_config = ModuleConfig {
+                    kind: current_config.kind,
+                    version: new_agreed_version,
+                    params: current_config.params.clone(),
+                };
+                modules_configs_tbl.insert(&module_id, &updated_config)?;
+
+                // Emit module version upgrade effect
+                effects.push(
+                    (ModuleVersionUpgrade {
+                        module_id,
+                        old_version,
+                        new_version: new_agreed_version,
+                    })
+                    .encode(),
+                );
+            }
+        }
+
+        Ok(())
+    }
+
     fn process_citem_vote_add_peer(
         &self,
         dbtx: &ModuleWriteTransactionCtx,
@@ -438,10 +512,21 @@ impl AppConsensusModule {
 
             effects.push(
                 (ConsensusParamsChange {
-                    peer_set: updated_peer_set,
+                    peer_set: updated_peer_set.clone(),
                 })
                 .encode(),
             );
+
+            // Check for module version upgrades after peer set change
+            let mut modules_configs_tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+            let mut versions_votes_tbl = dbtx.open_table(&tables::modules_versions_votes::TABLE)?;
+            self.check_module_version_upgrades(
+                dbtx,
+                &mut modules_configs_tbl,
+                &mut versions_votes_tbl,
+                &updated_peer_set,
+                &mut effects,
+            )?;
         }
 
         Ok(effects)
@@ -464,9 +549,8 @@ impl AppConsensusModule {
         // Open the votes table for reading and writing
         let mut versions_votes_tbl = dbtx.open_table(&tables::modules_versions_votes::TABLE)?;
 
-        // Get the current module configuration
+        // Get the current module configuration to create the version
         let mut modules_configs_tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
-
         let current_config = modules_configs_tbl
             .get(&module_id)?
             .whatever_context("Module not found in configurations")
@@ -486,47 +570,15 @@ impl AppConsensusModule {
                 .remove(&module_id)?;
         }
 
-        // Find the minimum version across all peers in the peer set
-        let mut min_minor_version: Option<ConsensusVersionMinor> = None;
-        for peer in peer_set.iter() {
-            let peer_vote = versions_votes_tbl
-                .get(&(*peer, module_id))?
-                .map(|v| v.value().minor())
-                .unwrap_or_else(|| ConsensusVersionMinor::new(0)); // Default to 0 if missing
-
-            min_minor_version = Some(match min_minor_version {
-                None => peer_vote,
-                Some(current_min) => std::cmp::min(current_min, peer_vote),
-            });
-        }
-
+        // Check for module version upgrades across all modules
         let mut effects = vec![];
-        if let Some(agreed_minor) = min_minor_version {
-            // Check if the agreed version is higher than current
-            if agreed_minor > current_config.version.minor() {
-                let old_version = current_config.version;
-                let new_agreed_version =
-                    ConsensusVersion::new(current_config.version.major(), agreed_minor);
-
-                // Update the module configuration
-                let updated_config = ModuleConfig {
-                    kind: current_config.kind,
-                    version: new_agreed_version,
-                    params: current_config.params.clone(),
-                };
-                modules_configs_tbl.insert(&module_id, &updated_config)?;
-
-                // Emit module version upgrade effect
-                effects.push(
-                    (ModuleVersionUpgrade {
-                        module_id,
-                        old_version,
-                        new_version: new_agreed_version,
-                    })
-                    .encode(),
-                );
-            }
-        }
+        self.check_module_version_upgrades(
+            dbtx,
+            &mut modules_configs_tbl,
+            &mut versions_votes_tbl,
+            peer_set,
+            &mut effects,
+        )?;
 
         Ok(effects)
     }
