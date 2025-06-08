@@ -77,6 +77,10 @@ impl INodeUiApi for NodeUiApi {
             .whatever_context("Consensus not initialized")?
             .current_round_with_timeout_rx())
     }
+
+    async fn generate_invite_code(&self) -> WhateverResult<Invite> {
+        self.node_ref()?.generate_invite_code().await
+    }
 }
 
 impl Node {

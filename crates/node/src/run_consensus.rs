@@ -290,9 +290,7 @@ impl Node {
         params: &ConsensusParams,
         existing_dummy_votes: VoteSet,
     ) {
-        let current_round_with_timeout_rx = self
-            .consensus_expect()
-            .current_round_with_timeout_rx();
+        let current_round_with_timeout_rx = self.consensus_expect().current_round_with_timeout_rx();
 
         if let Some(our_peer_idx) = our_peer_idx {
             if !existing_dummy_votes.contains(our_peer_idx) {
@@ -303,8 +301,7 @@ impl Node {
                 );
 
                 let modules = self.weak_shared_modules.clone();
-                let mut current_round_with_timeout_rx =
-                    current_round_with_timeout_rx.clone();
+                let mut current_round_with_timeout_rx = current_round_with_timeout_rx.clone();
                 let consensus = self.consensus_wait().await.clone();
 
                 round_tasks.spawn({
@@ -323,7 +320,6 @@ impl Node {
                             },
                             _= modules.wait_consensus_proposal() => {
                                 debug!(target: LOG_TARGET, "Starting round timeout due to own pending citems")
-                                
                             },
                         };
 
@@ -499,7 +495,6 @@ impl Node {
 
         let mut pending_citems: Vec<CItem> = Default::default();
         loop {
-
             if !pending_transactions_rx.borrow().is_empty() {
                 break;
             }
@@ -524,18 +519,18 @@ impl Node {
                 let consensus_finality_rx = consensus_finality_rx.clone();
                 let mut node_app_ack_rx = node_app_ack_rx.clone();
                 async move {
-                
-                // We only want to propose anything, if app layer is up to date with the latest
-                // finality
-                let Ok(_) = node_app_ack_rx
-                    .wait_for(|app_ack| *app_ack == *consensus_finality_rx.borrow())
-                    .await
-                else {
-                    future::pending().await
-                };
-                
-                weak_shared_modules.wait_consensus_proposal().await
-            }};
+                    // We only want to propose anything, if app layer is up to date with the latest
+                    // finality
+                    let Ok(_) = node_app_ack_rx
+                        .wait_for(|app_ack| *app_ack == *consensus_finality_rx.borrow())
+                        .await
+                    else {
+                        future::pending().await
+                    };
+
+                    weak_shared_modules.wait_consensus_proposal().await
+                }
+            };
 
             debug!(target: LOG_TARGET, %round, "Awaiting new block proposal trigger…");
             select! {
@@ -554,7 +549,7 @@ impl Node {
                 // Since we already have these citems, we record them
                 // in a local variable and break.
                 citems = wait_current_pending_citems_async => {
-                    
+
                     if !citems.is_empty() {
                         pending_citems = citems;
                         break;
