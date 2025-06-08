@@ -71,6 +71,8 @@ pub enum ModuleInitError {
 
 pub type ModuleInitResult<T> = Result<T, ModuleInitError>;
 
+pub type ModuleSupportedConsensusVersions = BTreeMap<ConsensusVersionMajor, ConsensusVersionMinor>;
+
 /// Module "constructor"
 #[async_trait]
 pub trait ModuleInit: Any {
@@ -78,7 +80,7 @@ pub trait ModuleInit: Any {
 
     /// All major consensus version supported by the module, with latest
     /// supported minor version for each
-    fn supported_versions(&self) -> BTreeMap<ConsensusVersionMajor, ConsensusVersionMinor>;
+    fn supported_versions(&self) -> ModuleSupportedConsensusVersions;
 
     /// Create an instance of module for given arguments
     ///

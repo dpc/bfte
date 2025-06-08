@@ -29,7 +29,7 @@ use bfte_db::error::DbResult;
 use bfte_module::effect::{EffectKind as _, EffectKindExt as _, ModuleCItemEffect};
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{ModuleDatabase, ModuleWriteTransactionCtx};
-use bfte_module::module::{DynModuleInit, DynModuleWithConfig, ModuleInit, ModuleInitArgs};
+use bfte_module::module::{DynModuleInit, DynModuleWithConfig, ModuleInit, ModuleInitArgs, ModuleSupportedConsensusVersions};
 use bfte_module_app_consensus::effects::ConsensusParamsChange;
 use bfte_module_app_consensus::{AppConsensusModule, AppConsensusModuleInit};
 use bfte_node_app_core::NodeAppApi;
@@ -252,10 +252,16 @@ impl NodeApp {
     }
 
     async fn record_modules_versions(&self) {
+        // Collect supported versions from all module inits
+        let mut modules_supported_versions = BTreeMap::new();
+        for (module_kind, module_init) in &self.modules_inits {
+            modules_supported_versions.insert(*module_kind, module_init.supported_versions());
+        }
+
         let modules_read = self.modules.read().await;
         let app_consensus = self.get_app_consensus_module(&modules_read);
         app_consensus
-            .record_module_init_versions(&self.modules_inits)
+            .record_module_init_versions(&modules_supported_versions)
             .await;
     }
     async fn setup_modules_to(

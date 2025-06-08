@@ -14,7 +14,7 @@ use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{
     DbResult, DbTxResult, ModuleDatabase, ModuleReadableTransaction, ModuleWriteTransactionCtx,
 };
-use bfte_module::module::{DynModuleInit, IModule};
+use bfte_module::module::{IModule, ModuleSupportedConsensusVersions};
 use bfte_util_db::redb_bincode::ReadableTable as _;
 use bfte_util_error::{Whatever, WhateverResult};
 use snafu::{OptionExt as _, ResultExt as _, whatever};
@@ -597,7 +597,7 @@ impl AppConsensusModule {
 
     pub async fn record_module_init_versions(
         &self,
-        modules_inits: &BTreeMap<ModuleKind, DynModuleInit>,
+        modules_supported_versions: &BTreeMap<ModuleKind, ModuleSupportedConsensusVersions>,
     ) {
         let module_configs = self.get_modules_configs().await;
 
@@ -607,11 +607,12 @@ impl AppConsensusModule {
                     dbtx.open_table(&tables::pending_modules_versions_votes::TABLE)?;
 
                 for (module_id, module_config) in module_configs {
-                    let module_init = modules_inits.get(&module_config.kind).unwrap_or_else(|| {
-                        panic!("Missing module init for kind: {}", module_config.kind)
-                    });
+                    let supported_versions = modules_supported_versions
+                        .get(&module_config.kind)
+                        .unwrap_or_else(|| {
+                            panic!("Missing module supported versions for kind: {}", module_config.kind)
+                        });
 
-                    let supported_versions = module_init.supported_versions();
                     let current_major = module_config.version.major();
 
                     let max_minor = supported_versions.get(&current_major).unwrap_or_else(|| {
