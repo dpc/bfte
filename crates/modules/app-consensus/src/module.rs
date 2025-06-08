@@ -3,25 +3,27 @@ use std::collections::BTreeMap;
 use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::citem::{CItemRaw, InputRaw, OutputRaw};
-use bfte_consensus_core::module::ModuleId;
+use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::num_peers::ToNumPeers;
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::peer_set::PeerSet;
-use bfte_consensus_core::ver::ConsensusVersion;
+use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMinor};
 use bfte_db::error::TxSnafu;
 use bfte_module::effect::{CItemEffect, EffectKindExt, ModuleCItemEffect};
-use bfte_module::module::IModule;
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{
     DbResult, DbTxResult, ModuleDatabase, ModuleReadableTransaction, ModuleWriteTransactionCtx,
 };
+use bfte_module::module::{DynModuleInit, IModule};
 use bfte_util_db::redb_bincode::ReadableTable as _;
 use bfte_util_error::{Whatever, WhateverResult};
 use snafu::{OptionExt as _, ResultExt as _, whatever};
 use tokio::sync::watch;
 
 use crate::citem::AppConsensusCitem;
-use crate::effects::{AddPeerEffect, ConsensusParamsChange, RemovePeerEffect};
+use crate::effects::{
+    AddPeerEffect, ConsensusParamsChange, ModuleVersionUpgrade, RemovePeerEffect,
+};
 use crate::tables;
 
 pub struct AppConsensusModule {
@@ -231,6 +233,31 @@ impl AppConsensusModule {
             }
         }
 
+        // Handle pending module version votes
+        {
+            let pending_votes_tbl =
+                dbtx.open_table(&tables::pending_modules_versions_votes::TABLE)?;
+            let current_votes_tbl = dbtx.open_table(&tables::modules_versions_votes::TABLE)?;
+
+            for kv in pending_votes_tbl.range(..)? {
+                let (module_id, pending_minor_version) = kv?;
+                let module_id = module_id.value();
+                let pending_minor_version = pending_minor_version.value();
+
+                let current_vote = current_votes_tbl
+                    .get(&(peer_pubkey, module_id))?
+                    .map(|v| v.value().minor());
+
+                if current_vote != Some(pending_minor_version) {
+                    let citem = AppConsensusCitem::VoteModuleVersion {
+                        module_id,
+                        minor_consensus_version: pending_minor_version,
+                    };
+                    proposals.push(citem.encode_to_raw());
+                }
+            }
+        }
+
         Ok(proposals)
     }
 
@@ -420,6 +447,90 @@ impl AppConsensusModule {
         Ok(effects)
     }
 
+    fn process_citem_vote_module_version(
+        &self,
+        dbtx: &ModuleWriteTransactionCtx,
+        voter_pubkey: PeerPubkey,
+        peer_set: &PeerSet,
+        module_id: ModuleId,
+        minor_consensus_version: ConsensusVersionMinor,
+    ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
+        // Verify the voter is actually in the current peer set
+        if !peer_set.contains(&voter_pubkey) {
+            None.whatever_context("Voter is not in the current peer set")
+                .context(TxSnafu)?;
+        }
+
+        // Open the votes table for reading and writing
+        let mut versions_votes_tbl = dbtx.open_table(&tables::modules_versions_votes::TABLE)?;
+
+        // Get the current module configuration
+        let mut modules_configs_tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+
+        let current_config = modules_configs_tbl
+            .get(&module_id)?
+            .whatever_context("Module not found in configurations")
+            .context(TxSnafu)?
+            .value();
+
+        // Create new version combining current major with voted minor
+        let new_version =
+            ConsensusVersion::new(current_config.version.major(), minor_consensus_version);
+
+        // Record the vote
+        versions_votes_tbl.insert(&(voter_pubkey, module_id), &new_version)?;
+
+        // If this vote is from ourselves, clear the pending vote
+        if Some(voter_pubkey) == self.peer_pubkey {
+            dbtx.open_table(&tables::pending_modules_versions_votes::TABLE)?
+                .remove(&module_id)?;
+        }
+
+        // Find the minimum version across all peers in the peer set
+        let mut min_minor_version: Option<ConsensusVersionMinor> = None;
+        for peer in peer_set.iter() {
+            let peer_vote = versions_votes_tbl
+                .get(&(*peer, module_id))?
+                .map(|v| v.value().minor())
+                .unwrap_or_else(|| ConsensusVersionMinor::new(0)); // Default to 0 if missing
+
+            min_minor_version = Some(match min_minor_version {
+                None => peer_vote,
+                Some(current_min) => std::cmp::min(current_min, peer_vote),
+            });
+        }
+
+        let mut effects = vec![];
+        if let Some(agreed_minor) = min_minor_version {
+            // Check if the agreed version is higher than current
+            if agreed_minor > current_config.version.minor() {
+                let old_version = current_config.version;
+                let new_agreed_version =
+                    ConsensusVersion::new(current_config.version.major(), agreed_minor);
+
+                // Update the module configuration
+                let updated_config = ModuleConfig {
+                    kind: current_config.kind,
+                    version: new_agreed_version,
+                    params: current_config.params.clone(),
+                };
+                modules_configs_tbl.insert(&module_id, &updated_config)?;
+
+                // Emit module version upgrade effect
+                effects.push(
+                    (ModuleVersionUpgrade {
+                        module_id,
+                        old_version,
+                        new_version: new_agreed_version,
+                    })
+                    .encode(),
+                );
+            }
+        }
+
+        Ok(effects)
+    }
+
     pub fn init_db_tx(dbtx: &ModuleWriteTransactionCtx) -> DbResult<()> {
         dbtx.open_table(&tables::modules_configs::TABLE)?;
         dbtx.open_table(&tables::peers::TABLE)?;
@@ -427,7 +538,43 @@ impl AppConsensusModule {
         dbtx.open_table(&tables::remove_peer_votes::TABLE)?;
         dbtx.open_table(&tables::pending_add_peer_vote::TABLE)?;
         dbtx.open_table(&tables::pending_remove_peer_vote::TABLE)?;
+        dbtx.open_table(&tables::modules_versions_votes::TABLE)?;
+        dbtx.open_table(&tables::pending_modules_versions_votes::TABLE)?;
         Ok(())
+    }
+
+    pub async fn record_module_init_versions(
+        &self,
+        modules_inits: &BTreeMap<ModuleKind, DynModuleInit>,
+    ) {
+        let module_configs = self.get_modules_configs().await;
+
+        self.db
+            .write_with_expect(|dbtx| {
+                let mut pending_votes_tbl =
+                    dbtx.open_table(&tables::pending_modules_versions_votes::TABLE)?;
+
+                for (module_id, module_config) in module_configs {
+                    let module_init = modules_inits.get(&module_config.kind).unwrap_or_else(|| {
+                        panic!("Missing module init for kind: {}", module_config.kind)
+                    });
+
+                    let supported_versions = module_init.supported_versions();
+                    let current_major = module_config.version.major();
+
+                    let max_minor = supported_versions.get(&current_major).unwrap_or_else(|| {
+                        panic!(
+                            "No supported minor version for major version {} in module {}",
+                            current_major, module_id
+                        )
+                    });
+
+                    pending_votes_tbl.insert(&module_id, max_minor)?;
+                }
+
+                Ok(())
+            })
+            .await;
     }
 }
 
@@ -460,6 +607,16 @@ impl IModule for AppConsensusModule {
             AppConsensusCitem::VoteRemovePeer(peer_to_remove) => {
                 self.process_citem_vote_remove_peer(dbtx, peer_pubkey, peer_set, peer_to_remove)
             }
+            AppConsensusCitem::VoteModuleVersion {
+                module_id,
+                minor_consensus_version,
+            } => self.process_citem_vote_module_version(
+                dbtx,
+                peer_pubkey,
+                peer_set,
+                module_id,
+                minor_consensus_version,
+            ),
         }?;
 
         let proposals = self.refresh_consensus_proposals_tx(dbtx)?;

@@ -4,17 +4,18 @@ use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::module::ModuleId;
 use bfte_consensus_core::peer::{PeerPubkey, PeerSeckey};
 use bfte_consensus_core::peer_set::PeerSet;
+use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_db::Database;
 use bfte_module::effect::EffectKindExt;
 use bfte_module::module::db::ModuleDatabase;
 use bfte_module::module::{IModule, ModuleInit, ModuleInitArgs};
 use bfte_util_error::BoxedErrorResult;
 
-use crate::CURRENT_VERSION;
 use crate::citem::AppConsensusCitem;
 use crate::effects::{AddPeerEffect, ConsensusParamsChange, RemovePeerEffect};
 use crate::init::AppConsensusModuleInit;
 use crate::module::AppConsensusModule;
+use crate::{CURRENT_VERSION_MAJOR, CURRENT_VERSION_MINOR};
 
 struct TestSetup {
     pub module: Arc<dyn IModule + Send + Sync>,
@@ -52,7 +53,7 @@ impl TestSetup {
             .init(ModuleInitArgs::new(
                 module_id,
                 db.clone(),
-                CURRENT_VERSION,
+                ConsensusVersion::new(CURRENT_VERSION_MAJOR, CURRENT_VERSION_MINOR),
                 module_config.params,
                 Some(peer_pubkey),
             ))
@@ -94,7 +95,7 @@ impl MultiPeerTestSetup {
             .init(ModuleInitArgs::new(
                 module_id,
                 db.clone(),
-                CURRENT_VERSION,
+                ConsensusVersion::new(CURRENT_VERSION_MAJOR, CURRENT_VERSION_MINOR),
                 module_config.params,
                 Some(peer_pubkeys[0]), // Use first peer as the voting peer
             ))

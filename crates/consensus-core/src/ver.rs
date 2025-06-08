@@ -4,16 +4,16 @@ use bfte_util_array_type::array_type_fixed_size_define;
 use bincode::{Decode, Encode};
 
 array_type_fixed_size_define! {
-    #[derive(Encode, Decode, Clone, Copy)]
+    #[derive(Encode, Decode, Clone, Copy, serde::Serialize, serde::Deserialize)]
     pub struct ConsensusVersionMajor(u16);
 }
 
 array_type_fixed_size_define! {
-    #[derive(Encode, Decode, Clone, Copy)]
+    #[derive(Encode, Decode, Clone, Copy, serde::Serialize, serde::Deserialize)]
     pub struct ConsensusVersionMinor(u16);
 }
 
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
 pub struct ConsensusVersion {
     /// Immutable, major version the consensus started with
     ///
@@ -48,5 +48,13 @@ impl ConsensusVersion {
             major: major.into(),
             minor: minor.into(),
         }
+    }
+
+    pub fn major(&self) -> ConsensusVersionMajor {
+        self.major
+    }
+
+    pub fn minor(&self) -> ConsensusVersionMinor {
+        self.minor
     }
 }

@@ -13,8 +13,8 @@ mod tables;
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::convert::Infallible;
-use std::mem;
 use std::sync::Arc;
+use std::{mem, ops};
 
 use bfte_consensus::consensus::Consensus;
 use bfte_consensus_core::block::BlockRound;
@@ -117,12 +117,17 @@ impl NodeApp {
                target: LOG_TARGET,
                round = %cur_round_idx.0,
                citem_idx = %cur_round_idx.1,
-               "Started node app level processing"
+               "Started node app consensus"
             );
             self.setup_modules().await?;
         }
 
+        self.record_modules_versions().await;
+
         loop {
+            // Reload modules in case of any changes
+            self.setup_modules().await?;
+
             debug!(
                 target: LOG_TARGET,
                 round = %cur_round_idx.0,
@@ -158,11 +163,11 @@ impl NodeApp {
         }
     }
 
-    fn get_consensus_module<'s>(
+    fn get_app_consensus_module<'s>(
         &'s self,
-        modules_write: &'s RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>>,
+        modules: &'s impl ops::Deref<Target = BTreeMap<ModuleId, DynModuleWithConfig>>,
     ) -> &'s AppConsensusModule {
-        let consensus_module = modules_write
+        let consensus_module = modules
             .get(&APP_CONSENSUS_MODULE_ID)
             .expect("Must have a app consensus module");
 
@@ -214,9 +219,9 @@ impl NodeApp {
         let modules_write = self.modules.write().await;
 
         let new_modules_configs = if modules_write.contains_key(&APP_CONSENSUS_MODULE_ID) {
-            let consensus_module = self.get_consensus_module(&modules_write);
-
-            consensus_module.get_modules_configs().await
+            self.get_app_consensus_module(&modules_write)
+                .get_modules_configs()
+                .await
         } else {
             // In case we don't have the core consensus module initialized yet,
             // we use special function on the init.
@@ -246,6 +251,13 @@ impl NodeApp {
         .whatever_context("Setting up modules failed")
     }
 
+    async fn record_modules_versions(&self) {
+        let modules_read = self.modules.read().await;
+        let app_consensus = self.get_app_consensus_module(&modules_read);
+        app_consensus
+            .record_module_init_versions(&self.modules_inits)
+            .await;
+    }
     async fn setup_modules_to(
         db: &Arc<Database>,
         mut modules_write: RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>>,

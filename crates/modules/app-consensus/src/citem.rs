@@ -1,6 +1,8 @@
 use bfte_consensus_core::bincode::CONSENSUS_BINCODE_CONFIG;
 use bfte_consensus_core::citem::CItemRaw;
+use bfte_consensus_core::module::ModuleId;
 use bfte_consensus_core::peer::PeerPubkey;
+use bfte_consensus_core::ver::ConsensusVersionMinor;
 use bfte_util_bincode::decode_whole;
 use bfte_util_error::WhateverResult;
 use bincode::{Decode, Encode};
@@ -11,6 +13,10 @@ use snafu::ResultExt as _;
 pub enum AppConsensusCitem {
     VoteAddPeer(PeerPubkey),
     VoteRemovePeer(PeerPubkey),
+    VoteModuleVersion {
+        module_id: ModuleId,
+        minor_consensus_version: ConsensusVersionMinor,
+    },
 }
 
 impl AppConsensusCitem {

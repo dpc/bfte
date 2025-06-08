@@ -14,7 +14,7 @@ use serde_json::json;
 use snafu::{OptionExt as _, ResultExt as _};
 use tokio::time::sleep;
 
-use crate::error::{InternalServerSnafu, OtherSnafu, RequestResult};
+use crate::error::{OtherSnafu, RequestResult};
 use crate::misc::Maud;
 use crate::page::NavbarSelector;
 use crate::{ArcUiState, ROUTE_DS_CURRENT_ROUND, ROUTE_UI};

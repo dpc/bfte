@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use bfte_consensus_core::bincode::CONSENSUS_BINCODE_CONFIG;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer_set::PeerSet;
-use bfte_consensus_core::ver::{ConsensusVersionMajor, ConsensusVersionMinor};
+use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{DbResult, ModuleDatabase, ModuleWriteTransactionCtx};
 use bfte_module::module::{
@@ -16,7 +16,7 @@ use tokio::sync::watch;
 
 use super::AppConsensusModule;
 use crate::tables::{self, modules_configs};
-use crate::{CURRENT_VERSION, KIND};
+use crate::{CURRENT_VERSION_MAJOR, CURRENT_VERSION_MINOR, KIND};
 
 pub struct AppConsensusModuleInit;
 
@@ -24,18 +24,17 @@ impl AppConsensusModuleInit {
     /// Initialize consensus module
     ///
     /// Since consensus module is the one storing consensus configs for itself
-    /// and other modules, it needs to be initialized manually.
-    ///
-    /// Its own [`ModuleConfig`] it was initialized with
+    /// and other modules, it needs to be initialized manually on first run.
     pub fn bootstrap_consensus(
         &self,
         dbtx: &ModuleWriteTransactionCtx,
         module_id: ModuleId,
         peer_set: PeerSet,
     ) -> DbResult<ModuleConfig> {
+        let version = ConsensusVersion::new(CURRENT_VERSION_MAJOR, CURRENT_VERSION_MINOR);
         let config = ModuleConfig {
             kind: KIND,
-            version: CURRENT_VERSION,
+            version,
             params: bincode::encode_to_vec(
                 &super::params::CoreConsensusModuleParams {},
                 CONSENSUS_BINCODE_CONFIG,
@@ -46,7 +45,7 @@ impl AppConsensusModuleInit {
 
         {
             let mut tbl = dbtx.open_table(&tables::self_version::TABLE)?;
-            assert!(tbl.insert(&(), &CURRENT_VERSION)?.is_none());
+            assert!(tbl.insert(&(), &version)?.is_none());
         }
 
         {
@@ -64,6 +63,11 @@ impl AppConsensusModuleInit {
         Ok(config)
     }
 
+    /// Get modules configs without creating an instance of `AppConsensus`
+    /// itself
+    ///
+    /// This is useful on start, as `node-app` can't create an instance of
+    /// `AppConsensus` without knowing its config first.
     pub async fn get_modules_configs(
         &self,
         db: &ModuleDatabase,
@@ -81,7 +85,7 @@ impl ModuleInit for AppConsensusModuleInit {
     /// All major consensus version supported by the module, with latest
     /// supported minor version for each
     fn supported_versions(&self) -> BTreeMap<ConsensusVersionMajor, ConsensusVersionMinor> {
-        todo!()
+        BTreeMap::from([(CURRENT_VERSION_MAJOR, CURRENT_VERSION_MINOR)])
     }
 
     /// Create an instance of module for given arguments
@@ -93,10 +97,14 @@ impl ModuleInit for AppConsensusModuleInit {
         args: ModuleInitArgs,
     ) -> ModuleInitResult<Arc<dyn IModule + Send + Sync + 'static>> {
         ensure!(
-            args.module_consensus_version <= super::CURRENT_VERSION,
+            args.module_consensus_version.major() == super::CURRENT_VERSION_MAJOR
+                && args.module_consensus_version.minor() <= super::CURRENT_VERSION_MINOR,
             UnsupportedVersionSnafu {
                 requested: args.module_consensus_version,
-                supported: super::CURRENT_VERSION
+                supported: ConsensusVersion::new(
+                    super::CURRENT_VERSION_MAJOR,
+                    super::CURRENT_VERSION_MINOR
+                ),
             }
         );
 

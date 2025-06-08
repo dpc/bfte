@@ -1,6 +1,7 @@
-use bfte_consensus_core::module::ModuleKind;
+use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::peer_set::PeerSet;
+use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_module::effect::{EffectId, EffectKind};
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -33,4 +34,16 @@ pub struct ConsensusParamsChange {
 impl EffectKind for ConsensusParamsChange {
     const MODULE_KIND: ModuleKind = crate::KIND;
     const EFFECT_ID: EffectId = EffectId::new(2);
+}
+
+#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
+pub struct ModuleVersionUpgrade {
+    pub module_id: ModuleId,
+    pub old_version: ConsensusVersion,
+    pub new_version: ConsensusVersion,
+}
+
+impl EffectKind for ModuleVersionUpgrade {
+    const MODULE_KIND: ModuleKind = crate::KIND;
+    const EFFECT_ID: EffectId = EffectId::new(3);
 }

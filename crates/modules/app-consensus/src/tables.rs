@@ -1,6 +1,6 @@
 use bfte_consensus_core::module::ModuleId;
 use bfte_consensus_core::peer::PeerPubkey;
-use bfte_consensus_core::ver::ConsensusVersion;
+use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMinor};
 use bfte_module::module::config::ModuleConfig;
 use bfte_util_db::def_table;
 
@@ -10,11 +10,6 @@ def_table! {
     /// This is stored separately, in case `modules_configs` table ever needs to change,
     /// so that core-consensus-module can figure out easily own current version.
     self_version: () => ConsensusVersion
-}
-
-def_table! {
-    /// Current list of all initialized modules, along with their configuration
-    modules_configs: ModuleId => ModuleConfig
 }
 
 def_table! {
@@ -49,4 +44,17 @@ def_table! {
     ///
     /// Once it is processed as a consensus item, it will update `remove_peers_votes` table.
     pending_remove_peer_vote: () => PeerPubkey
+}
+
+def_table! {
+    /// Current list of all initialized modules, along with their configuration
+    modules_configs: ModuleId => ModuleConfig
+}
+
+def_table! {
+    modules_versions_votes: (PeerPubkey, ModuleId) => ConsensusVersion
+}
+
+def_table! {
+    pending_modules_versions_votes: (ModuleId) => ConsensusVersionMinor
 }
