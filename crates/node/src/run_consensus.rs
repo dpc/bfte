@@ -192,7 +192,6 @@ impl Node {
         if let Some(our_peer_idx) = our_peer_idx {
             if round.leader_idx(params.num_peers()) == our_peer_idx {
                 if existing_votes.contains(our_peer_idx) {
-
                     info!(target: LOG_TARGET, "Already voted in this round. Will not generate proposal.");
                 } else {
                     round_tasks.spawn(
@@ -508,7 +507,7 @@ impl Node {
             let wait_pending_params_change_async = async {
                 // If consensus has any params changes pending, we want to produce
                 // a round, even if empty, just to trigger the change in a timely maner.
-                sleep(Duration::from_millis(500)).await;
+                sleep(Duration::from_millis(20)).await;
                 if !self
                     .consensus_wait()
                     .await
