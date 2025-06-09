@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
-use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module::module::config::ModuleConfig;
 use maud::{Markup, html};
 

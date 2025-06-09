@@ -4,11 +4,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Weak};
 use std::{future, marker, ops};
 
+use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::citem::{CItem, ModuleDyn};
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_module::module::{DynModuleWithConfig, IModule};
 use snafu::{OptionExt as _, Snafu};
-use tokio::sync::{OwnedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use tokio::select;
+use tokio::sync::{OwnedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockWriteGuard, watch};
 use tokio_stream::StreamMap;
 use tokio_stream::wrappers::WatchStream;
 
@@ -29,15 +31,30 @@ use tokio_stream::wrappers::WatchStream;
 /// proposals and maybe handling UI/API requests.
 ///
 /// [`SharedModules`] is the strong, "owning", reference.
-#[derive(Default)]
 pub struct SharedModules {
+    update_tx: watch::Sender<()>,
+    update_rx: watch::Receiver<()>,
     inner: Arc<RwLock<BTreeMap<ModuleId, DynModuleWithConfig>>>,
 }
 
 impl SharedModules {
+    pub fn new() -> Self {
+        let (update_tx, update_rx) = watch::channel(());
+        Self {
+            update_tx,
+            update_rx,
+            inner: Default::default(),
+        }
+    }
+
     pub async fn read(&self) -> RwLockReadGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>> {
         self.inner.read().await
     }
+
+    pub fn send_changed(&self) {
+        self.update_tx.send_replace(());
+    }
+
     pub async fn write(&self) -> RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>> {
         self.inner.write().await
     }
@@ -45,21 +62,67 @@ impl SharedModules {
     pub fn downgrade(&self) -> WeakSharedModules {
         WeakSharedModules {
             inner: Arc::downgrade(&self.inner),
+            update_rx: self.update_rx.clone(),
         }
     }
 }
+
+impl Default for SharedModules {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// [`Self`] is a weak reference to [`SharedModules`]
 #[derive(Clone)]
 pub struct WeakSharedModules {
+    update_rx: watch::Receiver<()>,
     inner: Weak<RwLock<BTreeMap<ModuleId, DynModuleWithConfig>>>,
 }
 
 impl WeakSharedModules {
+    pub fn get_update_rx(&self) -> watch::Receiver<()> {
+        self.update_rx.clone()
+    }
+
+    pub async fn wait_fresh_consensus_proposal(
+        &self,
+        finality_consensus_rx: watch::Receiver<BlockRound>,
+        mut node_app_ack_rx: watch::Receiver<BlockRound>,
+    ) -> Vec<CItem> {
+        let mut shared_modules_changed_rx = self.get_update_rx();
+        loop {
+            // We only want to propose anything, if app layer is up to date with the
+            // latest finality
+            let Ok(_) = node_app_ack_rx
+                .wait_for(|app_ack| *app_ack == *finality_consensus_rx.borrow())
+                .await
+            else {
+                future::pending().await
+            };
+
+            shared_modules_changed_rx.mark_unchanged();
+
+            select! {
+                res = self.wait_consensus_proposal() => {
+                    break res;
+                }
+                res = shared_modules_changed_rx.changed() => {
+
+                    if res.is_err() {
+                        future::pending().await
+                    }
+                    continue;
+                }
+            }
+        }
+    }
+
     /// Wait for any of the modules to return proposed citems
     ///
     /// This is supposed to get canceled from the outside,
     /// so just hangs if the modules underneath disappeared.
-    pub async fn wait_consensus_proposal(&self) -> Vec<CItem> {
+    async fn wait_consensus_proposal(&self) -> Vec<CItem> {
         let arc = self.upgrade_or_hang().await;
 
         let mut stream_map: StreamMap<ModuleId, _> = StreamMap::new();

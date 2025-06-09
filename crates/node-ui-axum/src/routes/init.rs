@@ -41,7 +41,7 @@ pub async fn post(state: State<ArcUiState>, Form(form): Form<Input>) -> RequestR
 impl UiState {
     pub(crate) async fn render_consensus_init_page(&self) -> RequestResult<Markup> {
         let content = html! {
-            div class="container" {
+            section ."init-consensus-form" {
                 div class="grid" {
                     // Create new consensus form
                     div {

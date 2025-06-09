@@ -102,7 +102,7 @@ impl Consensus {
         for peer_pubkey in cur_round_consensus_params.peers.as_slice() {
             votes.push(ctx.get_finality_vote(*peer_pubkey)?.unwrap_or_default());
         }
-
+        debug!(target: LOG_TARGET, ?votes, "Current finality votes");
         votes.sort();
 
         let num_peers = cur_round_consensus_params.peers.to_num_peers();

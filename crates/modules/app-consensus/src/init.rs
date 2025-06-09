@@ -6,20 +6,27 @@ use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module::module::config::ModuleConfig;
-use bfte_module::module::db::{DbResult, ModuleDatabase, ModuleWriteTransactionCtx};
+use bfte_module::module::db::{DbResult, ModuleWriteTransactionCtx};
 use bfte_module::module::{
     IModule, IModuleInit, ModuleInitArgs, ModuleInitResult, UnsupportedVersionSnafu,
 };
 use snafu::ensure;
 use tokio::sync::watch;
+use tracing::debug;
 
 use super::AppConsensusModule;
 use crate::tables::{self, modules_configs};
-use crate::{CURRENT_VERSION_MAJOR, CURRENT_VERSION_MINOR, KIND};
+use crate::{CURRENT_VERSION_MAJOR, CURRENT_VERSION_MINOR, KIND, LOG_TARGET};
 
 pub struct AppConsensusModuleInit;
 
 impl AppConsensusModuleInit {
+    pub fn is_bootstrapped(&self, dbtx: &ModuleWriteTransactionCtx) -> DbResult<bool> {
+        let tbl = dbtx.open_table(&tables::self_version::TABLE)?;
+
+        Ok(tbl.get(&())?.is_some())
+    }
+
     /// Initialize consensus module
     ///
     /// Since consensus module is the one storing consensus configs for itself
@@ -28,13 +35,15 @@ impl AppConsensusModuleInit {
         &self,
         dbtx: &ModuleWriteTransactionCtx,
         module_id: ModuleId,
+        version: ConsensusVersion,
         peer_set: PeerSet,
     ) -> DbResult<ModuleConfig> {
-        let version = ConsensusVersion::new(CURRENT_VERSION_MAJOR, CURRENT_VERSION_MINOR);
         let config = ModuleConfig {
             kind: KIND,
             version,
         };
+
+        debug!(target: LOG_TARGET, %version, "Bootstrapping consensus with initial AppConsensus module");
 
         {
             let mut tbl = dbtx.open_table(&tables::self_version::TABLE)?;
@@ -61,11 +70,27 @@ impl AppConsensusModuleInit {
     ///
     /// This is useful on start, as `node-app` can't create an instance of
     /// `AppConsensus` without knowing its config first.
-    pub async fn get_modules_configs(
+    pub fn get_modules_configs_dbtx(
         &self,
-        db: &ModuleDatabase,
-    ) -> BTreeMap<ModuleId, ModuleConfig> {
-        AppConsensusModule::get_module_configs_static(db).await
+        dbtx: &ModuleWriteTransactionCtx<'_>,
+    ) -> DbResult<BTreeMap<ModuleId, ModuleConfig>> {
+        let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+
+        tbl.range(..)?
+            .map(|kv| {
+                let (k, v) = kv?;
+
+                let module_id = k.value();
+                let value = v.value();
+                Ok((
+                    module_id,
+                    ModuleConfig {
+                        kind: value.kind,
+                        version: value.version,
+                    },
+                ))
+            })
+            .collect()
     }
 }
 

@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bfte_consensus::consensus::Consensus;
 use bfte_consensus_core::consensus_params::ConsensusParams;
+use bfte_consensus_core::peer::PeerPubkey;
 use bfte_db::Database;
 use bfte_db::error::DbError;
 use bfte_invite::Invite;
@@ -43,6 +44,7 @@ impl Node {
     pub async fn consensus_join_static(
         db: Arc<Database>,
         invite: &Invite,
+        our_peer_pubkey: Option<PeerPubkey>,
     ) -> NodeJoinResult<Consensus> {
         let iroh_endpoint = Self::make_iroh_endpoint(None)
             .await
@@ -57,7 +59,7 @@ impl Node {
             )
             .await
             .context(IrohConnectionSnafu)?;
-        let consensus = Self::consensus_join_static_inner(&mut conn, db, invite)
+        let consensus = Self::consensus_join_static_inner(&mut conn, db, invite, our_peer_pubkey)
             .await
             .context(PeerRequestSnafu)?;
 
@@ -68,6 +70,7 @@ impl Node {
         conn: &mut Connection,
         db: Arc<Database>,
         invite: &Invite,
+        our_peer_pubkey: Option<PeerPubkey>,
     ) -> WhateverResult<Consensus> {
         let mut init_params = None;
 
@@ -129,7 +132,7 @@ impl Node {
             whatever!("Init params not available in the invite");
         };
 
-        Consensus::init(&init_params, db, None, invite.pin)
+        Consensus::init(&init_params, db, our_peer_pubkey, invite.pin)
             .await
             .whatever_context("Failed to initialize consensus")
     }

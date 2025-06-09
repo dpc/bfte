@@ -1,10 +1,7 @@
 /* Basic layout */
 body {
   display: flex;
-  flex-direction: column;
   min-height: 100vh;
-  margin: 0;
-  flex: 1;
 }
 
 
@@ -56,7 +53,6 @@ header nav {
     font-weight: bold;
   }
 
-
   li {
     /* overwrite PicoCSS default */
     padding: 0.25em;
@@ -67,29 +63,28 @@ main {
   display: flex;
   flex-direction: column;
   flex: 1;
-}
-
-
-main {
   padding: var(--pico-spacing);
   width: 100%;
 }
 
 main .main-content {
   max-width: 45em;
-  margin-right: 1em;
+  padding: .5em;
+  width: 100%;
 }
 
-main:has(.login-form) {
+main:has(.login-form),
+main:has(.init-consensus-form) {
   align-items: center;
 }
 
 .login-form {
   max-width: 30em;
   width: 100%;
+  margin: auto;
 }
 
-.consensus-init-form {
+.init-consensus-form {
   width: 100%;
   max-width: 60em;
 }

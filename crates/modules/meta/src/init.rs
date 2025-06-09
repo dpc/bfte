@@ -3,7 +3,6 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use bfte_consensus_core::module::ModuleKind;
-use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::{
     IModule, IModuleInit, ModuleInitArgs, ModuleInitResult, ModuleSupportedConsensusVersions,
 };

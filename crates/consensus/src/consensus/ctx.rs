@@ -209,7 +209,11 @@ macro_rules! impl_consensus_read_db_ops {
             fn has_pending_consensus_params_change(&self, round: BlockRound) -> DbResult<bool> {
                 let tbl = self.open_table(&tables::cons_params_schedule::TABLE)?;
 
-                Ok(tbl.range(round..)?.next().transpose()?.is_some())
+                Ok(tbl
+                    .range(round.next_expect()..)?
+                    .next()
+                    .transpose()?
+                    .is_some())
             }
             fn get_finality_consensus(&self) -> DbResult<Option<BlockRound>> {
                 let tbl = self.open_table(&tables::cons_finality_consensus::TABLE)?;

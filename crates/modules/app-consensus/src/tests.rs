@@ -41,7 +41,12 @@ impl TestSetup {
             .write_with_expect(|module_dbtx| {
                 let module_init = AppConsensusModuleInit;
                 let peer_set: PeerSet = vec![peer_pubkey].into();
-                module_init.bootstrap_consensus(module_dbtx, module_id, peer_set)
+                module_init.bootstrap_consensus(
+                    module_dbtx,
+                    module_id,
+                    AppConsensusModuleInit.latest_version(),
+                    peer_set,
+                )
             })
             .await;
 
@@ -83,7 +88,12 @@ impl MultiPeerTestSetup {
             .write_with_expect(|module_dbtx| {
                 let module_init = AppConsensusModuleInit;
                 let peer_set: PeerSet = peer_pubkeys.clone().into();
-                module_init.bootstrap_consensus(module_dbtx, module_id, peer_set)
+                module_init.bootstrap_consensus(
+                    module_dbtx,
+                    module_id,
+                    AppConsensusModuleInit.latest_version(),
+                    peer_set,
+                )
             })
             .await;
 

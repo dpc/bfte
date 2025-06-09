@@ -91,7 +91,11 @@ impl Consensus {
         // This will mostly calculate a correct timeout again, based on the state
         // of the database.
         s.db.write_with_expect_falliable(|ctx| {
-            s.recalculate_finality_consensus_tx(ctx, cur_round)?;
+            if let Some(peer_pubkey) = s.our_peer_pubkey {
+                // It is possible, that we were not writing our finality vote, e.g. because we
+                // were running without a key. Make sure to write it out.
+                s.update_peer_finality_vote_round(ctx, cur_round, peer_pubkey, finality_self)?;
+            }
             s.check_round_end(ctx, cur_round)?;
             Ok(())
         })

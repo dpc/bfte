@@ -16,3 +16,4 @@ bincode = { workspace = true }
 serde = { workspace = true }
 snafu = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }

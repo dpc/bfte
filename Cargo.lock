@@ -576,6 +576,7 @@ dependencies = [
  "serde",
  "snafu",
  "tokio",
+ "tracing",
 ]
 
 [[package]]

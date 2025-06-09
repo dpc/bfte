@@ -6,7 +6,6 @@ use std::str::FromStr as _;
 use std::sync::Arc;
 
 use bfte_consensus_core::module::ModuleKind;
-use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_derive_secret::DeriveableSecret;
 use bfte_module::module::{DynModuleInit, IModuleInit};
 use bfte_node::Node;
@@ -56,6 +55,12 @@ impl Bfte {
         } else {
             None
         };
+        let peer_pubkey = secret.map(|root_secret| {
+            root_secret
+                .get_peer_seckey()
+                .expect("Just created, must be root")
+                .pubkey()
+        });
 
         let db_path = if let Some(data_dir) = opts.data_dir {
             tokio::fs::create_dir_all(&data_dir)
@@ -66,6 +71,10 @@ impl Bfte {
             None
         };
 
+        let app_consensus_module_init_consensus_version = modules_inits
+            .get(&bfte_module_app_consensus::KIND)
+            .expect("Must have AppConsensusModuleInit")
+            .latest_version();
         let db = match opts.command {
             Commands::GenSecret => {
                 let root_seckey = DeriveableSecret::generate();
@@ -87,7 +96,7 @@ impl Bfte {
                         .whatever_context("Failed to open database")?,
                 );
 
-                bfte_node::Node::consensus_join_static(db.clone(), &invite)
+                bfte_node::Node::consensus_join_static(db.clone(), &invite, peer_pubkey)
                     .await
                     .whatever_context("Failed to join consensus")?;
 
@@ -105,15 +114,12 @@ impl Bfte {
                         .whatever_context("Failed to open database")?,
                 );
 
-                // TODO: get from core module init
-                let core_module_init_cons_version = ConsensusVersion::new(0, 0);
-
                 bfte_node::Node::consensus_init_static(
                     db.clone(),
                     secret
                         .whatever_context("Secret must be provided to create a new federation")?,
                     extra_peers,
-                    core_module_init_cons_version,
+                    app_consensus_module_init_consensus_version,
                 )
                 .await
                 .whatever_context("Failed to create consensus")?;
@@ -136,6 +142,9 @@ impl Bfte {
             .maybe_root_secret(secret)
             .maybe_force_ui_password(opts.force_ui_password)
             .db(db)
+            .app_consensus_module_init_consensus_version(
+                app_consensus_module_init_consensus_version,
+            )
             .ui(Box::new({
                 let modules_inits = modules_inits.clone();
                 move |api, weak_shared_modules| {

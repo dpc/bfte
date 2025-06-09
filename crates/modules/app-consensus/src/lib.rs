@@ -34,3 +34,5 @@ use bfte_consensus_core::ver::{ConsensusVersionMajor, ConsensusVersionMinor};
 pub const KIND: ModuleKind = ModuleKind::new(0);
 const CURRENT_VERSION_MAJOR: ConsensusVersionMajor = ConsensusVersionMajor::new(0);
 const CURRENT_VERSION_MINOR: ConsensusVersionMinor = ConsensusVersionMinor::new(1);
+
+pub(crate) const LOG_TARGET: &str = "bfte::module::app-consensus";

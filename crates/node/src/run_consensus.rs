@@ -303,6 +303,8 @@ impl Node {
                 let modules = self.weak_shared_modules.clone();
                 let mut current_round_with_timeout_rx = current_round_with_timeout_rx.clone();
                 let consensus = self.consensus_wait().await.clone();
+                let finality_consensus_rx = consensus.finality_consensus_rx();
+                let node_app_ack_rx = self.node_app_ack_rx.clone();
 
                 round_tasks.spawn({
                     async move {
@@ -318,7 +320,7 @@ impl Node {
                             _ = wait_for_consensus_timeout_async => {
                                 debug!(target: LOG_TARGET, "Starting round timeout due consensus state");
                             },
-                            _= modules.wait_consensus_proposal() => {
+                            _= modules.wait_fresh_consensus_proposal(finality_consensus_rx, node_app_ack_rx) => {
                                 debug!(target: LOG_TARGET, "Starting round timeout due to own pending citems")
                             },
                         };
@@ -485,12 +487,12 @@ impl Node {
         our_peer_idx: PeerIdx,
     ) -> RoundEvent {
         let mut node_app_ack_rx = self.node_app_ack_rx.clone();
-        let mut consensus_finality_rx = self.consensus_expect().finality_consensus_rx();
+        let mut finality_consensus_rx = self.consensus_expect().finality_consensus_rx();
         let mut pending_transactions_rx = self.pending_transactions_rx.clone();
 
         // TODO: is this needed?
         node_app_ack_rx.mark_unchanged();
-        consensus_finality_rx.mark_unchanged();
+        finality_consensus_rx.mark_unchanged();
         pending_transactions_rx.mark_unchanged();
 
         let mut pending_citems: Vec<CItem> = Default::default();
@@ -513,24 +515,10 @@ impl Node {
                 }
             };
 
-            let wait_current_pending_citems_async = {
-                let weak_shared_modules = self.weak_shared_modules.clone();
-
-                let consensus_finality_rx = consensus_finality_rx.clone();
-                let mut node_app_ack_rx = node_app_ack_rx.clone();
-                async move {
-                    // We only want to propose anything, if app layer is up to date with the latest
-                    // finality
-                    let Ok(_) = node_app_ack_rx
-                        .wait_for(|app_ack| *app_ack == *consensus_finality_rx.borrow())
-                        .await
-                    else {
-                        future::pending().await
-                    };
-
-                    weak_shared_modules.wait_consensus_proposal().await
-                }
-            };
+            let mut finality_consensus_rx = finality_consensus_rx.clone();
+            finality_consensus_rx.mark_unchanged();
+            let finality_consensus_2_rx = finality_consensus_rx.clone();
+            let node_app_ack_rx = node_app_ack_rx.clone();
 
             debug!(target: LOG_TARGET, %round, "Awaiting new block proposal trigger…");
             select! {
@@ -540,7 +528,8 @@ impl Node {
 
                 // If the finality was increased, we want to wait for the node_app
                 // to catch up to the new height immediately and retry
-                _ = consensus_finality_rx.changed() => {
+                _ = finality_consensus_rx.changed() => {
+                    debug!(target: LOG_TARGET, "Finality consensus changed");
                     continue;
                 },
 
@@ -548,8 +537,9 @@ impl Node {
                 //
                 // Since we already have these citems, we record them
                 // in a local variable and break.
-                citems = wait_current_pending_citems_async => {
+                citems = self.weak_shared_modules.wait_fresh_consensus_proposal(finality_consensus_2_rx, node_app_ack_rx) => {
 
+                    debug!(target: LOG_TARGET, "Got citems from modules");
                     if !citems.is_empty() {
                         pending_citems = citems;
                         break;
@@ -560,7 +550,7 @@ impl Node {
 
                 // If there are any pending transactions, we break.
                 _res = pending_transactions_rx.changed() => {
-
+                    debug!(target: LOG_TARGET, "Got pending transactions from node-app");
                     if _res.is_err() {
                         // If we're shutting down, just sleep and get dropped
                         future::pending().await

@@ -19,12 +19,13 @@ use bfte_util_db::redb_bincode::ReadableTable as _;
 use bfte_util_error::{Whatever, WhateverResult};
 use snafu::{OptionExt as _, ResultExt as _, whatever};
 use tokio::sync::watch;
+use tracing::debug;
 
 use crate::citem::AppConsensusCitem;
 use crate::effects::{
     AddModuleEffect, AddPeerEffect, ConsensusParamsChange, ModuleVersionUpgrade, RemovePeerEffect,
 };
-use crate::tables;
+use crate::{LOG_TARGET, tables};
 
 pub struct AppConsensusModule {
     #[allow(dead_code)]
@@ -243,13 +244,13 @@ impl AppConsensusModule {
     pub(crate) async fn refresh_consensus_proposals(&self) {
         let proposals = self
             .db
-            .read_with_expect(|dbtx| self.refresh_consensus_proposals_tx(dbtx))
+            .read_with_expect(|dbtx| self.refresh_consensus_proposals_dbtx(dbtx))
             .await;
 
         self.propose_citems_tx.send_replace(proposals);
     }
 
-    pub(crate) fn refresh_consensus_proposals_tx<'dbtx>(
+    pub(crate) fn refresh_consensus_proposals_dbtx<'dbtx>(
         &self,
         dbtx: &impl ModuleReadableTransaction<'dbtx>,
     ) -> DbResult<Vec<CItemRaw>> {
@@ -445,8 +446,6 @@ impl AppConsensusModule {
 
         // Apply the upgrades and emit effects
         if !upgrades.is_empty() {
-            let mut modules_configs_tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
-
             for (module_id, current_config, old_version, new_agreed_version) in upgrades {
                 // Update the module configuration
                 let updated_config = ModuleConfig {
@@ -894,6 +893,8 @@ impl IModule for AppConsensusModule {
         assert!(peer_set.contains(&peer_pubkey));
         let citem = AppConsensusCitem::decode_from_raw(citem).context(TxSnafu)?;
 
+        debug!(target: LOG_TARGET, ?citem, %peer_pubkey, "Processing consensus item");
+
         let res = match citem {
             AppConsensusCitem::VoteAddPeer(peer_to_add) => {
                 self.process_citem_vote_add_peer(dbtx, peer_pubkey, peer_set, peer_to_add)
@@ -923,7 +924,7 @@ impl IModule for AppConsensusModule {
             ),
         }?;
 
-        let proposals = self.refresh_consensus_proposals_tx(dbtx)?;
+        let proposals = self.refresh_consensus_proposals_dbtx(dbtx)?;
 
         let tx = self.propose_citems_tx.clone();
 

@@ -88,6 +88,16 @@ pub trait IModuleInit: Any {
     /// supported minor version for each
     fn supported_versions(&self) -> ModuleSupportedConsensusVersions;
 
+    fn latest_version(&self) -> ConsensusVersion {
+        let (major, minor) = self
+            .supported_versions()
+            .into_iter()
+            .next_back()
+            .expect("Must have at least one supported major version");
+
+        ConsensusVersion::new(major, minor)
+    }
+
     /// Create an instance of module for given arguments
     ///
     /// Note that in principle this might be called multiple times during the

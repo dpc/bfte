@@ -89,8 +89,8 @@ impl Consensus {
             }
 
             if consensus_param.num_peers().max_faulty() < num_votes_dummy {
-                // Seems that at least one good peer wants the round to go on
-                // so we should have a timeout on
+                // Seems that enough peers wants the round to go on
+                // so we should have a timeout on too
                 needs_a_timeout |= true;
             }
 

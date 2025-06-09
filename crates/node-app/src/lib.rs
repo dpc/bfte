@@ -28,7 +28,7 @@ use bfte_db::ctx::WriteTransactionCtx;
 use bfte_db::error::DbResult;
 use bfte_module::effect::{EffectKind as _, EffectKindExt as _, ModuleCItemEffect};
 use bfte_module::module::config::ModuleConfig;
-use bfte_module::module::db::{ModuleDatabase, ModuleWriteTransactionCtx};
+use bfte_module::module::db::ModuleWriteTransactionCtx;
 use bfte_module::module::{DynModuleInit, DynModuleWithConfig, IModuleInit, ModuleInitArgs};
 use bfte_module_app_consensus::effects::ConsensusParamsChange;
 use bfte_module_app_consensus::{AppConsensusModule, AppConsensusModuleInit};
@@ -91,6 +91,9 @@ impl NodeApp {
         );
         let peer_pubkey = node_api.get_peer_pubkey().await;
         let consensus = node_api.get_consensus().await;
+
+        db.write_with_expect(Self::init_tables_tx).await;
+
         Self {
             node_api,
             modules_inits,
@@ -105,8 +108,6 @@ impl NodeApp {
     /// Main loop which processes consensus items ([`CItem`]s) from each
     /// finalized block as they become available.
     pub async fn run(mut self) -> WhateverResult<Infallible> {
-        self.db.write_with_expect(Self::init_tables_tx).await;
-
         let mut cur_round_idx = self.load_cur_round_and_idx().await;
 
         if cur_round_idx == Default::default() {
@@ -191,20 +192,29 @@ impl NodeApp {
         let consensus_module_init = (consensus_module_init.as_ref() as &dyn Any)
             .downcast_ref::<AppConsensusModuleInit>()
             .expect("Must be a consensus module");
-        let default_config = self
+
+        let new_modules_configs = self
             .db
             .write_with_expect(|dbtx| {
                 let dbtx = &ModuleWriteTransactionCtx::new(APP_CONSENSUS_MODULE_ID, dbtx);
+                if consensus_module_init.is_bootstrapped(dbtx)? {
+                    debug!(target: LOG_TARGET, "AppConsensus already bootstrapped");
+                    consensus_module_init.get_modules_configs_dbtx(dbtx)
+                } else {
+                    debug!(target: LOG_TARGET, "Bootstrapping AppConsensus from `consensus_params`");
+                    let default_config = consensus_module_init.bootstrap_consensus(
+                        dbtx,
+                        APP_CONSENSUS_MODULE_ID,
+                        consensus_params.init_core_module_cons_version,
+                        consensus_params.peers,
+                    )?;
 
-                consensus_module_init.bootstrap_consensus(
-                    dbtx,
-                    APP_CONSENSUS_MODULE_ID,
-                    consensus_params.peers,
-                )
+                    Ok(BTreeMap::from([(APP_CONSENSUS_MODULE_ID, default_config)]))
+                }
             })
             .await;
-        let new_modules_configs = BTreeMap::from([(APP_CONSENSUS_MODULE_ID, default_config)]);
-        Self::setup_modules_to(
+
+        if Self::setup_modules_to(
             &self.db,
             modules_write,
             new_modules_configs,
@@ -212,7 +222,12 @@ impl NodeApp {
             self.peer_pubkey,
         )
         .await
-        .whatever_context("Setting up modules failed")
+        .whatever_context("Setting up modules failed")?
+        {
+            self.modules.send_changed();
+        }
+
+        Ok(())
     }
 
     /// Setup modules using existing settings tracked by the consensus module
@@ -233,15 +248,14 @@ impl NodeApp {
             let consensus_module_init = (consensus_module_init.as_ref() as &dyn Any)
                 .downcast_ref::<AppConsensusModuleInit>()
                 .expect("Must be a consensus module");
-
-            consensus_module_init
-                .get_modules_configs(&ModuleDatabase::new(
-                    APP_CONSENSUS_MODULE_ID,
-                    self.db.clone(),
-                ))
+            self.db
+                .write_with_expect(|dbtx| {
+                    let dbtx = &ModuleWriteTransactionCtx::new(APP_CONSENSUS_MODULE_ID, dbtx);
+                    consensus_module_init.get_modules_configs_dbtx(dbtx)
+                })
                 .await
         };
-        Self::setup_modules_to(
+        if Self::setup_modules_to(
             &self.db,
             modules_write,
             new_modules_configs,
@@ -249,7 +263,11 @@ impl NodeApp {
             self.peer_pubkey,
         )
         .await
-        .whatever_context("Setting up modules failed")
+        .whatever_context("Setting up modules failed")?
+        {
+            self.modules.send_changed();
+        }
+        Ok(())
     }
 
     async fn record_modules_versions(&self) {
@@ -265,16 +283,20 @@ impl NodeApp {
             .record_module_init_versions(&modules_supported_versions)
             .await;
     }
+
+    #[must_use = "Don't forget to send update"]
     async fn setup_modules_to(
         db: &Arc<Database>,
         mut modules_write: RwLockWriteGuard<'_, BTreeMap<ModuleId, DynModuleWithConfig>>,
         new_modules_configs: BTreeMap<ModuleId, ModuleConfig>,
         modules_inits: &BTreeMap<ModuleKind, DynModuleInit>,
         peer_pubkey: Option<PeerPubkey>,
-    ) -> WhateverResult<()> {
+    ) -> WhateverResult<bool> {
         // Put the existing modules aside, to know if all were either reused or
         // destroyed
         let mut existing_modules = mem::take(&mut *modules_write);
+
+        let mut changed = false;
 
         for (module_id, new_module_config) in new_modules_configs {
             if existing_modules
@@ -290,6 +312,8 @@ impl NodeApp {
                         .expect("Must have an existing module corresponding to existing setup"),
                 );
             } else {
+                changed = true;
+
                 let module_init = modules_inits
                     .get(&new_module_config.kind)
                     .whatever_context("Missing module init for kind")?;
@@ -298,6 +322,7 @@ impl NodeApp {
                 // again to avoid running two instances at the same time
                 existing_modules.remove(&module_id);
 
+                debug!(target: LOG_TARGET, %module_id, config = ?new_module_config, "Initializing module");
                 modules_write.insert(
                     module_id,
                     DynModuleWithConfig {
@@ -321,7 +346,7 @@ impl NodeApp {
             "Some existing modules are without config in the new round: {:?}",
             existing_modules.keys()
         );
-        Ok(())
+        Ok(changed)
     }
 
     fn process_consensus_change_effects(

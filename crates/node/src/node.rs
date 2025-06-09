@@ -90,6 +90,13 @@ pub struct Node {
 
     /// Set each time a peer address requires refreshing
     peer_addr_needed: Arc<Notify>,
+
+    /// If bootstrapping new consensus, use this version for the module
+    ///
+    /// It is so specific, because Node can initialize consensus on the UI
+    /// demand, but other than this piece of data, it doesn't need to know
+    /// anything about modules.
+    app_consensus_module_init_consensus_version: ConsensusVersion,
 }
 
 #[derive(Debug, Snafu)]
@@ -140,6 +147,7 @@ impl Node {
     pub async fn new(
         root_secret: Option<DeriveableSecret>,
         db: Arc<Database>,
+        app_consensus_module_init_consensus_version: ConsensusVersion,
         ui: Option<RunUiFn>,
         app: Option<RunNodeAppFn>,
         force_ui_password: Option<String>,
@@ -223,6 +231,7 @@ impl Node {
                 node_app_ack_rx,
                 node_app_ack_tx,
                 pending_transactions_rx,
+                app_consensus_module_init_consensus_version,
             };
 
             if let Some(consensus) = consensus {
@@ -297,7 +306,8 @@ impl Node {
     }
 
     pub async fn consensus_join(&self, invite: &Invite) -> NodeJoinResult<()> {
-        let consensus = Self::consensus_join_static(self.db().clone(), invite).await?;
+        let consensus =
+            Self::consensus_join_static(self.db().clone(), invite, self.peer_pubkey).await?;
 
         self.consensus
             .set(Arc::new(consensus))
@@ -309,8 +319,6 @@ impl Node {
     }
 
     pub async fn consensus_init(&self, extra_peers: Vec<PeerPubkey>) -> NodeInitResult<()> {
-        // TODO: read/get from the core module init
-        let init_core_module_cons_version = ConsensusVersion::new(0, 0);
         let Some(root_secret) = self.root_secret() else {
             return NoSecretSnafu.fail();
         };
@@ -318,7 +326,7 @@ impl Node {
             self.db().clone(),
             root_secret,
             extra_peers,
-            init_core_module_cons_version,
+            self.app_consensus_module_init_consensus_version,
         )
         .await?;
 
