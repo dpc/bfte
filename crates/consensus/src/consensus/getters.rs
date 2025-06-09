@@ -52,11 +52,11 @@ impl Consensus {
         let cur_round = self.current_round_with_timeout_rx.borrow().0;
         let num_peers = self.get_consensus_params(cur_round).await.num_peers();
 
-        let finality_lag = dbg!(cur_round)
+        let finality_lag = cur_round
             .to_number()
-            .checked_sub(dbg!(
-                finality.to_number() + u64::try_from(num_peers.total()).expect("Can't overfolow")
-            ))
+            .checked_sub(
+                finality.to_number() + u64::try_from(num_peers.total()).expect("Can't overfolow"),
+            )
             .unwrap_or_default();
 
         let multiplier = 1 << finality_lag.min(32);
