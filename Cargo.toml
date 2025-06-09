@@ -117,7 +117,7 @@ urlencoding = "*"
 [profile]
 
 [profile.dev]
-panic = 'abort'
+# panic = 'abort'
 
 [profile.release]
 panic = 'abort'

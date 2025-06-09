@@ -12,9 +12,8 @@ use tracing::{Level, debug, instrument};
 
 use super::Consensus;
 use super::finish_round::RoundInvariantError;
-use crate::consensus::{
-    ConsensusReadDbOps as _, ConsensusWriteDbOps as _, InsertOutcome, LOG_TARGET,
-};
+use crate::consensus::LOG_TARGET;
+use crate::consensus::ctx::{ConsensusReadDbOps as _, ConsensusWriteDbOps as _, InsertOutcome};
 
 #[derive(Debug, Snafu)]
 pub enum ProcessNotarizedBlockError {
@@ -216,9 +215,6 @@ impl Consensus {
             )?;
         }
         self.notify_new_votes(ctx);
-        if let Some(our_peer_pubkey) = self.our_peer_pubkey {
-            self.update_peer_last_notarized_block(ctx, cur_round, our_peer_pubkey, &block.inner)?;
-        }
         Ok(())
     }
 }

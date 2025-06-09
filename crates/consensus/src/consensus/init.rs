@@ -8,7 +8,8 @@ use bfte_db::ctx::WriteTransactionCtx;
 use bfte_db::error::{DbError, DbResult, DbTxError, TxSnafu};
 use snafu::{ResultExt as _, Snafu};
 
-use super::{Consensus, ConsensusReadDbOps as _, ConsensusWriteDbOps as _, InsertOutcome};
+use super::Consensus;
+use super::ctx::{ConsensusReadDbOps as _, ConsensusWriteDbOps as _, InsertOutcome};
 use crate::tables::{
     cons_blocks_notarized, cons_blocks_pinned, cons_blocks_proposals, cons_finality_consensus,
     cons_finality_votes, cons_votes_block, cons_votes_dummy,
@@ -63,7 +64,7 @@ impl Consensus {
                 Ok((
                     ctx.get_finality_consensus()?.unwrap_or_default(),
                     ctx.get_prev_notarized_block(cur_round)?
-                        .map(|h| h.round)
+                        .map(|h| h.round.next_expect())
                         .unwrap_or_default(),
                 ))
             })
@@ -78,8 +79,8 @@ impl Consensus {
             current_round_with_timeout_tx: round_timeout_tx,
             finality_consensus_tx,
             finality_consensus_rx,
-            finality_self_tx,
-            finality_self_rx,
+            finality_self_vote_tx: finality_self_tx,
+            finality_self_vote_rx: finality_self_rx,
             our_peer_pubkey,
             new_votes_tx,
             new_votes_rx,
@@ -89,9 +90,13 @@ impl Consensus {
 
         // This will mostly calculate a correct timeout again, based on the state
         // of the database.
-        s.db.write_with_expect_falliable(|ctx| s.check_round_end(ctx, cur_round))
-            .await
-            .expect("Database should be in consistent state when opening");
+        s.db.write_with_expect_falliable(|ctx| {
+            s.recalculate_finality_consensus_tx(ctx, cur_round)?;
+            s.check_round_end(ctx, cur_round)?;
+            Ok(())
+        })
+        .await
+        .expect("Database should be in consistent state when opening");
 
         s
     }

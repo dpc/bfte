@@ -4,8 +4,10 @@ use bfte_db::error::{DbTxResult, TxSnafu};
 use snafu::{ResultExt as _, Snafu};
 use tracing::{debug, info, warn};
 
-use super::{Consensus, ConsensusWriteDbOps as _};
-use crate::consensus::{ConsensusReadDbOps as _, LOG_TARGET};
+use super::Consensus;
+use super::ctx::ConsensusReadDbOps as _;
+use crate::consensus::LOG_TARGET;
+use crate::consensus::ctx::ConsensusWriteDbOps as _;
 
 #[derive(Snafu, Debug)]
 pub enum RoundInvariantError {
@@ -41,7 +43,8 @@ impl Consensus {
                     round = %cur_round,
                     "Already have notarized block for the current or later round"
                 );
-                cur_round = cur_round.next().expect("Can't ran out");
+                new_last_notarized_round = Some(cur_round);
+                cur_round = cur_round.next_expect();
                 continue;
             }
 
@@ -65,15 +68,7 @@ impl Consensus {
                     );
                     new_last_notarized_round = Some(cur_round);
                     ctx.insert_notarized_block(cur_round, proposal, None)?;
-                    if let Some(our_peer_pubkey) = self.our_peer_pubkey {
-                        self.update_peer_last_notarized_block(
-                            ctx,
-                            cur_round,
-                            our_peer_pubkey,
-                            &proposal,
-                        )?;
-                    }
-                    cur_round = cur_round.next().expect("Can't ran out");
+                    cur_round = cur_round.next_expect();
                     continue;
                 }
             }
@@ -89,7 +84,7 @@ impl Consensus {
                     %num_votes_dummy,
                     "Round produced a dummy"
                 );
-                cur_round = cur_round.next().expect("Can't ran out");
+                cur_round = cur_round.next_expect();
                 continue;
             }
 
@@ -122,10 +117,22 @@ impl Consensus {
         }
 
         if let Some(new_last_notarized_round) = new_last_notarized_round {
-            let last_notarized_block_tx = self.finality_self_tx.clone();
+            let finality_self_vote = new_last_notarized_round.next_expect();
+            let finality_self_vote_tx = self.finality_self_vote_tx.clone();
             ctx.on_commit(move || {
-                last_notarized_block_tx.send_replace(new_last_notarized_round);
+                finality_self_vote_tx.send_replace(finality_self_vote);
             });
+
+            if let Some(our_peer_pubkey) = self.our_peer_pubkey {
+                // Since we don't query ourselves for own finality vote, we
+                // update it here.
+                self.update_peer_finality_vote_round(
+                    ctx,
+                    cur_round,
+                    our_peer_pubkey,
+                    finality_self_vote,
+                )?;
+            }
         }
 
         // Similarly, we only need to update notification if the round

@@ -11,9 +11,8 @@ use tracing::{Level, debug, instrument};
 
 use super::Consensus;
 use super::finish_round::RoundInvariantError;
-use crate::consensus::{
-    ConsensusReadDbOps as _, ConsensusWriteDbOps as _, InsertOutcome, LOG_TARGET,
-};
+use crate::consensus::LOG_TARGET;
+use crate::consensus::ctx::{ConsensusReadDbOps as _, ConsensusWriteDbOps as _, InsertOutcome};
 
 #[derive(Debug, Snafu)]
 pub enum ProcessVoteError {

@@ -52,15 +52,19 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
             section {
                 h3 { "Current Status" }
                 div
-                    data-signals="{ round_and_timeout: '', finality_consensus: '', node_app_ack: '' }"
+                    data-signals="{ round_and_timeout: '', finality_consensus: '', finality_self: '', node_app_ack: '' }"
                     data-on-load=(format!("@get('{}')", ROUTE_DS_CURRENT_ROUND)) {
                     div {
-                        "Core Consensus Round: "
+                        "Current Round: "
                         span data-text="$round_and_timeout" { "Loading..." }
                     }
                     div {
                         "Finality Consensus: "
                         span data-text="$finality_consensus" { "Loading..." }
+                    }
+                    div {
+                        "Finality Self: "
+                        span data-text="$finality_self" { "Loading..." }
                     }
                     div {
                         "Node App Ack: "
@@ -101,6 +105,10 @@ pub async fn updates(state: State<ArcUiState>) -> RequestResult<impl IntoRespons
         .node_api
         .get_finality_consensus_rx()
         .context(OtherSnafu)?;
+    let mut finality_self_rx = state
+        .node_api
+        .get_finality_self_vote_rx()
+        .context(OtherSnafu)?;
     let mut node_app_ack_rx = state.node_api.get_node_app_ack_rx().context(OtherSnafu)?;
 
     Ok(Sse(stream! {
@@ -108,6 +116,7 @@ pub async fn updates(state: State<ArcUiState>) -> RequestResult<impl IntoRespons
             let out = json! ({
                 "round_and_timeout": format!("{} (timeout: {})", round_and_timeout_rx.borrow().0, round_and_timeout_rx.borrow().1),
                 "finality_consensus": *finality_consensus_rx.borrow(),
+                "finality_self": *finality_self_rx.borrow(),
                 "node_app_ack": *node_app_ack_rx.borrow(),
             });
 
@@ -123,6 +132,11 @@ pub async fn updates(state: State<ArcUiState>) -> RequestResult<impl IntoRespons
                     }
                 }
                 result = finality_consensus_rx.changed() => {
+                    if result.is_err() {
+                        break;
+                    }
+                }
+                result = finality_self_rx.changed() => {
                     if result.is_err() {
                         break;
                     }

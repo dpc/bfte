@@ -87,6 +87,15 @@ impl INodeUiApi for NodeUiApi {
             .finality_consensus_rx())
     }
 
+    fn get_finality_self_vote_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>> {
+        Ok(self
+            .node_ref()?
+            .consensus()
+            .as_ref()
+            .whatever_context("Consensus not initialized")?
+            .finality_self_vote_rx())
+    }
+
     fn get_node_app_ack_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>> {
         Ok(self.node_ref()?.node_app_ack_rx.clone())
     }

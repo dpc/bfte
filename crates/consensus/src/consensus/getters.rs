@@ -14,8 +14,10 @@ use bfte_db::error::DbResult;
 use tokio::sync::watch;
 use tracing::{info, warn};
 
-use super::{Consensus, ConsensusReadDbOps as _};
-use crate::consensus::{ConsensusWriteDbOps as _, LOG_TARGET};
+use super::Consensus;
+use super::ctx::ConsensusReadDbOps as _;
+use crate::consensus::LOG_TARGET;
+use crate::consensus::ctx::ConsensusWriteDbOps as _;
 use crate::tables::{cons_blocks_notarized, cons_blocks_payloads};
 use crate::vote_set::VoteSet;
 
@@ -27,8 +29,8 @@ impl Consensus {
     pub fn finality_consensus_rx(&self) -> watch::Receiver<BlockRound> {
         self.finality_consensus_rx.clone()
     }
-    pub fn finality_self_rx(&self) -> watch::Receiver<BlockRound> {
-        self.finality_self_rx.clone()
+    pub fn finality_self_vote_rx(&self) -> watch::Receiver<BlockRound> {
+        self.finality_self_vote_rx.clone()
     }
 
     pub fn new_votes_rx(&self) -> watch::Receiver<()> {
