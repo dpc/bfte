@@ -24,9 +24,13 @@ impl Setup {
         num_peers: NumPeers,
         init_core_module_cons_version: ConsensusVersion,
     ) -> WhateverResult<Self> {
-        let seckeys: Vec<_> = (0..num_peers.total())
+        let mut seckeys: Vec<_> = (0..num_peers.total())
             .map(|_| PeerSeckey::generate())
             .collect();
+
+        // PeerIdx's are assigned based on the pubkey, so sort the seckeys identifying
+        // the peers for our convenience.
+        seckeys.sort_unstable_by_key(|seckey1| seckey1.pubkey());
 
         let cons_params = ConsensusParams {
             prev_mid_block: None,
@@ -165,7 +169,7 @@ async fn two_peers_first_round() -> WhateverResult<()> {
         .process_vote_response(
             PeerIdx::from(1),
             WaitVoteResponse::Proposal {
-                block: Signed::new_sign(block, setup.seckeys[1]),
+                block: Signed::new_sign(dbg!(block), setup.seckeys[1]),
                 payload,
             },
         )
