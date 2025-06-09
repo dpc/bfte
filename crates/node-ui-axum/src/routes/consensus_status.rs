@@ -59,9 +59,6 @@ async fn get_database_status(state: &ArcUiState) -> WhateverResult<(String, bool
 
 pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
     let peer_count = get_peer_count(&state).await.unwrap_or(0);
-    let invite_code = get_invite_code(&state)
-        .await
-        .unwrap_or_else(|_| "Not available".to_string());
     let peer_pubkey = get_peer_pubkey(&state)
         .await
         .unwrap_or_else(|_| "Not available".to_string());
@@ -114,15 +111,6 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
                 }
             }
 
-            section {
-                h3 { "Invite Code" }
-                p {
-                    "Share this code with others to invite them to join the consensus:"
-                }
-                code style="display: block; padding: 1em; background: var(--pico-code-background-color); word-break: break-all;" {
-                    (invite_code)
-                }
-            }
         }
     };
     Ok(Maud(

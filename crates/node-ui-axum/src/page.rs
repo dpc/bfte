@@ -2,6 +2,7 @@ use bfte_consensus_core::module::ModuleId;
 use maud::{DOCTYPE, Markup, html};
 
 use crate::UiState;
+use crate::{ROUTE_INVITE};
 use crate::assets::{ROUTE_DATASTAR_JS, ROUTE_LOGO_PNG, ROUTE_PICO_CSS, ROUTE_STYLE_CSS};
 
 impl UiState {
@@ -82,7 +83,7 @@ impl UiState {
                                     }
                                 }
                                 li {
-                                    a ."secondary" data-discover="true" href="/ui/tdb" { "TBD" }
+                                    a ."secondary" data-discover="true" href=(ROUTE_INVITE) { "Invite Code" }
                                 }
                             }
                         }

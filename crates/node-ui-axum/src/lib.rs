@@ -37,6 +37,7 @@ const ROUTE_MODULE: &str = "/ui/module/{module-id}";
 const ROUTE_MODULE_ADD_PEER_VOTE: &str = "/ui/module/{module-id}/add_peer_vote";
 const ROUTE_MODULE_REMOVE_PEER_VOTE: &str = "/ui/module/{module-id}/remove_peer_vote";
 const ROUTE_INIT_CONSENSUS: &str = "/ui/init";
+const ROUTE_INVITE: &str = "/ui/invite";
 const ROUTE_DS_CURRENT_ROUND: &str = "/datastar/current-round";
 
 #[derive(Clone)]
