@@ -483,12 +483,14 @@ impl Node {
 
     async fn generate_proposal_round_task(
         self: Arc<Self>,
-        round: BlockRound,
+        cur_round: BlockRound,
         our_peer_idx: PeerIdx,
     ) -> RoundEvent {
         let mut node_app_ack_rx = self.node_app_ack_rx.clone();
-        let mut finality_consensus_rx = self.consensus_expect().finality_consensus_rx();
+        let consensus = self.consensus_expect();
         let mut pending_transactions_rx = self.pending_transactions_rx.clone();
+        let mut finality_consensus_rx = consensus.finality_consensus_rx();
+        let mut finality_self_vote_rx = consensus.finality_self_vote_rx();
 
         // TODO: is this needed?
         node_app_ack_rx.mark_unchanged();
@@ -508,7 +510,7 @@ impl Node {
                 if !self
                     .consensus_wait()
                     .await
-                    .has_pending_consensus_params_change(round)
+                    .has_pending_consensus_params_change(cur_round)
                     .await
                 {
                     future::pending().await
@@ -520,7 +522,15 @@ impl Node {
             let finality_consensus_2_rx = finality_consensus_rx.clone();
             let node_app_ack_rx = node_app_ack_rx.clone();
 
-            debug!(target: LOG_TARGET, %round, "Awaiting new block proposal trigger…");
+            let wait_finality_self_vote_mismatch_async = async {
+                sleep(Duration::from_millis(1)).await;
+
+                if cur_round <= *finality_self_vote_rx.borrow() {
+                    future::pending().await
+                }
+            };
+
+            debug!(target: LOG_TARGET, %cur_round, "Awaiting new block proposal trigger…");
             select! {
                 // We check proposed citems from our modules with priority,
                 // and add pending transactions to this list.
@@ -563,6 +573,16 @@ impl Node {
                     continue;
                 },
 
+                _ = wait_finality_self_vote_mismatch_async => {
+                    // If the previous round was a dummy, we want to propose
+                    // a block, even if empty, just so all the peers can agree
+                    // on the notarization&finalization ASAP.
+                    debug!(
+                        target: LOG_TARGET,
+                        "Proposing block, because previous round was a dummy"
+                    );
+                    break;
+                }
                 _ = wait_pending_params_change_async => {
                     debug!(
                         target: LOG_TARGET,
@@ -580,8 +600,8 @@ impl Node {
                 .map(|tx| CItem::Transaction(tx.to_owned())),
         );
 
-        debug!(target: LOG_TARGET, %round, items = %pending_citems.len(), "Building new block proposal");
-        let (block, payload) = self.generate_proposal(round, &pending_citems).await;
+        debug!(target: LOG_TARGET, %cur_round, items = %pending_citems.len(), "Building new block proposal");
+        let (block, payload) = self.generate_proposal(cur_round, &pending_citems).await;
 
         let seckey = self.get_peer_secret_expect();
         let resp = WaitVoteResponse::Proposal {
