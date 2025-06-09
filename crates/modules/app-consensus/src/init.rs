@@ -9,7 +9,7 @@ use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, Consensu
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{DbResult, ModuleDatabase, ModuleWriteTransactionCtx};
 use bfte_module::module::{
-    IModule, ModuleInit, ModuleInitArgs, ModuleInitResult, UnsupportedVersionSnafu,
+    IModule, IModuleInit, ModuleInitArgs, ModuleInitResult, UnsupportedVersionSnafu,
 };
 use snafu::ensure;
 use tokio::sync::watch;
@@ -77,7 +77,7 @@ impl AppConsensusModuleInit {
 }
 
 #[async_trait]
-impl ModuleInit for AppConsensusModuleInit {
+impl IModuleInit for AppConsensusModuleInit {
     fn kind(&self) -> ModuleKind {
         crate::KIND
     }

@@ -8,7 +8,7 @@ use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_db::Database;
 use bfte_module::effect::EffectKindExt;
 use bfte_module::module::db::ModuleDatabase;
-use bfte_module::module::{IModule, ModuleInit, ModuleInitArgs};
+use bfte_module::module::{IModule, IModuleInit, ModuleInitArgs};
 use bfte_util_error::BoxedErrorResult;
 
 use crate::citem::AppConsensusCitem;

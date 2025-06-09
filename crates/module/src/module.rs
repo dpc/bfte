@@ -39,7 +39,7 @@ pub struct ModuleInitArgs {
     pub peer_pubkey: Option<PeerPubkey>,
 }
 
-pub type DynModuleInit = Arc<dyn ModuleInit + Send + Sync>;
+pub type DynModuleInit = Arc<dyn IModuleInit + Send + Sync>;
 
 impl ModuleInitArgs {
     pub fn new(
@@ -75,7 +75,7 @@ pub type ModuleSupportedConsensusVersions = BTreeMap<ConsensusVersionMajor, Cons
 
 /// Module "constructor"
 #[async_trait]
-pub trait ModuleInit: Any {
+pub trait IModuleInit: Any {
     fn kind(&self) -> ModuleKind;
 
     fn display_name(&self) -> &'static str;

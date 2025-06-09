@@ -8,7 +8,7 @@ use std::sync::Arc;
 use bfte_consensus_core::module::ModuleKind;
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_derive_secret::DeriveableSecret;
-use bfte_module::module::{DynModuleInit, ModuleInit};
+use bfte_module::module::{DynModuleInit, IModuleInit};
 use bfte_node::Node;
 use bfte_node::derive_secret_ext::DeriveSecretExt as _;
 use bfte_util_error::WhateverResult;
@@ -29,7 +29,7 @@ impl Bfte {
     pub async fn build(
         #[builder(field)] mut modules_inits: BTreeMap<
             ModuleKind,
-            Arc<dyn ModuleInit + Send + Sync>,
+            Arc<dyn IModuleInit + Send + Sync>,
         >,
     ) -> WhateverResult<()> {
         let _ = modules_inits
