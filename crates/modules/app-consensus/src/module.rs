@@ -14,7 +14,7 @@ use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{
     DbResult, DbTxResult, ModuleDatabase, ModuleReadableTransaction, ModuleWriteTransactionCtx,
 };
-use bfte_module::module::{IModule, ModuleSupportedConsensusVersions};
+use bfte_module::module::{DynModuleInit, IModule, ModuleSupportedConsensusVersions};
 use bfte_util_db::redb_bincode::ReadableTable as _;
 use bfte_util_error::{Whatever, WhateverResult};
 use snafu::{OptionExt as _, ResultExt as _, whatever};
@@ -22,7 +22,7 @@ use tokio::sync::watch;
 
 use crate::citem::AppConsensusCitem;
 use crate::effects::{
-    AddPeerEffect, ConsensusParamsChange, ModuleVersionUpgrade, RemovePeerEffect,
+    AddModuleEffect, AddPeerEffect, ConsensusParamsChange, ModuleVersionUpgrade, RemovePeerEffect,
 };
 use crate::tables;
 
@@ -33,6 +33,7 @@ pub struct AppConsensusModule {
     pub(crate) peer_pubkey: Option<PeerPubkey>,
     pub(crate) propose_citems_rx: watch::Receiver<Vec<CItemRaw>>,
     pub(crate) propose_citems_tx: watch::Sender<Vec<CItemRaw>>,
+    pub(crate) modules_inits: BTreeMap<ModuleKind, DynModuleInit>,
 }
 
 impl AppConsensusModule {
@@ -53,7 +54,6 @@ impl AppConsensusModule {
                         ModuleConfig {
                             kind: value.kind,
                             version: value.version,
-                            params: value.params,
                         },
                     ))
                 })
@@ -146,6 +146,56 @@ impl AppConsensusModule {
         Ok(())
     }
 
+    pub async fn set_pending_add_module_vote(
+        &self,
+        module_kind: ModuleKind,
+        consensus_version: ConsensusVersion,
+    ) -> WhateverResult<()> {
+        if self.peer_pubkey.is_none() {
+            whatever!("Cannot cast votes: not a voting peer")
+        }
+
+        // Check if we have a module init for this kind
+        let module_init = self
+            .modules_inits
+            .get(&module_kind)
+            .whatever_context("No module init available for module kind")?;
+
+        // Check if module already exists (only for singleton modules)
+        if module_init.singleton() {
+            let module_already_exists = self
+                .db
+                .read_with_expect(|dbtx| {
+                    let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+                    let mut found = false;
+                    for kv in tbl.range(..)? {
+                        let (_, config) = kv?;
+                        if config.value().kind == module_kind {
+                            found = true;
+                            break;
+                        }
+                    }
+                    Ok(found)
+                })
+                .await;
+
+            if module_already_exists {
+                return Ok(());
+            }
+        }
+
+        self.db
+            .write_with_expect(|dbtx| {
+                let mut tbl = dbtx.open_table(&tables::pending_add_module_vote::TABLE)?;
+                tbl.insert(&(), &(module_kind, consensus_version))?;
+                Ok(())
+            })
+            .await;
+
+        self.refresh_consensus_proposals().await;
+        Ok(())
+    }
+
     pub async fn get_add_peer_votes(&self) -> BTreeMap<PeerPubkey, PeerPubkey> {
         self.db
             .read_with_expect(|dbtx| {
@@ -154,6 +204,22 @@ impl AppConsensusModule {
                     .map(|kv| {
                         let (voter, voted_for) = kv?;
                         Ok((voter.value(), voted_for.value()))
+                    })
+                    .collect()
+            })
+            .await
+    }
+
+    pub async fn get_add_module_votes(
+        &self,
+    ) -> BTreeMap<PeerPubkey, (ModuleKind, ConsensusVersion)> {
+        self.db
+            .read_with_expect(|dbtx| {
+                let tbl = dbtx.open_table(&tables::add_module_votes::TABLE)?;
+                tbl.range(..)?
+                    .map(|kv| {
+                        let (voter, voted_module) = kv?;
+                        Ok((voter.value(), voted_module.value()))
                     })
                     .collect()
             })
@@ -228,6 +294,62 @@ impl AppConsensusModule {
 
                 if current_vote != Some(pending_peer) {
                     let citem = AppConsensusCitem::VoteRemovePeer(pending_peer);
+                    proposals.push(citem.encode_to_raw());
+                }
+            }
+        }
+
+        // Handle pending module add votes
+        let pending_add_module_vote = {
+            let tbl = dbtx.open_table(&tables::pending_add_module_vote::TABLE)?;
+            tbl.get(&())?.map(|v| v.value())
+        };
+
+        if let Some((pending_module_kind, pending_consensus_version)) = pending_add_module_vote {
+            // Get module init to check if it's singleton
+            let should_check_exists = self
+                .modules_inits
+                .get(&pending_module_kind)
+                .map(|init| init.singleton())
+                .unwrap_or(false);
+
+            // Check if module already exists (only for singleton modules)
+            let module_already_exists = if should_check_exists {
+                let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+                let mut found = false;
+                for kv in tbl.range(..)? {
+                    let (_, config) = kv?;
+                    if config.value().kind == pending_module_kind {
+                        found = true;
+                        break;
+                    }
+                }
+                found
+            } else {
+                false
+            };
+
+            if !module_already_exists {
+                let current_vote = {
+                    let tbl = dbtx.open_table(&tables::add_module_votes::TABLE)?;
+                    tbl.get(&peer_pubkey)?.map(|v| v.value())
+                };
+
+                // Check if we need to propose: either no current vote, or current vote has
+                // different module_kind or major version
+                let should_propose = match current_vote {
+                    None => true,
+                    Some((current_module_kind, current_version)) => {
+                        current_module_kind != pending_module_kind
+                            || current_version.major() != pending_consensus_version.major()
+                    }
+                };
+
+                if should_propose {
+                    let citem = AppConsensusCitem::VoteAddModule {
+                        module_kind: pending_module_kind,
+                        consensus_version: pending_consensus_version,
+                    };
                     proposals.push(citem.encode_to_raw());
                 }
             }
@@ -330,7 +452,6 @@ impl AppConsensusModule {
                 let updated_config = ModuleConfig {
                     kind: current_config.kind,
                     version: new_agreed_version,
-                    params: current_config.params.clone(),
                 };
                 modules_configs_tbl.insert(&module_id, &updated_config)?;
 
@@ -415,6 +536,125 @@ impl AppConsensusModule {
             effects.push(
                 (ConsensusParamsChange {
                     peer_set: updated_peer_set,
+                })
+                .encode(),
+            );
+        }
+
+        Ok(effects)
+    }
+
+    fn process_citem_vote_add_module(
+        &self,
+        dbtx: &ModuleWriteTransactionCtx,
+        voter_pubkey: PeerPubkey,
+        peer_set: &PeerSet,
+        module_kind: ModuleKind,
+        consensus_version: ConsensusVersion,
+    ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
+        // Check if we have a module init for this kind
+        let module_init = self
+            .modules_inits
+            .get(&module_kind)
+            .whatever_context("No module init available for module kind")
+            .context(TxSnafu)?;
+
+        // Check if module already exists (only for singleton modules)
+        if module_init.singleton() {
+            let module_already_exists = {
+                let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+                let mut found = false;
+                for kv in tbl.range(..)? {
+                    let (_, config) = kv?;
+                    if config.value().kind == module_kind {
+                        found = true;
+                        break;
+                    }
+                }
+                found
+            };
+
+            if module_already_exists {
+                None.whatever_context("Module already exists")
+                    .context(TxSnafu)?;
+            }
+        }
+
+        // Open the votes table for reading and writing
+        let mut add_module_votes_tbl = dbtx.open_table(&tables::add_module_votes::TABLE)?;
+
+        // Record the vote directly in the database
+        add_module_votes_tbl.insert(&voter_pubkey, &(module_kind, consensus_version))?;
+
+        // If this vote is from ourselves, clear the pending vote to stop proposing the
+        // same citem
+        if Some(voter_pubkey) == self.peer_pubkey {
+            dbtx.open_table(&tables::pending_add_module_vote::TABLE)?
+                .remove(&())?;
+        }
+
+        // Collect all votes for this module_kind with matching major version
+        let mut matching_votes = Vec::new();
+        for peer in peer_set.iter() {
+            if let Some(vote_entry) = add_module_votes_tbl.get(peer)? {
+                let (vote_module_kind, vote_consensus_version) = vote_entry.value();
+                if vote_module_kind == module_kind
+                    && vote_consensus_version.major() == consensus_version.major()
+                {
+                    matching_votes.push((peer, vote_consensus_version));
+                }
+            }
+        }
+
+        // Require ALL peers to vote for the same module_kind with same major version
+        let mut effects = vec![];
+        if matching_votes.len() == peer_set.len() {
+            // All peers have voted - find the minimum minor version
+            let min_minor_version = matching_votes
+                .iter()
+                .map(|(_, version)| version.minor())
+                .min()
+                .expect("Should have at least one vote");
+
+            let final_consensus_version =
+                ConsensusVersion::new(consensus_version.major(), min_minor_version);
+
+            // Clear all votes for this module_kind (regardless of version)
+            add_module_votes_tbl.retain(|_k, vote| {
+                let (vote_module_kind, _) = *vote;
+                vote_module_kind != module_kind
+            })?;
+
+            // Generate a new module ID (find the next available ID)
+            let new_module_id = {
+                let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+                let mut next_id = 1u32;
+                loop {
+                    let candidate_id = ModuleId::new(next_id);
+                    if tbl.get(&candidate_id)?.is_none() {
+                        break candidate_id;
+                    }
+                    next_id += 1;
+                }
+            };
+
+            // Get default config for the module and update its version
+            let module_config = ModuleConfig {
+                kind: module_kind,
+                version: final_consensus_version,
+            };
+
+            // Insert the module into the modules_configs table
+            {
+                let mut modules_tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+                modules_tbl.insert(&new_module_id, &module_config)?;
+            }
+
+            effects.push(
+                (AddModuleEffect {
+                    module_kind,
+                    module_id: new_module_id,
+                    consensus_version: final_consensus_version,
                 })
                 .encode(),
             );
@@ -583,13 +823,15 @@ impl AppConsensusModule {
         Ok(effects)
     }
 
-    pub fn init_db_tx(dbtx: &ModuleWriteTransactionCtx) -> DbResult<()> {
+    pub(crate) fn init_db_tx(dbtx: &ModuleWriteTransactionCtx) -> DbResult<()> {
         dbtx.open_table(&tables::modules_configs::TABLE)?;
         dbtx.open_table(&tables::peers::TABLE)?;
         dbtx.open_table(&tables::add_peer_votes::TABLE)?;
         dbtx.open_table(&tables::remove_peer_votes::TABLE)?;
         dbtx.open_table(&tables::pending_add_peer_vote::TABLE)?;
         dbtx.open_table(&tables::pending_remove_peer_vote::TABLE)?;
+        dbtx.open_table(&tables::add_module_votes::TABLE)?;
+        dbtx.open_table(&tables::pending_add_module_vote::TABLE)?;
         dbtx.open_table(&tables::modules_versions_votes::TABLE)?;
         dbtx.open_table(&tables::pending_modules_versions_votes::TABLE)?;
         Ok(())
@@ -659,6 +901,16 @@ impl IModule for AppConsensusModule {
             AppConsensusCitem::VoteRemovePeer(peer_to_remove) => {
                 self.process_citem_vote_remove_peer(dbtx, peer_pubkey, peer_set, peer_to_remove)
             }
+            AppConsensusCitem::VoteAddModule {
+                module_kind,
+                consensus_version,
+            } => self.process_citem_vote_add_module(
+                dbtx,
+                peer_pubkey,
+                peer_set,
+                module_kind,
+                consensus_version,
+            ),
             AppConsensusCitem::VoteModuleVersion {
                 module_id,
                 minor_consensus_version,

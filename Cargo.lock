@@ -714,6 +714,7 @@ dependencies = [
  "bfte-invite",
  "bfte-module",
  "bfte-module-app-consensus",
+ "bfte-module-meta",
  "bfte-node-shared-modules",
  "bfte-node-ui",
  "bfte-util-error",

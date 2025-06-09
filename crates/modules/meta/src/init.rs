@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use bfte_consensus_core::module::ModuleKind;
+use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::{
     IModule, IModuleInit, ModuleInitArgs, ModuleInitResult, ModuleSupportedConsensusVersions,
 };
@@ -30,6 +31,10 @@ impl IModuleInit for MetaModuleInit {
         KIND
     }
 
+    fn singleton(&self) -> bool {
+        true
+    }
+
     fn display_name(&self) -> &'static str {
         "Meta"
     }
@@ -55,6 +60,8 @@ impl IModuleInit for MetaModuleInit {
                 supported: supported_version,
             });
         }
+
+        args.db.write_with_expect(MetaModule::init_db_tx).await;
 
         let module = MetaModule::new(args.module_consensus_version, args.db, args.peer_pubkey);
 

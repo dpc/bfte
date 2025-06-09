@@ -49,6 +49,12 @@ impl MetaModule {
         }
     }
 
+    pub(crate) fn init_db_tx(dbtx: &ModuleWriteTransactionCtx) -> DbResult<()> {
+        dbtx.open_table(&tables::consensus_values::TABLE)?;
+        dbtx.open_table(&tables::key_value_votes::TABLE)?;
+        dbtx.open_table(&tables::pending_proposals::TABLE)?;
+        Ok(())
+    }
     /// Get current agreed consensus values
     pub async fn get_consensus_values(&self) -> BTreeMap<u8, Arc<[u8]>> {
         self.db

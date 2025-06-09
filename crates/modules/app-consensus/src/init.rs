@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use bfte_consensus_core::bincode::CONSENSUS_BINCODE_CONFIG;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
@@ -35,12 +34,6 @@ impl AppConsensusModuleInit {
         let config = ModuleConfig {
             kind: KIND,
             version,
-            params: bincode::encode_to_vec(
-                &super::params::CoreConsensusModuleParams {},
-                CONSENSUS_BINCODE_CONFIG,
-            )
-            .expect("Can't fail")
-            .into(),
         };
 
         {
@@ -80,6 +73,10 @@ impl AppConsensusModuleInit {
 impl IModuleInit for AppConsensusModuleInit {
     fn kind(&self) -> ModuleKind {
         crate::KIND
+    }
+
+    fn singleton(&self) -> bool {
+        true
     }
 
     fn display_name(&self) -> &'static str {
@@ -124,6 +121,7 @@ impl IModuleInit for AppConsensusModuleInit {
             peer_pubkey: args.peer_pubkey,
             propose_citems_rx,
             propose_citems_tx,
+            modules_inits: args.modules_inits,
         };
 
         module.refresh_consensus_proposals().await;

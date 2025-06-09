@@ -2,8 +2,9 @@ use axum::Router;
 use axum::routing::{get, post};
 
 use crate::{
-    ArcUiState, ROUTE_DS_CURRENT_ROUND, ROUTE_INIT_CONSENSUS, ROUTE_INVITE, ROUTE_LOGIN, ROUTE_MODULE,
-    ROUTE_MODULE_ADD_PEER_VOTE, ROUTE_MODULE_REMOVE_PEER_VOTE, ROUTE_UI,
+    ArcUiState, ROUTE_DS_CURRENT_ROUND, ROUTE_INIT_CONSENSUS, ROUTE_INVITE, ROUTE_LOGIN,
+    ROUTE_MODULE, ROUTE_MODULE_ADD_MODULE_VOTE, ROUTE_MODULE_ADD_PEER_VOTE,
+    ROUTE_MODULE_REMOVE_PEER_VOTE, ROUTE_UI,
 };
 
 pub(crate) mod consensus_status;
@@ -22,6 +23,10 @@ pub(crate) fn make_router() -> Router<ArcUiState> {
         .route(
             ROUTE_MODULE_REMOVE_PEER_VOTE,
             post(module::post_remove_peer_vote),
+        )
+        .route(
+            ROUTE_MODULE_ADD_MODULE_VOTE,
+            post(module::post_add_module_vote),
         )
         .route(ROUTE_INIT_CONSENSUS, get(init::get).post(init::post))
         .route(ROUTE_INVITE, get(invite::get))

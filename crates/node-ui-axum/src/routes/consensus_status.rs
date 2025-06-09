@@ -34,11 +34,6 @@ async fn get_peer_count(state: &ArcUiState) -> WhateverResult<usize> {
     Ok(peer_set.len())
 }
 
-async fn get_invite_code(state: &ArcUiState) -> WhateverResult<String> {
-    let invite = state.node_api.generate_invite_code().await?;
-    Ok(format!("{}", invite))
-}
-
 async fn get_peer_pubkey(state: &ArcUiState) -> WhateverResult<String> {
     let peer_pubkey = state.node_api.get_peer_pubkey()?;
     Ok(match peer_pubkey {
@@ -97,7 +92,7 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
             section {
                 h3 { "Node Information" }
                 p { "Number of peers: " (peer_count) }
-                p { 
+                p {
                     "Own peer public key: "
                     code style="word-break: break-all;" { (peer_pubkey) }
                 }

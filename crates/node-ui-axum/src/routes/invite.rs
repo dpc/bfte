@@ -3,10 +3,10 @@ use axum::response::IntoResponse;
 use bfte_util_error::WhateverResult;
 use maud::html;
 
+use crate::ArcUiState;
 use crate::error::RequestResult;
 use crate::misc::Maud;
 use crate::page::NavbarSelector;
-use crate::ArcUiState;
 
 async fn get_invite_code(state: &ArcUiState) -> WhateverResult<String> {
     let invite = state.node_api.generate_invite_code().await?;

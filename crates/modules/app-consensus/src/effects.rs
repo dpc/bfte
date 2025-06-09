@@ -47,3 +47,15 @@ impl EffectKind for ModuleVersionUpgrade {
     const MODULE_KIND: ModuleKind = crate::KIND;
     const EFFECT_ID: EffectId = EffectId::new(3);
 }
+
+#[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
+pub struct AddModuleEffect {
+    pub module_kind: ModuleKind,
+    pub module_id: ModuleId,
+    pub consensus_version: ConsensusVersion,
+}
+
+impl EffectKind for AddModuleEffect {
+    const MODULE_KIND: ModuleKind = crate::KIND;
+    const EFFECT_ID: EffectId = EffectId::new(4);
+}

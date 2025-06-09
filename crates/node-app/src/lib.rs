@@ -307,7 +307,7 @@ impl NodeApp {
                                 module_id,
                                 db.clone(),
                                 new_module_config.version,
-                                new_module_config.params,
+                                modules_inits.clone(),
                                 peer_pubkey,
                             ))
                             .await

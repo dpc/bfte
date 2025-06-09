@@ -1,4 +1,4 @@
-use bfte_consensus_core::module::ModuleId;
+use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMinor};
 use bfte_module::module::config::ModuleConfig;
@@ -60,4 +60,16 @@ def_table! {
 
 def_table! {
     pending_modules_versions_votes: (ModuleId) => ConsensusVersionMinor
+}
+
+def_table! {
+    /// Tracks which new modules existing peers would like to add
+    add_module_votes: PeerPubkey /* voter */ => (ModuleKind, ConsensusVersion) /* voted to be added */
+}
+
+def_table! {
+    /// Our own pending vote to add new module which we want to propose
+    ///
+    /// Once it is processed as a consensus item, it will update `add_module_votes` table.
+    pending_add_module_vote: () => (ModuleKind, ConsensusVersion)
 }

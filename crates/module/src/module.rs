@@ -8,7 +8,6 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::citem::{CItemRaw, InputRaw, OutputRaw};
-use bfte_consensus_core::module::config::ModuleParamsRaw;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::peer_set::PeerSet;
@@ -35,8 +34,10 @@ pub struct DynModuleWithConfig {
 pub struct ModuleInitArgs {
     pub db: ModuleDatabase,
     pub module_consensus_version: ConsensusVersion,
-    pub config: ModuleParamsRaw,
     pub peer_pubkey: Option<PeerPubkey>,
+    /// Only AppConsensus module should use this
+    #[doc(hidden)]
+    pub modules_inits: BTreeMap<ModuleKind, DynModuleInit>,
 }
 
 pub type DynModuleInit = Arc<dyn IModuleInit + Send + Sync>;
@@ -46,14 +47,14 @@ impl ModuleInitArgs {
         module_id: ModuleId,
         db: Arc<Database>,
         module_consensus_version: ConsensusVersion,
-        config: ModuleParamsRaw,
+        modules_inits: BTreeMap<ModuleKind, DynModuleInit>,
         peer_pubkey: Option<PeerPubkey>,
     ) -> Self {
         Self {
             db: ModuleDatabase::new(module_id, db),
             module_consensus_version,
-            config,
             peer_pubkey,
+            modules_inits,
         }
     }
 }
@@ -77,6 +78,9 @@ pub type ModuleSupportedConsensusVersions = BTreeMap<ConsensusVersionMajor, Cons
 #[async_trait]
 pub trait IModuleInit: Any {
     fn kind(&self) -> ModuleKind;
+
+    /// If true, this module kind can be installed only once in the federation
+    fn singleton(&self) -> bool;
 
     fn display_name(&self) -> &'static str;
 

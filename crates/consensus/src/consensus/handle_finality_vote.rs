@@ -103,7 +103,10 @@ impl Consensus {
             votes.push(ctx.get_finality_vote(*peer_pubkey)?.unwrap_or_default());
         }
 
+        dbg!(&votes);
         votes.sort();
+
+        dbg!(&votes);
 
         let num_peers = cur_round_consensus_params.peers.to_num_peers();
 
