@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Weak};
 use std::{future, marker, ops};
 
 use bfte_consensus_core::citem::{CItem, ModuleDyn};
-use bfte_consensus_core::module::ModuleId;
+use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_module::module::{DynModuleWithConfig, IModule};
 use snafu::{OptionExt as _, Snafu};
 use tokio::sync::{OwnedRwLockReadGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -55,16 +55,6 @@ pub struct WeakSharedModules {
 }
 
 impl WeakSharedModules {
-    pub async fn display_names(&self) -> BTreeMap<ModuleId, String> {
-        let arc = self.upgrade_or_hang().await;
-
-        let read = arc.read().await;
-
-        read.iter()
-            .map(|(module_id, module)| (*module_id, module.display_name().to_string()))
-            .collect()
-    }
-
     /// Wait for any of the modules to return proposed citems
     ///
     /// This is supposed to get canceled from the outside,
@@ -132,6 +122,23 @@ impl WeakSharedModules {
         let read = arc.read_owned().await;
 
         OwnedRwLockReadGuard::try_map(read, |tree| tree.get(&module_id)).ok()
+    }
+
+    pub async fn get_modules_ids(&self) -> BTreeSet<ModuleId> {
+        let arc = self.upgrade_or_hang().await;
+
+        let read = arc.read().await;
+
+        read.keys().copied().collect()
+    }
+    pub async fn get_modules_kinds(&self) -> BTreeMap<ModuleId, ModuleKind> {
+        let arc = self.upgrade_or_hang().await;
+
+        let read = arc.read().await;
+
+        read.iter()
+            .map(|(id, module)| (*id, module.config.kind))
+            .collect()
     }
 }
 

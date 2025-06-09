@@ -7,12 +7,15 @@ mod middleware;
 mod misc;
 mod page;
 mod routes;
+use std::collections::BTreeMap;
 use std::convert::Infallible;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use assets::WithStaticRoutesExt as _;
 use axum::Extension;
+use bfte_consensus_core::module::ModuleKind;
+use bfte_module::module::DynModuleInit;
 use bfte_node_shared_modules::WeakSharedModules;
 use bfte_node_ui::NodeUiApi;
 use bfte_util_error::WhateverResult;
@@ -40,6 +43,7 @@ const ROUTE_DS_CURRENT_ROUND: &str = "/datastar/current-round";
 pub(crate) struct UiState {
     pub(crate) node_api: NodeUiApi,
     pub(crate) modules: WeakSharedModules,
+    pub(crate) modules_inits: BTreeMap<ModuleKind, DynModuleInit>,
 }
 pub(crate) type ArcUiState = Arc<UiState>;
 
@@ -47,6 +51,7 @@ pub async fn run(
     node_api: NodeUiApi,
     bind_ui: SocketAddr,
     shared_modules: WeakSharedModules,
+    modules_inits: BTreeMap<ModuleKind, DynModuleInit>,
 ) -> WhateverResult<Infallible> {
     let listener = get_listener(bind_ui, true).await?;
 
@@ -57,6 +62,7 @@ pub async fn run(
     let state = Arc::new(UiState {
         node_api,
         modules: shared_modules,
+        modules_inits,
     });
     let router = make_router()
         .layer(

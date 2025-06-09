@@ -63,7 +63,7 @@ pub struct NodeApp {
     node_api: NodeAppApi,
 
     /// Uses for creating instances of modules of a given kind
-    modules_inits: BTreeMap<ModuleKind, Arc<dyn ModuleInit + Send + Sync>>,
+    modules_inits: BTreeMap<ModuleKind, DynModuleInit>,
 
     /// All initialized modules
     ///
@@ -81,13 +81,14 @@ impl NodeApp {
     pub async fn new(
         db: Arc<Database>,
         node_api: NodeAppApi,
-        mut modules_inits: ModulesInits,
+        modules_inits: ModulesInits,
         modules: SharedModules,
         pending_transactions_tx: watch::Sender<Vec<Transaction>>,
     ) -> Self {
-        modules_inits
-            .entry(bfte_module_app_consensus::KIND)
-            .or_insert_with(|| Arc::new(bfte_module_app_consensus::init::AppConsensusModuleInit));
+        assert!(
+            modules_inits.contains_key(&bfte_module_app_consensus::KIND),
+            "modules_inits must have AppConsensusModuleInit"
+        );
         let peer_pubkey = node_api.get_peer_pubkey().await;
         let consensus = node_api.get_consensus().await;
         Self {

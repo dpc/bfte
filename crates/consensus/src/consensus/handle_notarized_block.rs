@@ -143,7 +143,7 @@ impl Consensus {
                 "New notarized block extending our previous notarized block"
             );
 
-            self.insert_notarized_block(ctx, cur_round, block, payload)?;
+            self.insert_notarized_block(ctx, block, payload)?;
         } else {
             debug!(
                 target: LOG_TARGET,
@@ -185,7 +185,7 @@ impl Consensus {
 
             ctx.delete_notarized_block(our_latest_notarized_block_round)?;
 
-            self.insert_notarized_block(ctx, cur_round, block, payload)?;
+            self.insert_notarized_block(ctx, block, payload)?;
         }
 
         self.check_round_end(ctx, cur_round)
@@ -197,7 +197,6 @@ impl Consensus {
     fn insert_notarized_block(
         &self,
         ctx: &WriteTransactionCtx,
-        cur_round: BlockRound,
         block: Notarized<BlockHeader>,
         payload: BlockPayloadRaw,
     ) -> Result<(), DbTxError<ProcessNotarizedBlockError>> {

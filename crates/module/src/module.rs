@@ -78,6 +78,8 @@ pub type ModuleSupportedConsensusVersions = BTreeMap<ConsensusVersionMajor, Cons
 pub trait ModuleInit: Any {
     fn kind(&self) -> ModuleKind;
 
+    fn display_name(&self) -> &'static str;
+
     /// All major consensus version supported by the module, with latest
     /// supported minor version for each
     fn supported_versions(&self) -> ModuleSupportedConsensusVersions;
@@ -96,8 +98,6 @@ pub type DynModule = Arc<dyn IModule + Send + Sync>;
 
 #[async_trait]
 pub trait IModule: Any {
-    fn display_name(&self) -> &'static str;
-
     /// Get receiver of consensus item proposals
     ///
     /// Module should set this watch channel to the current consensus

@@ -59,12 +59,12 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
                         span data-text="$round_and_timeout" { "Loading..." }
                     }
                     div {
-                        "Finality Consensus: "
-                        span data-text="$finality_consensus" { "Loading..." }
+                        "Finality Vote: "
+                        span data-text="$finality_self" { "Loading..." }
                     }
                     div {
-                        "Finality Self: "
-                        span data-text="$finality_self" { "Loading..." }
+                        "Finality Consensus: "
+                        span data-text="$finality_consensus" { "Loading..." }
                     }
                     div {
                         "Node App Ack: "

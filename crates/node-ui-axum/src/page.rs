@@ -97,7 +97,8 @@ impl UiState {
                                 "Modules"
                             }
                             ul {
-                                @for (module_id, name) in self.modules.display_names().await {
+                                @for (module_id, kind) in self.modules.get_modules_kinds().await {
+                                    @let name = self.modules_inits.get(&kind).expect("Missing module init for the module?!").display_name();
                                     li {
                                         a ."secondary"
                                         data-discover="true"

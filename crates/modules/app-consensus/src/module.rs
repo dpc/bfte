@@ -636,10 +636,6 @@ impl AppConsensusModule {
 
 #[async_trait]
 impl IModule for AppConsensusModule {
-    fn display_name(&self) -> &'static str {
-        "App Consensus"
-    }
-
     async fn propose_citems_rx(&self) -> watch::Receiver<Vec<CItemRaw>> {
         self.refresh_consensus_proposals().await;
         self.propose_citems_rx.clone()

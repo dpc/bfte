@@ -82,6 +82,10 @@ impl ModuleInit for AppConsensusModuleInit {
         crate::KIND
     }
 
+    fn display_name(&self) -> &'static str {
+        "App Consensus"
+    }
+
     /// All major consensus version supported by the module, with latest
     /// supported minor version for each
     fn supported_versions(&self) -> BTreeMap<ConsensusVersionMajor, ConsensusVersionMinor> {

@@ -41,5 +41,6 @@ pub trait INodeUiApi {
     fn get_finality_consensus_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>>;
     fn get_finality_self_vote_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>>;
     fn get_node_app_ack_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>>;
+
     async fn generate_invite_code(&self) -> WhateverResult<Invite>;
 }

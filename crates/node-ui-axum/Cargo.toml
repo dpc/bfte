@@ -12,6 +12,7 @@ async-stream = { workspace = true }
 axum = { workspace = true, features = ["macros"] }
 bfte-consensus-core = { workspace = true }
 bfte-invite = { workspace = true }
+bfte-module = { workspace = true }
 bfte-module-app-consensus = { workspace = true }
 bfte-node-shared-modules = { workspace = true }
 bfte-node-ui = { workspace = true }

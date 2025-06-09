@@ -27,8 +27,18 @@ pub struct Bfte {
 impl Bfte {
     #[builder(finish_fn = run, start_fn = builder)]
     pub async fn build(
-        #[builder(field)] modules_inits: BTreeMap<ModuleKind, Arc<dyn ModuleInit + Send + Sync>>,
+        #[builder(field)] mut modules_inits: BTreeMap<
+            ModuleKind,
+            Arc<dyn ModuleInit + Send + Sync>,
+        >,
     ) -> WhateverResult<()> {
+        let _ = modules_inits
+            .insert(
+                bfte_module_app_consensus::KIND,
+                Arc::new(bfte_module_app_consensus::init::AppConsensusModuleInit),
+            )
+            .is_none_or(|_| panic!("Bfte has a redundant AppConsensusModuleInit already inserted"));
+
         logging::init_logging()?;
 
         let opts = Opts::parse();
@@ -126,10 +136,22 @@ impl Bfte {
             .maybe_root_secret(secret)
             .maybe_force_ui_password(opts.force_ui_password)
             .db(db)
-            .ui(Box::new(move |api, weak_shared_modules| {
-                Box::pin(async move {
-                    bfte_node_ui_axum::run(api, opts.bind_ui, weak_shared_modules).await
-                })
+            .ui(Box::new({
+                let modules_inits = modules_inits.clone();
+                move |api, weak_shared_modules| {
+                    Box::pin({
+                        let modules_inits = modules_inits.clone();
+                        async move {
+                            bfte_node_ui_axum::run(
+                                api,
+                                opts.bind_ui,
+                                weak_shared_modules,
+                                modules_inits,
+                            )
+                            .await
+                        }
+                    })
+                }
             }))
             .app(Box::new(
                 move |db, api, shared_modules, pending_transactions_tx| {
