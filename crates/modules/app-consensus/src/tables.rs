@@ -9,6 +9,9 @@ def_table! {
     ///
     /// This is stored separately, in case `modules_configs` table ever needs to change,
     /// so that core-consensus-module can figure out easily own current version.
+    ///
+    /// AppConsensus is the only module that should store version like this, other modules
+    /// will be fed their version on init.
     self_version: () => ConsensusVersion
 }
 

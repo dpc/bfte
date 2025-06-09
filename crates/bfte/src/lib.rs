@@ -184,7 +184,7 @@ impl Bfte {
 }
 
 impl<BS: bfte_build_builder::State> BfteBuildBuilder<BS> {
-    pub fn handler(mut self, module_init: DynModuleInit) -> Self {
+    pub fn with_module_init(mut self, module_init: DynModuleInit) -> Self {
         let kind = module_init.kind();
         if self.modules_inits.insert(kind, module_init).is_some() {
             panic!("Multiple module inits of the same kind {kind}")
