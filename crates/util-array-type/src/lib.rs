@@ -228,6 +228,9 @@ macro_rules! array_type_fixed_size_define {
             pub fn next(self) -> Option<Self> {
                 <$t>::from(self).checked_add(1).map(Self::from)
             }
+            pub fn next_expect(self) -> Self {
+                Self::from(<$t>::from(self).checked_add(1).expect("Can't run out of u64 rounds"))
+            }
             pub fn next_wrapping(self) -> Self {
                 Self::from(<$t>::from(self).wrapping_add(1))
             }

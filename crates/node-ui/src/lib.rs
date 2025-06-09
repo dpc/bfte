@@ -38,5 +38,7 @@ pub trait INodeUiApi {
     async fn consensus_join(&self, invite: &Invite) -> WhateverResult<()>;
 
     fn get_round_and_timeout_rx(&self) -> WhateverResult<watch::Receiver<(BlockRound, bool)>>;
+    fn get_finality_consensus_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>>;
+    fn get_node_app_ack_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>>;
     async fn generate_invite_code(&self) -> WhateverResult<Invite>;
 }

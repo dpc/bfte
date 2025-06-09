@@ -29,7 +29,7 @@ use bfte_db::error::DbResult;
 use bfte_module::effect::{EffectKind as _, EffectKindExt as _, ModuleCItemEffect};
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::{ModuleDatabase, ModuleWriteTransactionCtx};
-use bfte_module::module::{DynModuleInit, DynModuleWithConfig, ModuleInit, ModuleInitArgs, ModuleSupportedConsensusVersions};
+use bfte_module::module::{DynModuleInit, DynModuleWithConfig, ModuleInit, ModuleInitArgs};
 use bfte_module_app_consensus::effects::ConsensusParamsChange;
 use bfte_module_app_consensus::{AppConsensusModule, AppConsensusModuleInit};
 use bfte_node_app_core::NodeAppApi;

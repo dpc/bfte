@@ -23,5 +23,5 @@ pub(crate) fn make_router() -> Router<ArcUiState> {
             post(module::post_remove_peer_vote),
         )
         .route(ROUTE_INIT_CONSENSUS, get(init::get).post(init::post))
-        .route(ROUTE_DS_CURRENT_ROUND, get(consensus_status::current_round))
+        .route(ROUTE_DS_CURRENT_ROUND, get(consensus_status::updates))
 }

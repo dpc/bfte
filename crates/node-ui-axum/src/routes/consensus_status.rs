@@ -1,5 +1,4 @@
 use std::any::Any;
-use std::time::Duration;
 
 use async_stream::stream;
 use axum::extract::State;
@@ -12,7 +11,6 @@ use datastar::prelude::MergeSignals;
 use maud::html;
 use serde_json::json;
 use snafu::{OptionExt as _, ResultExt as _};
-use tokio::time::sleep;
 
 use crate::error::{OtherSnafu, RequestResult};
 use crate::misc::Maud;
@@ -52,12 +50,22 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
             h2 { "Consensus Status" }
 
             section {
-                h3 { "Current Round" }
+                h3 { "Current Status" }
                 div
-                    data-signals="{ cur_round: '' }"
-                    data-text="$cur_round"
+                    data-signals="{ round_and_timeout: '', finality_consensus: '', node_app_ack: '' }"
                     data-on-load=(format!("@get('{}')", ROUTE_DS_CURRENT_ROUND)) {
-                    "Loading..."
+                    div {
+                        "Core Consensus Round: "
+                        span data-text="$round_and_timeout" { "Loading..." }
+                    }
+                    div {
+                        "Finality Consensus: "
+                        span data-text="$finality_consensus" { "Loading..." }
+                    }
+                    div {
+                        "Node App Ack: "
+                        span data-text="$node_app_ack" { "Loading..." }
+                    }
                 }
             }
 
@@ -84,25 +92,46 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
     ))
 }
 
-pub async fn current_round(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
-    let mut current_round_rx = state
+pub async fn updates(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
+    let mut round_and_timeout_rx = state
         .node_api
         .get_round_and_timeout_rx()
         .context(OtherSnafu)?;
+    let mut finality_consensus_rx = state
+        .node_api
+        .get_finality_consensus_rx()
+        .context(OtherSnafu)?;
+    let mut node_app_ack_rx = state.node_api.get_node_app_ack_rx().context(OtherSnafu)?;
+
     Ok(Sse(stream! {
         loop {
             let out = json! ({
-                "cur_round": current_round_rx.borrow().0,
+                "round_and_timeout": format!("{} (timeout: {})", round_and_timeout_rx.borrow().0, round_and_timeout_rx.borrow().1),
+                "finality_consensus": *finality_consensus_rx.borrow(),
+                "node_app_ack": *node_app_ack_rx.borrow(),
             });
 
             yield MergeSignals::new(out.to_string());
             // TODO: workaround flushing bug
             yield MergeSignals::new(out.to_string());
 
-            sleep(Duration::from_secs(1)).await;
-
-            if current_round_rx.changed().await.is_err() {
-                break;
+            // Wait for changes on any of the channels
+            tokio::select! {
+                result = round_and_timeout_rx.changed() => {
+                    if result.is_err() {
+                        break;
+                    }
+                }
+                result = finality_consensus_rx.changed() => {
+                    if result.is_err() {
+                        break;
+                    }
+                }
+                result = node_app_ack_rx.changed() => {
+                    if result.is_err() {
+                        break;
+                    }
+                }
             }
         }
     }))

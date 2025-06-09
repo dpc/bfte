@@ -610,7 +610,10 @@ impl AppConsensusModule {
                     let supported_versions = modules_supported_versions
                         .get(&module_config.kind)
                         .unwrap_or_else(|| {
-                            panic!("Missing module supported versions for kind: {}", module_config.kind)
+                            panic!(
+                                "Missing module supported versions for kind: {}",
+                                module_config.kind
+                            )
                         });
 
                     let current_major = module_config.version.major();

@@ -58,19 +58,28 @@ impl Consensus {
         let (round_timeout_tx, round_timeout_rx) = tokio::sync::watch::channel((cur_round, false));
         let (new_votes_tx, new_votes_rx) = tokio::sync::watch::channel(());
         let (new_proposal_tx, new_proposal_rx) = tokio::sync::watch::channel(());
-        let first_unfinalized_round = db
-            .read_with_expect(|ctx| ctx.get_finality_consensus())
-            .await
-            .unwrap_or_default();
-        let (finality_cons_tx, finality_cons_rx) =
-            tokio::sync::watch::channel(first_unfinalized_round);
+        let (finality_consensus, finality_self) = db
+            .read_with_expect(|ctx| {
+                Ok((
+                    ctx.get_finality_consensus()?.unwrap_or_default(),
+                    ctx.get_prev_notarized_block(cur_round)?
+                        .map(|h| h.round)
+                        .unwrap_or_default(),
+                ))
+            })
+            .await;
+        let (finality_consensus_tx, finality_consensus_rx) =
+            tokio::sync::watch::channel(finality_consensus);
+        let (finality_self_tx, finality_self_rx) = tokio::sync::watch::channel(finality_self);
 
         let s = Self {
             db,
             current_round_with_timeout_rx: round_timeout_rx,
             current_round_with_timeout_tx: round_timeout_tx,
-            finality_cons_tx,
-            finality_cons_rx,
+            finality_consensus_tx,
+            finality_consensus_rx,
+            finality_self_tx,
+            finality_self_rx,
             our_peer_pubkey,
             new_votes_tx,
             new_votes_rx,

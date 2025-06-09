@@ -25,7 +25,10 @@ impl Consensus {
     }
 
     pub fn finality_consensus_rx(&self) -> watch::Receiver<BlockRound> {
-        self.finality_cons_rx.clone()
+        self.finality_consensus_rx.clone()
+    }
+    pub fn finality_self_rx(&self) -> watch::Receiver<BlockRound> {
+        self.finality_self_rx.clone()
     }
 
     pub fn new_votes_rx(&self) -> watch::Receiver<()> {
@@ -43,7 +46,7 @@ impl Consensus {
     }
 
     pub async fn get_current_round_timeout(&self) -> Duration {
-        let finality = *self.finality_cons_rx.borrow();
+        let finality = *self.finality_consensus_rx.borrow();
         let cur_round = self.current_round_with_timeout_rx.borrow().0;
         let num_peers = self.get_consensus_params(cur_round).await.num_peers();
 
@@ -238,7 +241,7 @@ impl Consensus {
             .await
     }
     pub async fn get_finalized_block(&self, round: BlockRound) -> Option<Notarized<BlockHeader>> {
-        if *self.finality_cons_tx.borrow() <= round {
+        if *self.finality_consensus_tx.borrow() <= round {
             return None;
         }
         let round_next = round.next()?;

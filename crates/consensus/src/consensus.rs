@@ -47,12 +47,17 @@ pub struct Consensus {
     ///
     /// Notably: does not mean that current peer actually has all the blocks up
     /// this point yet.
-    finality_cons_tx: watch::Sender<BlockRound>,
-    finality_cons_rx: watch::Receiver<BlockRound>,
+    finality_consensus_tx: watch::Sender<BlockRound>,
+    finality_consensus_rx: watch::Receiver<BlockRound>,
+
+    /// Block round past last notarized block
+    finality_self_tx: watch::Sender<BlockRound>,
+    finality_self_rx: watch::Receiver<BlockRound>,
 
     /// Notifications every new vote
     new_votes_tx: watch::Sender<()>,
     new_votes_rx: watch::Receiver<()>,
+
     /// Notifications every new proposal
     new_proposal_tx: watch::Sender<()>,
     new_proposal_rx: watch::Receiver<()>,

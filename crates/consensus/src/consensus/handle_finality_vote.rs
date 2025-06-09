@@ -120,7 +120,7 @@ impl Consensus {
             finality_cons
         };
 
-        let tx = self.finality_cons_tx.clone();
+        let tx = self.finality_consensus_tx.clone();
 
         if prev_finality_cons != finality_cons {
             // Prune dummy votes, purely to save space

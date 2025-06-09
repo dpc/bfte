@@ -193,35 +193,15 @@ impl RpcServer {
 
         let seckey = node_ref.get_peer_secret_expect();
 
-        let mut cur_round_rx = node_ref.consensus_expect().current_round_with_timeout_rx();
+        let mut finality_self_rx = node_ref.consensus_expect().finality_self_rx();
 
-        // We can't respond with a vote until we reached or passed a given round
-        cur_round_rx
-            .wait_for(|(cur_round, _)| req_round <= *cur_round)
+        let finality_self = *finality_self_rx
+            .wait_for(|finality_self| dbg!(req_round) < dbg!(*finality_self))
             .await
             .whatever_context("Shutting down")?;
 
-        let resp = loop {
-            let cur_round = cur_round_rx.borrow().0;
-            if let Some(last_finalized) = node_ref
-                .consensus_expect()
-                .get_prev_notarized_block(cur_round)
-                .await
-            {
-                if req_round < last_finalized.round {
-                    break last_finalized.round;
-                }
-            }
-            trace!(target: LOG_TARGET, "Waiting for more rounds");
-            cur_round_rx
-                .changed()
-                .await
-                .whatever_context("Shutting down")?;
-            trace!(target: LOG_TARGET, "Got more rounds");
-        };
-
         send.write_message_bincode::<WaitFinalityVoteResponse>(&WaitFinalityVoteResponse {
-            update: Signed::new_sign(FinalityVoteUpdate(resp), seckey),
+            update: Signed::new_sign(FinalityVoteUpdate(finality_self), seckey),
         })
         .await
         .whatever_context("Write error")?;

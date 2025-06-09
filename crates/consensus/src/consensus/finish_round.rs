@@ -2,7 +2,7 @@ use bfte_consensus_core::block::BlockRound;
 use bfte_db::ctx::WriteTransactionCtx;
 use bfte_db::error::{DbTxResult, TxSnafu};
 use snafu::{ResultExt as _, Snafu};
-use tracing::debug;
+use tracing::{debug, info, warn};
 
 use super::{Consensus, ConsensusWriteDbOps as _};
 use crate::consensus::{ConsensusReadDbOps as _, LOG_TARGET};
@@ -19,6 +19,7 @@ impl Consensus {
         mut cur_round: BlockRound,
     ) -> DbTxResult<(), RoundInvariantError> {
         let cur_round_start = cur_round;
+        let mut new_last_notarized_round = None;
 
         let highest_notarized_block = ctx.get_prev_notarized_block(BlockRound::MAX)?;
 
@@ -56,12 +57,13 @@ impl Consensus {
                 needs_a_timeout |= true;
                 let num_votes_proposal = ctx.get_num_votes_proposal(cur_round)?;
                 if threshold <= num_votes_proposal {
-                    debug!(
+                    info!(
                         target: LOG_TARGET,
                         round = %cur_round,
                         %num_votes_proposal,
-                        "Enough existing signatures for block"
+                        "Round produced a block"
                     );
+                    new_last_notarized_round = Some(cur_round);
                     ctx.insert_notarized_block(cur_round, proposal, None)?;
                     if let Some(our_peer_pubkey) = self.our_peer_pubkey {
                         self.update_peer_last_notarized_block(
@@ -81,11 +83,11 @@ impl Consensus {
 
             let num_votes_dummy = ctx.get_num_votes_dummy(cur_round)?;
             if threshold <= num_votes_dummy {
-                debug!(
+                warn!(
                     target: LOG_TARGET,
                     round = %cur_round,
                     %num_votes_dummy,
-                    "Enough existing signatures for the dummy block"
+                    "Round produced a dummy"
                 );
                 cur_round = cur_round.next().expect("Can't ran out");
                 continue;
@@ -117,6 +119,13 @@ impl Consensus {
             );
 
             ctx.set_current_round(cur_round)?;
+        }
+
+        if let Some(new_last_notarized_round) = new_last_notarized_round {
+            let last_notarized_block_tx = self.finality_self_tx.clone();
+            ctx.on_commit(move || {
+                last_notarized_block_tx.send_replace(new_last_notarized_round);
+            });
         }
 
         // Similarly, we only need to update notification if the round

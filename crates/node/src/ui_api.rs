@@ -78,6 +78,19 @@ impl INodeUiApi for NodeUiApi {
             .current_round_with_timeout_rx())
     }
 
+    fn get_finality_consensus_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>> {
+        Ok(self
+            .node_ref()?
+            .consensus()
+            .as_ref()
+            .whatever_context("Consensus not initialized")?
+            .finality_consensus_rx())
+    }
+
+    fn get_node_app_ack_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>> {
+        Ok(self.node_ref()?.node_app_ack_rx.clone())
+    }
+
     async fn generate_invite_code(&self) -> WhateverResult<Invite> {
         self.node_ref()?.generate_invite_code().await
     }
