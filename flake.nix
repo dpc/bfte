@@ -1,10 +1,11 @@
 {
-  description = "Flakebox Project template";
+  description = "BTF Engine";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     flake-utils.url = "github:numtide/flake-utils";
-    flakebox.url = "github:rustshop/flakebox";
+    flakebox.url = "github:rustshop/flakebox?rev=f96cbeafded56bc6f5c27fbd96e4fcc78b8a8861";
+    flakebox.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
@@ -17,7 +18,7 @@
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        projectName = "flakebox-project";
+        projectName = "bfte";
 
         flakeboxLib = flakebox.lib.${system} {
           config = {
@@ -30,7 +31,7 @@
         buildPaths = [
           "Cargo.toml"
           "Cargo.lock"
-          "src"
+          "crates"
         ];
 
         buildSrc = flakeboxLib.filterSubPaths {
