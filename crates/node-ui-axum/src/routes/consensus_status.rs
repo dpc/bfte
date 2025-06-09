@@ -39,11 +39,35 @@ async fn get_invite_code(state: &ArcUiState) -> WhateverResult<String> {
     Ok(format!("{}", invite))
 }
 
+async fn get_peer_pubkey(state: &ArcUiState) -> WhateverResult<String> {
+    let peer_pubkey = state.node_api.get_peer_pubkey()?;
+    Ok(match peer_pubkey {
+        Some(pubkey) => format!("{}", pubkey),
+        None => "Not available".to_string(),
+    })
+}
+
+async fn get_database_status(state: &ArcUiState) -> WhateverResult<(String, bool)> {
+    let is_ephemeral = state.node_api.is_database_ephemeral()?;
+    let status = if is_ephemeral {
+        "In-memory (ephemeral)".to_string()
+    } else {
+        "Persistent".to_string()
+    };
+    Ok((status, is_ephemeral))
+}
+
 pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
     let peer_count = get_peer_count(&state).await.unwrap_or(0);
     let invite_code = get_invite_code(&state)
         .await
         .unwrap_or_else(|_| "Not available".to_string());
+    let peer_pubkey = get_peer_pubkey(&state)
+        .await
+        .unwrap_or_else(|_| "Not available".to_string());
+    let (database_status, is_ephemeral) = get_database_status(&state)
+        .await
+        .unwrap_or_else(|_| ("Unknown".to_string(), false));
 
     let content = html! {
         div {
@@ -74,8 +98,20 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
             }
 
             section {
-                h3 { "Peer Information" }
+                h3 { "Node Information" }
                 p { "Number of peers: " (peer_count) }
+                p { 
+                    "Own peer public key: "
+                    code style="word-break: break-all;" { (peer_pubkey) }
+                }
+                p {
+                    "Database: "
+                    @if is_ephemeral {
+                        span style="color: red; font-weight: bold;" { (database_status) }
+                    } @else {
+                        span { (database_status) }
+                    }
+                }
             }
 
             section {

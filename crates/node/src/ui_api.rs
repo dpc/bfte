@@ -100,6 +100,14 @@ impl INodeUiApi for NodeUiApi {
         Ok(self.node_ref()?.node_app_ack_rx.clone())
     }
 
+    fn get_peer_pubkey(&self) -> WhateverResult<Option<PeerPubkey>> {
+        Ok(self.node_ref()?.peer_pubkey)
+    }
+
+    fn is_database_ephemeral(&self) -> WhateverResult<bool> {
+        Ok(self.node_ref()?.db().is_ephemeral())
+    }
+
     async fn generate_invite_code(&self) -> WhateverResult<Invite> {
         self.node_ref()?.generate_invite_code().await
     }

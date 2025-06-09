@@ -20,6 +20,7 @@ const LOG_TARGET: &str = "bfte::consensus::db";
 pub struct Database {
     inner: redb_bincode::Database,
     commit_hook_order_lock: Arc<std::sync::Mutex<()>>,
+    ephemeral: bool,
 }
 
 impl Database {
@@ -28,7 +29,7 @@ impl Database {
         let inner = redb::Database::builder()
             .create_with_backend(redb::backends::InMemoryBackend::new())
             .context(DatabaseSnafu)?;
-        Self::open_inner(inner).await
+        Self::open_inner(inner, true).await
     }
 
     pub async fn open(path: impl Into<PathBuf>) -> DbResult<Database> {
@@ -47,17 +48,18 @@ impl Database {
         .context(JoinSnafu)?
         .context(DatabaseSnafu)?;
 
-        Self::open_inner(inner).await
+        Self::open_inner(inner, false).await
     }
 
     #[instrument(skip_all)]
-    async fn open_inner(inner: redb::Database) -> DbResult<Database> {
+    async fn open_inner(inner: redb::Database, ephemeral: bool) -> DbResult<Database> {
         let inner = redb_bincode::Database::from(inner);
         let commit_hook_order_lock = Arc::new(std::sync::Mutex::new(()));
 
         let s = Self {
             inner,
             commit_hook_order_lock,
+            ephemeral,
         };
 
         Ok(s)
@@ -201,5 +203,9 @@ impl Database {
         Self::read_with_inner(&self.inner, f)
             .await
             .expect("Fatal database error")
+    }
+
+    pub fn is_ephemeral(&self) -> bool {
+        self.ephemeral
     }
 }

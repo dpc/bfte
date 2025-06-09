@@ -42,5 +42,7 @@ pub trait INodeUiApi {
     fn get_finality_self_vote_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>>;
     fn get_node_app_ack_rx(&self) -> WhateverResult<watch::Receiver<BlockRound>>;
 
+    fn get_peer_pubkey(&self) -> WhateverResult<Option<PeerPubkey>>;
+    fn is_database_ephemeral(&self) -> WhateverResult<bool>;
     async fn generate_invite_code(&self) -> WhateverResult<Invite>;
 }
