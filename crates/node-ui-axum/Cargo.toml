@@ -23,6 +23,7 @@ bfte-util-error = { workspace = true }
 blake3 = { workspace = true }
 bon = { workspace = true }
 datastar = { workspace = true, features = ["axum"] }
+hex = { workspace = true }
 listenfd = { workspace = true }
 maud = { workspace = true }
 serde = { workspace = true }

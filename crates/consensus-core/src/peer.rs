@@ -46,6 +46,24 @@ array_type_define! {
     pub struct PeerPubkey[32];
 }
 
+impl PeerPubkey {
+    pub fn to_short(self) -> PeerPubkeyShort {
+        PeerPubkeyShort(self)
+    }
+}
+
+pub struct PeerPubkeyShort(PeerPubkey);
+
+impl fmt::Display for PeerPubkeyShort {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{}...{}",
+            data_encoding::BASE32_DNSCURVE.encode_display(&self.0.as_slice()[0..4]),
+            data_encoding::BASE32_DNSCURVE.encode_display(&self.0.as_slice()[28..32])
+        ))
+    }
+}
+
 array_type_impl_zero_default!(PeerPubkey);
 array_type_impl_base32_str!(PeerPubkey);
 array_type_impl_serde!(PeerPubkey);

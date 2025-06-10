@@ -1,7 +1,9 @@
 mod app_consensus;
+mod meta;
 
 use std::any::Any;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use axum::Form;
 use axum::extract::{Path, State};
@@ -10,6 +12,7 @@ use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module_app_consensus::AppConsensusModule;
+use bfte_module_meta::MetaModule;
 use bfte_util_error::fmt::FmtCompact as _;
 use maud::{Markup, html};
 use serde::Deserialize;
@@ -47,6 +50,11 @@ pub struct RemovePeerVoteForm {
 #[derive(Deserialize)]
 pub struct AddModuleVoteForm {
     module_kind: String, // Format: "kind:major.minor"
+}
+
+#[derive(Deserialize)]
+pub struct MetaVoteForm {
+    value: String,
 }
 
 #[axum::debug_handler]
@@ -170,6 +178,91 @@ pub async fn post_add_module_vote(
     Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response())
 }
 
+#[axum::debug_handler]
+pub async fn get_meta_key(
+    Path((module_id, key)): Path<(ModuleId, u8)>,
+    state: State<ArcUiState>,
+) -> RequestResult<impl IntoResponse> {
+    let Some(module) = state.modules.get_module(module_id).await else {
+        return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
+    };
+
+    if module.config.kind == bfte_module_meta::KIND {
+        let Some(meta_module_ref) =
+            (module.inner.as_ref() as &dyn Any).downcast_ref::<MetaModule>()
+        else {
+            return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
+        };
+
+        let content = state
+            .render_meta_key_voting_page(module_id, meta_module_ref, key)
+            .await;
+        return Ok(Maud(
+            state
+                .render_html_page(
+                    Some(NavbarSelector::Module(module_id)),
+                    &format!("Meta Key {}", key),
+                    content,
+                )
+                .await,
+        )
+        .into_response());
+    }
+
+    Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response())
+}
+
+#[axum::debug_handler]
+pub async fn post_meta_vote(
+    Path((module_id, key)): Path<(ModuleId, u8)>,
+    state: State<ArcUiState>,
+    Form(form): Form<MetaVoteForm>,
+) -> RequestResult<impl IntoResponse> {
+    let Some(module) = state.modules.get_module(module_id).await else {
+        return Ok(Redirect::to(&format!("/ui/module/{module_id}/meta_key/{key}")).into_response());
+    };
+
+    if module.config.kind == bfte_module_meta::KIND {
+        let Some(meta_module_ref) =
+            (module.inner.as_ref() as &dyn Any).downcast_ref::<MetaModule>()
+        else {
+            return Ok(
+                Redirect::to(&format!("/ui/module/{module_id}/meta_key/{key}")).into_response(),
+            );
+        };
+
+        // Parse value - either hex (0x prefix) or plain text
+        let value_bytes: Arc<[u8]> = if form.value.starts_with("0x") || form.value.starts_with("0X")
+        {
+            // Parse as hex
+            let hex_str = &form.value[2..];
+            match hex::decode(hex_str) {
+                Ok(bytes) => bytes.into(),
+                Err(_) => {
+                    warn!(target: LOG_TARGET, "Invalid hex value: {}", form.value);
+                    return Ok(
+                        Redirect::to(&format!("/ui/module/{module_id}/meta_key/{key}"))
+                            .into_response(),
+                    );
+                }
+            }
+        } else {
+            // Treat as plain text
+            form.value.into_bytes().into()
+        };
+
+        meta_module_ref
+            .propose_key_value(key, value_bytes)
+            .await
+            .inspect_err(|err| {
+                warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit meta vote");
+            })
+            .context(UserSnafu)?;
+    }
+
+    Ok(Redirect::to(&format!("/ui/module/{module_id}/meta_key/{key}")).into_response())
+}
+
 impl UiState {
     async fn render_module_page(&self, module_id: ModuleId) -> Markup {
         let Some(module) = self.modules.get_module(module_id).await else {
@@ -185,6 +278,16 @@ impl UiState {
                 };
 
                 self.render_consensus_module_page(module_id, consensus_module_ref)
+                    .await
+            }
+            bfte_module_meta::KIND => {
+                let Some(meta_module_ref) =
+                    (module.inner.as_ref() as &dyn Any).downcast_ref::<MetaModule>()
+                else {
+                    return html! { "Module instance is not a recognized meta module" };
+                };
+
+                self.render_meta_module_page(module_id, meta_module_ref)
                     .await
             }
             kind => html! {
