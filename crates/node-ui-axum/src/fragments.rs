@@ -7,6 +7,7 @@ pub(crate) fn labeled_input(
     id: Option<&str>,
     r#type: &str,
     placeholder: Option<&str>,
+    bind: Option<&str>,
     required: Option<bool>,
 ) -> Markup {
     let id = id.unwrap_or(name);
@@ -14,6 +15,8 @@ pub(crate) fn labeled_input(
 
     html! {
         label for=(name) { (label) }
-        input type=(r#type) id=(id) name=(name) placeholder=[placeholder] required[required];
+        input
+            type=(r#type) id=(id) name=(name) placeholder=[placeholder] required[required]
+            data-bind=[bind];
     }
 }

@@ -404,7 +404,6 @@ impl AppConsensusModule {
     /// already opened tables.
     fn check_module_version_upgrades(
         &self,
-        dbtx: &ModuleWriteTransactionCtx,
         modules_configs_tbl: &mut tables::modules_configs::Table,
         versions_votes_tbl: &mut tables::modules_versions_votes::Table,
         peer_set: &PeerSet,
@@ -760,7 +759,6 @@ impl AppConsensusModule {
             let mut modules_configs_tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
             let mut versions_votes_tbl = dbtx.open_table(&tables::modules_versions_votes::TABLE)?;
             self.check_module_version_upgrades(
-                dbtx,
                 &mut modules_configs_tbl,
                 &mut versions_votes_tbl,
                 &updated_peer_set,
@@ -812,7 +810,6 @@ impl AppConsensusModule {
         // Check for module version upgrades across all modules
         let mut effects = vec![];
         self.check_module_version_upgrades(
-            dbtx,
             &mut modules_configs_tbl,
             &mut versions_votes_tbl,
             peer_set,

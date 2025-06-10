@@ -46,6 +46,7 @@ assert_matches = "1.5.0"
 async-stream = "0.3.6"
 async-trait = "0.1.88"
 axum = "*"
+axum-extra = "*"
 backon = "1.5.0"
 bfte = { path = "./crates/bfte" }
 bfte-consensus = { path = "./crates/consensus" }

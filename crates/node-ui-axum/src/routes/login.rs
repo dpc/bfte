@@ -1,6 +1,9 @@
+use async_stream::stream;
 use axum::Form;
 use axum::extract::{Query, State};
-use axum::response::{IntoResponse, Redirect, Response};
+use axum::response::{IntoResponse, Response};
+use datastar::Sse;
+use datastar::prelude::ExecuteScript;
 use maud::{Markup, html};
 use serde::Deserialize;
 use snafu::{OptionExt as _, ResultExt as _};
@@ -76,8 +79,13 @@ pub async fn post(
         .whatever_context("Could not create session")
         .context(OtherSnafu)?;
 
-    let redirect_url = form.redirect.as_deref().unwrap_or(ROUTE_UI);
-    Ok(Redirect::to(redirect_url).into_response())
+    Ok(Sse(stream! {
+        let redirect = if let Some(redirect) = form.redirect { redirect } else { ROUTE_UI.to_string() };
+        yield ExecuteScript::new(format!("window.location = '{}'", redirect));
+    })
+    .into_response())
+    // let redirect_url = form.redirect.as_deref().unwrap_or(ROUTE_UI);
+    // Ok(Redirect::to(redirect_url).into_response())
 }
 
 impl UiState {
@@ -95,9 +103,12 @@ impl UiState {
                 header {
                     h2 { "Sign in" }
                 }
-                form method="post" action=(ROUTE_LOGIN) {
+                form {
                     @if let Some(ref redirect_url) = redirect {
-                        input type="hidden" name="redirect" value=(redirect_url);
+                        input
+                            type="hidden"
+                            name="redirect"
+                            value=(redirect_url);
                     }
                     @if pass_is_temporary {
                         (
@@ -119,7 +130,7 @@ impl UiState {
                             .required(true)
                             .call()
                     )
-                    button type="submit" data-on-click=(format!("@post({}, {{contentType: 'form'}})", ROUTE_LOGIN)) {
+                    button data-on-click=(format!("@post('{}', {{ contentType: 'form' }})", ROUTE_LOGIN)) {
                         "Sign in"
                     }
                 }

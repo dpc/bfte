@@ -9,24 +9,28 @@ use tokio::task::JoinError;
 pub enum DbError {
     #[snafu(display("Database error at {location}"))]
     Database {
-        source: redb::DatabaseError,
+        #[snafu(source(from(redb::DatabaseError, Box::new)))]
+        source: Box<redb::DatabaseError>,
         #[snafu(implicit)]
         location: Location,
     },
     #[snafu(transparent)]
     Table {
-        source: redb::TableError,
+        #[snafu(source(from(redb::TableError, Box::new)))]
+        source: Box<redb::TableError>,
         #[snafu(implicit)]
         location: Location,
     },
     #[snafu(transparent)]
     Storage {
-        source: redb::StorageError,
+        #[snafu(source(from(redb::StorageError, Box::new)))]
+        source: Box<redb::StorageError>,
         #[snafu(implicit)]
         location: Location,
     },
     Transaction {
-        source: redb::TransactionError,
+        #[snafu(source(from(redb::TransactionError, Box::new)))]
+        source: Box<redb::TransactionError>,
         #[snafu(implicit)]
         location: Location,
     },
@@ -36,7 +40,8 @@ pub enum DbError {
         location: Location,
     },
     Commit {
-        source: redb::CommitError,
+        #[snafu(source(from(redb::CommitError, Box::new)))]
+        source: Box<redb::CommitError>,
         #[snafu(implicit)]
         location: Location,
     },

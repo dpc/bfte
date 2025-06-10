@@ -490,7 +490,7 @@ impl Node {
         let consensus = self.consensus_expect();
         let mut pending_transactions_rx = self.pending_transactions_rx.clone();
         let mut finality_consensus_rx = consensus.finality_consensus_rx();
-        let mut finality_self_vote_rx = consensus.finality_self_vote_rx();
+        let finality_self_vote_rx = consensus.finality_self_vote_rx();
 
         // TODO: is this needed?
         node_app_ack_rx.mark_unchanged();
