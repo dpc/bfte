@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use bfte_consensus_core::bincode::CONSENSUS_BINCODE_CONFIG;
 use bfte_consensus_core::citem::CItemRaw;
+use bfte_consensus_core::peer::PeerPubkey;
 use bfte_util_bincode::decode_whole;
 use bfte_util_error::WhateverResult;
 use bincode::{Decode, Encode};
@@ -11,7 +12,9 @@ use snafu::ResultExt as _;
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub enum MetaCitem {
     /// A peer votes for a specific value for a given key
-    VoteKeyValue { key: u8, value: Arc<[u8]> },
+    ProposeValue { key: u8, value: Arc<[u8]> },
+    /// A peer approves an existing vote by another peer for a given key
+    ApproveVote { key: u8, peer_pubkey: PeerPubkey },
 }
 
 impl MetaCitem {

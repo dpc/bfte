@@ -75,7 +75,7 @@ impl MetaModule {
         self.db
             .read_with_expect(|dbtx| {
                 let tbl = dbtx.open_table(&tables::key_value_votes::TABLE)?;
-                tbl.range((key, PeerPubkey::MIN)..(key.wrapping_add(1), PeerPubkey::MIN))?
+                tbl.range((key, PeerPubkey::ZERO)..=(key, PeerPubkey::MAX))?
                     .map(|kv| {
                         let (key_voter, value) = kv?;
                         let (_, voter) = key_voter.value();
@@ -134,7 +134,30 @@ impl MetaModule {
             };
 
             if should_propose {
-                let citem = MetaCitem::VoteKeyValue { key, value };
+                // Check if any other peer already voted for the same value
+                let mut found_matching_peer = None;
+                for vote_kv in votes_tbl.range((key, PeerPubkey::ZERO)..=(key, PeerPubkey::MAX))? {
+                    let (key_and_peer, vote_value) = vote_kv?;
+                    let (vote_key, vote_peer) = key_and_peer.value();
+                    assert_eq!(key, vote_key);
+                    let vote_value = vote_value.value();
+                    if vote_value == value {
+                        found_matching_peer = Some(vote_peer);
+                        break;
+                    }
+                }
+
+                let citem = if let Some(matching_peer) = found_matching_peer {
+                    // Approve existing vote instead of proposing the same value again
+                    MetaCitem::ApproveVote {
+                        key,
+                        peer_pubkey: matching_peer,
+                    }
+                } else {
+                    // No matching vote found, propose the value
+                    MetaCitem::ProposeValue { key, value }
+                };
+
                 proposals.push(citem.encode_to_raw());
             }
         }
@@ -166,11 +189,13 @@ impl MetaModule {
         // Record the vote
         votes_tbl.insert(&(key, voter_pubkey), &value)?;
 
-        // Count votes for this specific value
+        // Count votes for this specific value from peers in the current peer set
         let mut vote_count = 0;
-        for kv in votes_tbl.range((key, PeerPubkey::MIN)..(key.wrapping_add(1), PeerPubkey::MIN))? {
-            let (_key_voter, vote_value) = kv?;
-            if vote_value.value() == value {
+        for kv in votes_tbl.range((key, PeerPubkey::ZERO)..=(key, PeerPubkey::MAX))? {
+            let (key_and_peer, vote_value) = kv?;
+
+            let (_, voter) = key_and_peer.value();
+            if vote_value.value() == value && peer_set.contains(&voter) {
                 vote_count += 1;
             }
         }
@@ -192,14 +217,40 @@ impl MetaModule {
                 consensus_tbl.insert(&key, &value)?;
             }
 
-            // Clear all votes for this key since consensus is reached
-            votes_tbl.retain(|(vote_key, _), _| *vote_key != key)?;
+            // Clear votes for this key from current peer set since consensus is reached
+            votes_tbl
+                .retain(|(vote_key, voter), _| *vote_key != key || !peer_set.contains(voter))?;
 
             // Emit consensus effect
             effects.push((KeyValueConsensusEffect { key, value }).encode());
         }
 
         Ok(effects)
+    }
+
+    fn process_citem_approve_vote(
+        &self,
+        dbtx: &ModuleWriteTransactionCtx,
+        voter_pubkey: PeerPubkey,
+        peer_set: &PeerSet,
+        key: u8,
+        approved_peer: PeerPubkey,
+    ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
+        // Look up the value that the approved peer voted for
+        let votes_tbl = dbtx.open_table(&tables::key_value_votes::TABLE)?;
+
+        match votes_tbl.get(&(key, approved_peer))? {
+            Some(approved_value) => {
+                // Cast our vote for the same value as the approved peer
+                let value = approved_value.value();
+                self.process_citem_vote_key_value(dbtx, voter_pubkey, peer_set, key, value)
+            }
+            None => {
+                // The approved peer hasn't voted for this key, which is invalid
+                // Return empty effects (essentially ignore this vote)
+                Ok(vec![])
+            }
+        }
     }
 }
 
@@ -222,9 +273,13 @@ impl IModule for MetaModule {
         let citem = MetaCitem::decode_from_raw(citem).context(TxSnafu)?;
 
         let res = match citem {
-            MetaCitem::VoteKeyValue { key, value } => {
+            MetaCitem::ProposeValue { key, value } => {
                 self.process_citem_vote_key_value(dbtx, peer_pubkey, peer_set, key, value)
             }
+            MetaCitem::ApproveVote {
+                key,
+                peer_pubkey: approved_peer,
+            } => self.process_citem_approve_vote(dbtx, peer_pubkey, peer_set, key, approved_peer),
         }?;
 
         // Refresh proposals after processing
@@ -259,6 +314,7 @@ impl IModule for MetaModule {
     fn process_effects(
         &self,
         _dbtx: &ModuleWriteTransactionCtx,
+        _peer_set: &PeerSet,
         _effects: &[ModuleCItemEffect],
     ) -> DbTxResult<(), Whatever> {
         // Meta module doesn't need to process effects from other modules

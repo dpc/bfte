@@ -953,6 +953,7 @@ impl IModule for AppConsensusModule {
     fn process_effects(
         &self,
         _dbtx: &ModuleWriteTransactionCtx,
+        _peer_set: &PeerSet,
         _effects: &[ModuleCItemEffect],
     ) -> DbTxResult<(), Whatever> {
         Ok(())

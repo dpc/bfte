@@ -171,7 +171,7 @@ impl NodeApp {
                     let module_dbtx = ModuleWriteTransactionCtx::new(module_id, dbtx);
 
                     module
-                        .process_effects(&module_dbtx, &effects)
+                        .process_effects(&module_dbtx, peer_set, &effects)
                         .map_err(|db_tx_err| {
                             db_tx_err
                                 .map(|e| (ProcessingEffectFailedSnafu { module_id }).into_error(e))

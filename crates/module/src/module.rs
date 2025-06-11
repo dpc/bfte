@@ -159,6 +159,7 @@ pub trait IModule: Any {
     fn process_effects(
         &self,
         dbtx: &ModuleWriteTransactionCtx,
+        peer_set: &PeerSet,
         effects: &[ModuleCItemEffect],
     ) -> DbTxResult<(), Whatever>;
 }
