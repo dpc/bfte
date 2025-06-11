@@ -9,6 +9,8 @@ use axum::routing::get;
 // pub const BOOTSTRAP_CSS_ROUTE: &str = "/assets/bootstrap.min.css";
 pub const ROUTE_DATASTAR_JS: &str = "/assets/datastar/datastar-1-0-0-rc-11.js";
 pub const ROUTE_DATASTAR_JS_MAP: &str = "/assets/datastar/datastar-1-0-0-rc-11.js.map";
+pub const ROUTE_ALPINEJS_JS: &str = "/assets/alpine/alpinejs-3.18.8.js";
+pub const ROUTE_ALPINEAJAX_JS: &str = "/assets/alpine/alpine-ajax-0.12.2.js";
 pub const ROUTE_PICO_CSS: &str = "/assets/pico@2.indigo.min.css";
 pub const ROUTE_STYLE_CSS: &str = "/assets/style.css";
 pub const ROUTE_LOGO_PNG: &str = "/assets/logo.png";
@@ -60,6 +62,20 @@ where
             get(|| async move {
                 get_static_json(include_str!(concat!(
                     "../assets/datastar/datastar-1-0-0-rc-11.js.map"
+                )))
+            }),
+        )
+        .route(
+            ROUTE_ALPINEJS_JS,
+            get(|| async move {
+                get_static_js(include_str!(concat!("../assets/alpine/alpinejs-3.18.8.js")))
+            }),
+        )
+        .route(
+            ROUTE_ALPINEAJAX_JS,
+            get(|| async move {
+                get_static_js(include_str!(concat!(
+                    "../assets/alpine/alpine-ajax-0.12.2.js"
                 )))
             }),
         )

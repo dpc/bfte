@@ -4,11 +4,13 @@ use axum::http::header::{CACHE_CONTROL, CONTENT_TYPE, REFERER};
 use axum::http::{HeaderValue, Method};
 use axum::middleware::Next;
 use axum::response::{IntoResponse as _, Redirect, Response};
+use maud::html;
 use serde::{Deserialize, Serialize};
 use snafu::ResultExt as _;
 use tower_sessions::Session;
 
 use crate::error::{InternalServerSnafu, LoginRequiredSnafu, OtherSnafu, RequestError};
+use crate::misc::Maud;
 use crate::{ArcUiState, ROUTE_INIT_CONSENSUS, ROUTE_LOGIN, ROUTE_UI};
 
 pub async fn cache_control(request: Request, next: Next) -> Response {
@@ -120,4 +122,35 @@ pub(crate) async fn consensus_init(
             }
         },
     )
+}
+
+/// Turn non-HTML error responses into proper, hypermedia ones
+pub(crate) async fn hypermedia_errors(req: Request, next: Next) -> Result<Response, RequestError> {
+    let resp = next.run(req).await;
+
+    let status = resp.status();
+    if !(status.is_client_error() || resp.status().is_server_error())
+        || resp
+            .headers()
+            .get(CONTENT_TYPE)
+            .is_none_or(|ct| ct.as_bytes().starts_with(b"text/html"))
+    {
+        return Ok(resp);
+    }
+
+    let (parts, _body) = resp.into_parts();
+
+    let msg = if status.is_client_error() {
+        "Invalid Data"
+    } else {
+        "Server Error"
+    };
+    let (mut new_parts, new_body) = (Maud(html! {
+        p id="error-response" { (msg) }
+    }))
+    .into_response()
+    .into_parts();
+
+    new_parts.status = parts.status;
+    Ok(Response::from_parts(new_parts, new_body))
 }

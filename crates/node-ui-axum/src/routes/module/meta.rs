@@ -78,10 +78,10 @@ impl UiState {
 
         html! {
             header {
-                h1 { "Meta Key " (key) " Voting" }
-                h2 {
+                h5 {
                     a href=(format!("/ui/module/{}", module_id)) { "← Back to Meta Module" }
                 }
+                h1 { "Meta Key " (key) " Voting" }
             }
 
             @if let Some(current_value) = current_value {
@@ -114,8 +114,13 @@ impl UiState {
                             @for (voter, value) in &votes {
                                 tr {
                                     td {
-                                        div { (format!("{}", voter.to_short())) }
-                                        form method="post" action=(format!("/ui/module/{}/meta_key/{}/vote", module_id, key)) style="margin-top: 5px;" {
+                                        div {
+                                            (format!("{}", voter.to_short()))
+                                        }
+                                        form
+                                            method="post"
+                                            action=(format!("/ui/module/{}/meta_key/{}/vote", module_id, key))
+                                        {
                                             input type="hidden" name="value" value={
                                                 @if let Ok(s) = std::str::from_utf8(value) {
                                                     (s)
@@ -123,7 +128,7 @@ impl UiState {
                                                     (format!("0x{}", hex::encode(value.as_ref())))
                                                 }
                                             };
-                                            input type="submit" value="Approve" class="button small";
+                                            input type="submit" value="Approve";
                                         }
                                     }
                                     td {

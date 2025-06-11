@@ -2,7 +2,6 @@ mod app_consensus;
 mod meta;
 
 use std::any::Any;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use axum::Form;
@@ -19,7 +18,7 @@ use serde::Deserialize;
 use snafu::ResultExt as _;
 use tracing::warn;
 
-use crate::error::{RequestResult, UserSnafu};
+use crate::error::{OtherSnafu, RequestResult};
 use crate::misc::Maud;
 use crate::page::NavbarSelector;
 use crate::{ArcUiState, LOG_TARGET, UiState};
@@ -39,22 +38,95 @@ pub async fn get(
 
 #[derive(Deserialize)]
 pub struct AddPeerVoteForm {
-    peer_pubkey: String,
+    peer_pubkey: PeerPubkey,
 }
 
 #[derive(Deserialize)]
 pub struct RemovePeerVoteForm {
-    peer_pubkey: String,
+    peer_pubkey: PeerPubkey,
+}
+
+#[derive(Debug)]
+pub struct ModuleKindVersion {
+    pub kind: ModuleKind,
+    pub version: ConsensusVersion,
+}
+
+impl<'de> Deserialize<'de> for ModuleKindVersion {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let s = String::deserialize(deserializer)?;
+        let parts: Vec<&str> = s.split(':').collect();
+        if parts.len() != 2 {
+            return Err(D::Error::custom(format!("Invalid module_kind format: {}", s)));
+        }
+
+        let module_kind_value: u32 = parts[0]
+            .parse()
+            .map_err(|_| D::Error::custom("Failed to parse module kind"))?;
+        let module_kind = ModuleKind::new(module_kind_value);
+
+        let version_parts: Vec<&str> = parts[1].split('.').collect();
+        if version_parts.len() != 2 {
+            return Err(D::Error::custom(format!("Invalid version format: {}", parts[1])));
+        }
+
+        let major_value: u16 = version_parts[0]
+            .parse()
+            .map_err(|_| D::Error::custom("Failed to parse major version"))?;
+        let minor_value: u16 = version_parts[1]
+            .parse()
+            .map_err(|_| D::Error::custom("Failed to parse minor version"))?;
+
+        let major = ConsensusVersionMajor::new(major_value);
+        let minor = ConsensusVersionMinor::new(minor_value);
+        let version = ConsensusVersion::new(major, minor);
+
+        Ok(ModuleKindVersion {
+            kind: module_kind,
+            version,
+        })
+    }
 }
 
 #[derive(Deserialize)]
 pub struct AddModuleVoteForm {
-    module_kind: String, // Format: "kind:major.minor"
+    module_kind: ModuleKindVersion,
+}
+
+#[derive(Debug)]
+pub struct MetaValue(pub Arc<[u8]>);
+
+impl<'de> Deserialize<'de> for MetaValue {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+        let s = String::deserialize(deserializer)?;
+        
+        let value_bytes: Arc<[u8]> = if s.starts_with("0x") || s.starts_with("0X") {
+            // Parse as hex
+            let hex_str = &s[2..];
+            match hex::decode(hex_str) {
+                Ok(bytes) => bytes.into(),
+                Err(_) => return Err(D::Error::custom(format!("Invalid hex value: {}", s))),
+            }
+        } else {
+            // Treat as plain text
+            s.into_bytes().into()
+        };
+        
+        Ok(MetaValue(value_bytes))
+    }
 }
 
 #[derive(Deserialize)]
 pub struct MetaVoteForm {
-    value: String,
+    value: MetaValue,
 }
 
 #[axum::debug_handler]
@@ -74,14 +146,11 @@ pub async fn post_add_peer_vote(
             return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
         };
 
-        let peer_pubkey = PeerPubkey::from_str(&form.peer_pubkey)
-            .whatever_context("Failed to deserialize pubkey")
-            .context(UserSnafu)?;
         consensus_module_ref
-                .set_pending_add_peer_vote(peer_pubkey)
-                .await.inspect_err(|err| {
-                    warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit add peer vote");
-                }).context(UserSnafu)?;
+            .set_pending_add_peer_vote(form.peer_pubkey)
+            .await.inspect_err(|err| {
+                warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit add peer vote");
+            }).context(OtherSnafu)?;
     }
     Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response())
 }
@@ -103,14 +172,11 @@ pub async fn post_remove_peer_vote(
             return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
         };
 
-        let peer_pubkey = PeerPubkey::from_str(&form.peer_pubkey)
-            .whatever_context("Failed to deserialize pubkey")
-            .context(UserSnafu)?;
         consensus_module_ref
-                .set_pending_remove_peer_vote(peer_pubkey)
+                .set_pending_remove_peer_vote(form.peer_pubkey)
                 .await.inspect_err(|err| {
                     warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit remove peer vote");
-                }).context(UserSnafu)?;
+                }).context(OtherSnafu)?;
     }
 
     Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response())
@@ -133,46 +199,13 @@ pub async fn post_add_module_vote(
             return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
         };
 
-        // Parse the module_kind string format: "kind:major.minor"
-        let parts: Vec<&str> = form.module_kind.split(':').collect();
-        if parts.len() != 2 {
-            warn!(target: LOG_TARGET, "Invalid module_kind format: {}", form.module_kind);
-            return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
-        }
-
-        let module_kind_value: u32 = parts[0]
-            .parse()
-            .whatever_context("Failed to parse module kind")
-            .context(UserSnafu)?;
-        let module_kind = ModuleKind::new(module_kind_value);
-
-        let version_parts: Vec<&str> = parts[1].split('.').collect();
-        if version_parts.len() != 2 {
-            warn!(target: LOG_TARGET, "Invalid version format: {}", parts[1]);
-            return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
-        }
-
-        let major_value: u16 = version_parts[0]
-            .parse()
-            .whatever_context("Failed to parse major version")
-            .context(UserSnafu)?;
-        let minor_value: u16 = version_parts[1]
-            .parse()
-            .whatever_context("Failed to parse minor version")
-            .context(UserSnafu)?;
-
-        let major = ConsensusVersionMajor::new(major_value);
-        let minor = ConsensusVersionMinor::new(minor_value);
-
-        let consensus_version = ConsensusVersion::new(major, minor);
-
         consensus_module_ref
-            .set_pending_add_module_vote(module_kind, consensus_version)
+            .set_pending_add_module_vote(form.module_kind.kind, form.module_kind.version)
             .await
             .inspect_err(|err| {
                 warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit add module vote");
             })
-            .context(UserSnafu)?;
+            .context(OtherSnafu)?;
     }
 
     Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response())
@@ -231,33 +264,13 @@ pub async fn post_meta_vote(
             );
         };
 
-        // Parse value - either hex (0x prefix) or plain text
-        let value_bytes: Arc<[u8]> = if form.value.starts_with("0x") || form.value.starts_with("0X")
-        {
-            // Parse as hex
-            let hex_str = &form.value[2..];
-            match hex::decode(hex_str) {
-                Ok(bytes) => bytes.into(),
-                Err(_) => {
-                    warn!(target: LOG_TARGET, "Invalid hex value: {}", form.value);
-                    return Ok(
-                        Redirect::to(&format!("/ui/module/{module_id}/meta_key/{key}"))
-                            .into_response(),
-                    );
-                }
-            }
-        } else {
-            // Treat as plain text
-            form.value.into_bytes().into()
-        };
-
         meta_module_ref
-            .propose_key_value(key, value_bytes)
+            .propose_key_value(key, form.value.0)
             .await
             .inspect_err(|err| {
                 warn!(target: LOG_TARGET, err = %err.fmt_compact(), "Could not submit meta vote");
             })
-            .context(UserSnafu)?;
+            .context(OtherSnafu)?;
     }
 
     Ok(Redirect::to(&format!("/ui/module/{module_id}/meta_key/{key}")).into_response())

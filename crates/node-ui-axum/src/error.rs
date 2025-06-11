@@ -4,26 +4,38 @@
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 use bfte_util_error::Whatever;
+use maud::html;
 use serde::Serialize;
 use snafu::Snafu;
 
 use crate::ROUTE_LOGIN;
-use crate::misc::AppJson;
+use crate::misc::{AppJson, Maud};
 
 #[derive(Debug, Snafu)]
+#[snafu(visibility(pub(crate)))]
 pub enum UserRequestError {
     SomethingNotFound,
-    #[snafu(visibility(pub(crate)))]
     InvalidData,
+    #[snafu(display("Wrong Password"))]
+    WrongPassword,
+    Other {
+        source: Whatever,
+    },
 }
 
 impl IntoResponse for &UserRequestError {
     fn into_response(self) -> Response {
-        let (status_code, message) = match self {
-            UserRequestError::SomethingNotFound => (StatusCode::NOT_FOUND, self.to_string()),
-            UserRequestError::InvalidData => (StatusCode::BAD_REQUEST, self.to_string()),
+        let html = Maud(html! {
+            p id="error-response" { (self.to_string()) }
+        });
+
+        let (status_code, html) = match self {
+            UserRequestError::SomethingNotFound => (StatusCode::NOT_FOUND, html),
+            UserRequestError::InvalidData => (StatusCode::BAD_REQUEST, html),
+            UserRequestError::WrongPassword => (StatusCode::BAD_REQUEST, html),
+            UserRequestError::Other { .. } => (StatusCode::BAD_REQUEST, html),
         };
-        (status_code, AppJson(UserErrorResponse { message })).into_response()
+        (status_code, html).into_response()
     }
 }
 
@@ -36,10 +48,9 @@ pub struct UserErrorResponse {
 #[derive(Debug, Snafu)]
 pub enum RequestError {
     #[snafu(visibility(pub(crate)))]
-    Other { source: Whatever },
-
-    #[snafu(visibility(pub(crate)))]
     InternalServerError { msg: &'static str },
+    #[snafu(visibility(pub(crate)))]
+    ShuttingDown { source: Whatever },
 
     #[snafu(visibility(pub(crate)))]
     LoginRequired {
@@ -47,8 +58,8 @@ pub enum RequestError {
         path: Option<String>,
     },
 
-    #[snafu(visibility(pub(crate)))]
-    User { source: Whatever },
+    #[snafu(transparent)]
+    User { source: UserRequestError },
 }
 pub type RequestResult<T> = std::result::Result<T, RequestError>;
 
@@ -69,12 +80,10 @@ impl IntoResponse for RequestError {
                     // ];
                     // return (StatusCode::SEE_OTHER, headers).into_response();
 
-                    return Redirect::to(&if let Some(path) = path {
-                        format!("{}?redirect={}", ROUTE_LOGIN, &urlencoding::encode(&path))
-                    } else {
-                        ROUTE_LOGIN.to_string()
-                    })
-                    .into_response();
+                    return Redirect::to(&login_redirect_path(path)).into_response();
+                }
+                RequestError::User { source } => {
+                    return source.into_response();
                 }
                 _ => (
                     StatusCode::INTERNAL_SERVER_ERROR,
@@ -84,6 +93,14 @@ impl IntoResponse for RequestError {
         };
 
         (status_code, AppJson(UserErrorResponse { message })).into_response()
+    }
+}
+
+pub(crate) fn login_redirect_path(redirect: Option<String>) -> String {
+    if let Some(path) = redirect {
+        format!("{}?redirect={}", ROUTE_LOGIN, &urlencoding::encode(&path))
+    } else {
+        ROUTE_LOGIN.to_string()
     }
 }
 

@@ -1,15 +1,14 @@
-use async_stream::stream;
 use axum::Form;
 use axum::extract::{Query, State};
-use axum::response::{IntoResponse, Response};
-use datastar::Sse;
-use datastar::prelude::ExecuteScript;
+use axum::response::{IntoResponse, Redirect, Response};
 use maud::{Markup, html};
 use serde::Deserialize;
 use snafu::{OptionExt as _, ResultExt as _};
 use tower_sessions::Session;
 
-use crate::error::{LoginRequiredSnafu, OtherSnafu, RequestResult};
+use crate::error::{
+    LoginRequiredSnafu, OtherSnafu, RequestResult, ShuttingDownSnafu, WrongPasswordSnafu,
+};
 use crate::fragments::labeled_input;
 use crate::middleware::{SESSION_KEY, UserAuth};
 use crate::misc::Maud;
@@ -41,7 +40,7 @@ pub async fn post(
     let cur_pass_is_temporary = state
         .node_api
         .is_ui_password_temporary()
-        .context(OtherSnafu)?;
+        .context(ShuttingDownSnafu)?;
 
     if cur_pass_is_temporary {
         let temp_pass = form
@@ -66,10 +65,7 @@ pub async fn post(
         if blake3::hash(form.password.trim().as_bytes())
             != state.node_api.get_ui_password_hash().context(OtherSnafu)?
         {
-            return (LoginRequiredSnafu {
-                path: form.redirect,
-            })
-            .fail();
+            return WrongPasswordSnafu.fail()?;
         }
     }
 
@@ -79,13 +75,8 @@ pub async fn post(
         .whatever_context("Could not create session")
         .context(OtherSnafu)?;
 
-    Ok(Sse(stream! {
-        let redirect = if let Some(redirect) = form.redirect { redirect } else { ROUTE_UI.to_string() };
-        yield ExecuteScript::new(format!("window.location = '{}'", redirect));
-    })
-    .into_response())
-    // let redirect_url = form.redirect.as_deref().unwrap_or(ROUTE_UI);
-    // Ok(Redirect::to(redirect_url).into_response())
+    let redirect_url = form.redirect.as_deref().unwrap_or(ROUTE_UI);
+    Ok(Redirect::to(redirect_url).into_response())
 }
 
 impl UiState {
@@ -103,7 +94,17 @@ impl UiState {
                 header {
                     h2 { "Sign in" }
                 }
-                form {
+
+                div role="status" {
+                    p x-sync id="error-response";
+                }
+
+                form
+                    x-target="_none"
+                    "x-target.away"="_top"
+                    method="post"
+                    action=(ROUTE_LOGIN)
+                {
                     @if let Some(ref redirect_url) = redirect {
                         input
                             type="hidden"
@@ -130,7 +131,7 @@ impl UiState {
                             .required(true)
                             .call()
                     )
-                    button data-on-click=(format!("@post('{}', {{ contentType: 'form' }})", ROUTE_LOGIN)) {
+                    button {
                         "Sign in"
                     }
                 }

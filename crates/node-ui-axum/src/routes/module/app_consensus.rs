@@ -17,7 +17,7 @@ fn get_module_kind_name(kind: ModuleKind) -> Option<&'static str> {
 impl UiState {
     pub(crate) async fn render_consensus_module_page(
         &self,
-        _module_id: bfte_consensus_core::module::ModuleId,
+        module_id: bfte_consensus_core::module::ModuleId,
         consensus_module_ref: &bfte_module_app_consensus::AppConsensusModule,
     ) -> maud::PreEscaped<String> {
         let module_configs = consensus_module_ref.get_modules_configs().await;
@@ -51,7 +51,16 @@ impl UiState {
                         }
                     }
                 }
-                form method="post" action=(format!("/ui/module/{}/add_peer_vote", _module_id)) {
+                div role="status" {
+                    p id="error-response-form-add";
+                }
+                form
+                    method="post"
+                    x-target="_none"
+                    "x-target.error"="error-response-form-add:error-response"
+                    "x-target.back"="_top"
+                    action=(format!("/ui/module/{}/add_peer_vote", module_id))
+                {
                     fieldset role="group" {
                         input type="text" name="peer_pubkey" placeholder="Peer's public key" required;
                         input type="submit" value="Add";
@@ -69,7 +78,16 @@ impl UiState {
                         }
                     }
                 }
-                form method="post" action=(format!("/ui/module/{}/remove_peer_vote", _module_id)) {
+                div role="status" {
+                    p id="error-response-form-remove";
+                }
+                form
+                    method="post"
+                    x-target="_none"
+                    "x-target.error"="error-response-form-remove:error-response"
+                    "x-target.back"="_top"
+                    action=(format!("/ui/module/{}/remove_peer_vote", module_id))
+                {
                     fieldset role="group" {
                         input type="text" name="peer_pubkey" placeholder="Peer's public key" required;
                         input type="submit" value ="Remove";
@@ -120,7 +138,7 @@ impl UiState {
                         }
                     }
                 }
-                (self.render_add_module_form(_module_id, &module_configs).await)
+                (self.render_add_module_form(module_id, &module_configs).await)
             }
         }
     }

@@ -90,8 +90,14 @@ main:has(.init-consensus-form) {
 }
 
 /* Form styling */
-fieldset input[type="submit"] {
+input[type="submit"] {
   min-width: 10em;
+  /* Overwrite pico's default */
+  width: auto;
+}
+
+#error-response {
+  color: red;
 }
 
 /* Break the navbar on left side on large displays */

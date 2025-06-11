@@ -31,7 +31,7 @@ use tower_sessions::{Expiry, MemoryStore, SessionManagerLayer};
 use tracing::info;
 
 const LOG_TARGET: &str = "bfte::node::ui";
-const ROUTE_UI: &str = "/ui/";
+const ROUTE_UI: &str = "/ui";
 const ROUTE_LOGIN: &str = "/ui/login";
 const ROUTE_MODULE: &str = "/ui/module/{module-id}";
 const ROUTE_MODULE_ADD_PEER_VOTE: &str = "/ui/module/{module-id}/add_peer_vote";
@@ -74,7 +74,8 @@ pub async fn run(
                 .layer(Extension(state.clone()))
                 .layer(axum::middleware::from_fn(middleware::cache_control))
                 .layer(axum::middleware::from_fn(middleware::require_auth))
-                .layer(axum::middleware::from_fn(middleware::consensus_init)),
+                .layer(axum::middleware::from_fn(middleware::consensus_init))
+                .layer(axum::middleware::from_fn(middleware::hypermedia_errors)),
         )
         .layer(session_layer)
         .with_static_routes()

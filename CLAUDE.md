@@ -66,6 +66,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Follow existing code style and uniformity
 - Use workspace-based build with `cargo`
 
+#### Web UI Forms
+- **NEVER use String types for form input fields** - always use proper typed data
+- Form structs should use domain-specific types (e.g., `PeerPubkey`, `ModuleKind`, etc.)
+- Parse and validate input at the form boundary, not in handlers
+- Leverage Rust's type system for compile-time safety
+
 ## Database and State Management
 
 - Uses `redb` key-value store for all persistence

@@ -7,6 +7,23 @@ use crate::error::RequestError;
 
 #[derive(Clone, Debug)]
 #[must_use]
+pub struct Html(pub String);
+
+impl IntoResponse for Html {
+    fn into_response(self) -> Response {
+        (
+            [(
+                header::CONTENT_TYPE,
+                HeaderValue::from_static("text/html; charset=utf-8"),
+            )],
+            self.0,
+        )
+            .into_response()
+    }
+}
+
+#[derive(Clone, Debug)]
+#[must_use]
 pub struct Maud(pub Markup);
 
 impl IntoResponse for Maud {
