@@ -4,17 +4,19 @@ use bfte_consensus_core::module::ModuleId;
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::timestamp::Timestamp;
-use bfte_db::error::TxSnafu;
-use bfte_module::effect::ModuleCItemEffect;
+use bfte_db::ctx::WriteTransactionCtx;
+use bfte_db::error::{DbResult, TxSnafu};
+use bfte_module::effect::{EffectKind as _, EffectKindExt as _, ModuleCItemEffect};
 use bfte_module::module::db::ModuleWriteTransactionCtx;
+use bfte_module_app_consensus::effects::ConsensusParamsChange;
 use bfte_util_error::Whatever;
 use bfte_util_error::fmt::FmtCompact as _;
 use snafu::{IntoError as _, OptionExt as _, ResultExt as _, Snafu};
 use tracing::debug;
 
 use super::NodeApp;
-use crate::LOG_TARGET;
 use crate::tables::BlockCItemIdx;
+use crate::{LOG_TARGET, tables};
 
 #[derive(Debug, Snafu)]
 pub enum ProcessCItemError {
@@ -47,9 +49,10 @@ impl NodeApp {
         (cur_round, cur_citem_idx): (BlockRound, BlockCItemIdx),
         block_header: &BlockHeader,
         peer_pubkey: PeerPubkey,
-        peer_set: &PeerSet,
+        peer_set: &mut PeerSet,
         citem: &CItem,
     ) {
+        let peer_set_prev = peer_set.clone();
         if let Err(err) = self
             .process_citem_try(
                 (cur_round, cur_citem_idx),
@@ -62,10 +65,15 @@ impl NodeApp {
             .await
         {
             debug!(target: LOG_TARGET, err = %err.fmt_compact(), %cur_round, %cur_citem_idx, "Invalid consensus item" );
-            // If processing failed, we need to advance the position separately
+            // If processing failed, we need to reset peer_set, as it might have been
+            // altered, while the changes to consensus were rolled back
+            *peer_set = peer_set_prev;
+
+            // If processing failed, we need to advance the position in another, individual
+            // dbtx, as the existing one was rolled back.
             self.db
                 .write_with_expect(|dbtx| {
-                    Self::save_cur_round_and_idx(dbtx, cur_round, cur_citem_idx.next())
+                    Self::save_cur_round_and_idx_dbtx(dbtx, cur_round, cur_citem_idx.next())
                 })
                 .await;
         }
@@ -76,7 +84,7 @@ impl NodeApp {
         block_round: BlockRound,
         block_timestamp: Timestamp,
         peer_pubkey: PeerPubkey,
-        peer_set: &PeerSet,
+        peer_set: &mut PeerSet,
         citem: &CItem,
     ) -> ProcessCItemResult<()> {
         let modules = self.modules.read().await;
@@ -89,6 +97,13 @@ impl NodeApp {
                 match citem {
                     CItem::PeerCItem(module_citem) => {
                         let module_id = module_citem.module_id();
+                        if !peer_set.contains(&peer_pubkey) {
+                            None.whatever_context(
+                                "Ignoring citem from a peer pending consensus removal",
+                            )
+                            .context(ProcessingCItemFailedSnafu { module_id })
+                            .context(TxSnafu)?;
+                        }
                         let module = modules
                             .get(&module_id)
                             .context(UnknownModuleIdSnafu { module_id })
@@ -170,28 +185,72 @@ impl NodeApp {
                 for (&module_id, module) in &*modules {
                     let module_dbtx = ModuleWriteTransactionCtx::new(module_id, dbtx);
 
+                    self.process_consensus_change_effects_core(
+                        dbtx,
+                        cur_round,
+                        block_timestamp,
+                        peer_set,
+                        &effects,
+                    )?;
+
                     module
                         .process_effects(&module_dbtx, peer_set, &effects)
                         .map_err(|db_tx_err| {
                             db_tx_err
                                 .map(|e| (ProcessingEffectFailedSnafu { module_id }).into_error(e))
                         })?;
-
-                    self.process_consensus_change_effects(
-                        dbtx,
-                        cur_round,
-                        block_timestamp,
-                        &effects,
-                    )?;
                 }
 
                 // Save the current position
-                Self::save_cur_round_and_idx(dbtx, cur_round, cur_citem_idx)?;
+                Self::save_cur_round_and_idx_dbtx(dbtx, cur_round, cur_citem_idx)?;
 
                 Ok(())
             })
             .await?;
 
+        Ok(())
+    }
+
+    /// Core consensus reacts to consensus changes changes dictate by the
+    /// consensus ctrl module
+    fn process_consensus_change_effects_core(
+        &self,
+        dbtx: &WriteTransactionCtx,
+        round: BlockRound,
+        block_timestamp: Timestamp,
+        peer_set: &mut PeerSet,
+        effects: &[ModuleCItemEffect],
+    ) -> DbResult<()> {
+        for effect in effects {
+            // Only process effects from our own module
+            if effect.module_kind() != bfte_module_app_consensus::KIND {
+                continue;
+            }
+
+            if effect.inner().effect_id == ConsensusParamsChange::EFFECT_ID {
+                // Decode the consensus change event
+                let change =
+                    ConsensusParamsChange::decode(effect.inner()).expect("Can't fail to decode");
+
+                // Modify the copy of peer_set in memory (will get reverted if processing fails
+                // later)
+                *peer_set = change.peer_set.clone();
+
+                // Persist the change to the consensus in the database (dbtx will get rolled
+                // back if processing fails later)
+                dbtx.open_table(&tables::app_cur_peer_set::TABLE)?
+                    .insert(&(), peer_set)?;
+
+                // Process the change in the core consensus (dbtx will get rolled back if
+                // processing fails later)
+                self.consensus.consensus_params_change_tx(
+                    dbtx,
+                    round,
+                    block_timestamp,
+                    change.peer_set,
+                )?;
+            }
+        }
         Ok(())
     }
 }

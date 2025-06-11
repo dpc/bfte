@@ -9,10 +9,12 @@ async-trait = { workspace = true }
 bfte-consensus-core = { workspace = true }
 bfte-db = { workspace = true }
 bfte-module = { workspace = true }
+bfte-module-app-consensus = { workspace = true }
 bfte-util-bincode = { workspace = true }
 bfte-util-db = { workspace = true }
 bfte-util-error = { workspace = true }
 bincode = { workspace = true }
+convi = { workspace = true, features = ["min_target_pointer_width_32"] }
 serde = { workspace = true }
 snafu = { workspace = true }
 tokio = { workspace = true }

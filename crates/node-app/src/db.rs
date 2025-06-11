@@ -15,7 +15,7 @@ impl NodeApp {
             .await
     }
 
-    pub(crate) fn save_cur_round_and_idx(
+    pub(crate) fn save_cur_round_and_idx_dbtx(
         dbtx: &bfte_db::ctx::WriteTransactionCtx,
         cur_round: BlockRound,
         citem_idx: BlockCItemIdx,

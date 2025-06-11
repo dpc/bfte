@@ -17,20 +17,14 @@ use std::sync::Arc;
 use std::{mem, ops};
 
 use bfte_consensus::consensus::Consensus;
-use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::citem::transaction::Transaction;
 use bfte_consensus_core::consensus_params::ConsensusParams;
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::PeerPubkey;
-use bfte_consensus_core::timestamp::Timestamp;
 use bfte_db::Database;
-use bfte_db::ctx::WriteTransactionCtx;
-use bfte_db::error::DbResult;
-use bfte_module::effect::{EffectKind as _, EffectKindExt as _, ModuleCItemEffect};
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::ModuleWriteTransactionCtx;
 use bfte_module::module::{DynModuleInit, DynModuleWithConfig, IModuleInit, ModuleInitArgs};
-use bfte_module_app_consensus::effects::ConsensusParamsChange;
 use bfte_module_app_consensus::{AppConsensusModule, AppConsensusModuleInit};
 use bfte_node_app_core::NodeAppApi;
 use bfte_node_shared_modules::SharedModules;
@@ -92,7 +86,7 @@ impl NodeApp {
         let peer_pubkey = node_api.get_peer_pubkey().await;
         let consensus = node_api.get_consensus().await;
 
-        db.write_with_expect(Self::init_tables_tx).await;
+        db.write_with_expect(Self::init_tables_dbtx).await;
 
         Self {
             node_api,
@@ -110,10 +104,12 @@ impl NodeApp {
     pub async fn run(mut self) -> WhateverResult<Infallible> {
         let mut cur_round_idx = self.load_cur_round_and_idx().await;
 
-        if cur_round_idx == Default::default() {
+        let mut peer_set = if cur_round_idx == Default::default() {
             info!(target: LOG_TARGET, ?cur_round_idx, "Initializing app level consensus processing…");
             let consensus_params = self.node_api.get_consensus_params(cur_round_idx.0).await;
-            self.setup_modules_init(consensus_params).await?;
+            self.setup_modules_init(consensus_params.clone()).await?;
+
+            consensus_params.peers
         } else {
             info!(
                target: LOG_TARGET,
@@ -122,7 +118,16 @@ impl NodeApp {
                "Started node app consensus"
             );
             self.setup_modules().await?;
-        }
+            self.db
+                .read_with_expect(|dbtx| {
+                    Ok(dbtx
+                        .open_table(&tables::app_cur_peer_set::TABLE)?
+                        .get(&())?
+                        .expect("Must have a peer set")
+                        .value())
+                })
+                .await
+        };
 
         self.record_modules_versions().await;
 
@@ -138,17 +143,19 @@ impl NodeApp {
             );
             let (block_header, peer_pubkey, citems) =
                 self.node_api.ack_and_wait_next_block(cur_round_idx.0).await;
-            let consensus_params = self.node_api.get_consensus_params(cur_round_idx.0).await;
             debug!(target: LOG_TARGET, round = %block_header.round, "Processing new block…");
-
-            // Get the current (effective) peer set from the consensus params
-            let peer_set = consensus_params.peers;
 
             for (idx, citem) in citems.iter().enumerate() {
                 let idx = BlockCItemIdx::from(u32::try_from(idx).expect("Can't fail"));
                 if cur_round_idx.1 <= idx {
-                    self.process_citem(cur_round_idx, &block_header, peer_pubkey, &peer_set, citem)
-                        .await;
+                    self.process_citem(
+                        cur_round_idx,
+                        &block_header,
+                        peer_pubkey,
+                        &mut peer_set,
+                        citem,
+                    )
+                    .await;
                 }
                 cur_round_idx.1 = idx;
             }
@@ -159,7 +166,7 @@ impl NodeApp {
             );
             self.db
                 .write_with_expect(|dbtx| {
-                    Self::save_cur_round_and_idx(dbtx, cur_round_idx.0, cur_round_idx.1)
+                    Self::save_cur_round_and_idx_dbtx(dbtx, cur_round_idx.0, cur_round_idx.1)
                 })
                 .await;
         }
@@ -206,8 +213,10 @@ impl NodeApp {
                         dbtx,
                         APP_CONSENSUS_MODULE_ID,
                         consensus_params.init_core_module_cons_version,
-                        consensus_params.peers,
+                        consensus_params.peers.clone(),
                     )?;
+
+                    dbtx.open_table(&tables::app_cur_peer_set::TABLE)?.insert(&(), &consensus_params.peers)?;
 
                     Ok(BTreeMap::from([(APP_CONSENSUS_MODULE_ID, default_config)]))
                 }
@@ -347,33 +356,5 @@ impl NodeApp {
             existing_modules.keys()
         );
         Ok(changed)
-    }
-
-    fn process_consensus_change_effects(
-        &self,
-        dbtx: &WriteTransactionCtx,
-        round: BlockRound,
-        block_timestamp: Timestamp,
-        effects: &[ModuleCItemEffect],
-    ) -> DbResult<()> {
-        for effect in effects {
-            // Only process effects from our own module
-            if effect.module_kind() != bfte_module_app_consensus::KIND {
-                continue;
-            }
-
-            if effect.inner().effect_id == ConsensusParamsChange::EFFECT_ID {
-                // Decode the AddPeerEffect
-                let change =
-                    ConsensusParamsChange::decode(effect.inner()).expect("Can't fail to decode");
-                self.consensus.consensus_params_change_tx(
-                    dbtx,
-                    round,
-                    block_timestamp,
-                    change.peer_set,
-                )?;
-            }
-        }
-        Ok(())
     }
 }

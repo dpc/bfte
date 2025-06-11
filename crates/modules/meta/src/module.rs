@@ -9,13 +9,15 @@ use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_db::error::TxSnafu;
-use bfte_module::effect::{CItemEffect, EffectKindExt, ModuleCItemEffect};
+use bfte_module::effect::{CItemEffect, EffectKind, EffectKindExt, ModuleCItemEffect};
 use bfte_module::module::IModule;
 use bfte_module::module::db::{
     DbResult, DbTxResult, ModuleDatabase, ModuleReadableTransaction, ModuleWriteTransactionCtx,
 };
+use bfte_module_app_consensus::effects::RemovePeerEffect;
 use bfte_util_db::redb_bincode::ReadableTable as _;
 use bfte_util_error::{Whatever, WhateverResult};
+use convi::CastFrom as _;
 use snafu::{OptionExt as _, ResultExt as _};
 use tokio::sync::watch;
 
@@ -248,9 +250,77 @@ impl MetaModule {
             None => {
                 // The approved peer hasn't voted for this key, which is invalid
                 // Return empty effects (essentially ignore this vote)
-                Ok(vec![])
+                None.whatever_context("Invalid peer_pubkey")
+                    .context(TxSnafu)?
             }
         }
+    }
+
+    /// Recheck all existing votes to see if any can now reach consensus with
+    /// the updated peer set
+    fn recheck_consensus_after_peer_removal(
+        &self,
+        dbtx: &ModuleWriteTransactionCtx,
+        peer_set: &PeerSet,
+    ) -> DbTxResult<(), Whatever> {
+        let votes_tbl = dbtx.open_table(&tables::key_value_votes::TABLE)?;
+        let consensus_tbl = dbtx.open_table(&tables::consensus_values::TABLE)?;
+
+        // Collect all unique keys that have votes
+        let mut keys_with_votes = std::collections::BTreeSet::new();
+        for kv in votes_tbl.range(..)? {
+            let (key_and_peer, _) = kv?;
+            let (key, _) = key_and_peer.value();
+            keys_with_votes.insert(key);
+        }
+
+        // For each key, check if any value can now reach consensus
+        for key in keys_with_votes {
+            // Skip if consensus already exists for this key
+            if consensus_tbl.get(&key)?.is_some() {
+                continue;
+            }
+
+            // Count votes for each value from current peer set members
+            let mut value_counts: BTreeMap<Arc<[u8]>, u32> = BTreeMap::new();
+            for kv in votes_tbl.range((key, PeerPubkey::ZERO)..=(key, PeerPubkey::MAX))? {
+                let (key_and_peer, vote_value) = kv?;
+                let (_, voter) = key_and_peer.value();
+
+                if peer_set.contains(&voter) {
+                    let value = vote_value.value();
+                    *value_counts.entry(value).or_insert(0) += 1;
+                }
+            }
+
+            // Check if any value has reached threshold
+            let threshold = peer_set.to_num_peers().threshold();
+            for (value, count) in value_counts {
+                if usize::cast_from(count) >= threshold {
+                    // Consensus reached! Set the value
+                    let mut consensus_tbl = dbtx.open_table(&tables::consensus_values::TABLE)?;
+                    consensus_tbl.insert(&key, &value)?;
+
+                    // Remove pending proposal for this key if it exists
+                    let mut pending_tbl = dbtx.open_table(&tables::pending_proposals::TABLE)?;
+                    pending_tbl.remove(&key)?;
+
+                    // Clear votes for this key from current peer set since consensus is reached
+                    let mut votes_tbl = dbtx.open_table(&tables::key_value_votes::TABLE)?;
+                    votes_tbl.retain(|(vote_key, voter), _| {
+                        *vote_key != key || !peer_set.contains(voter)
+                    })?;
+
+                    // Note: We don't emit KeyValueConsensusEffect here because process_effects
+                    // is not designed to emit effects. The consensus is recorded in the database
+                    // and can be observed through get_consensus_values().
+
+                    break; // Only one value can reach consensus per key
+                }
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -313,11 +383,23 @@ impl IModule for MetaModule {
 
     fn process_effects(
         &self,
-        _dbtx: &ModuleWriteTransactionCtx,
-        _peer_set: &PeerSet,
-        _effects: &[ModuleCItemEffect],
+        dbtx: &ModuleWriteTransactionCtx,
+        peer_set: &PeerSet,
+        effects: &[ModuleCItemEffect],
     ) -> DbTxResult<(), Whatever> {
-        // Meta module doesn't need to process effects from other modules
+        for effect in effects {
+            // Only process effects from the app-consensus module (peer management)
+            if effect.module_kind() != bfte_module_app_consensus::KIND {
+                continue;
+            }
+
+            // Handle RemovePeerEffect
+            if effect.inner().effect_id == RemovePeerEffect::EFFECT_ID {
+                // A peer was removed, recheck if existing votes can now reach consensus
+                self.recheck_consensus_after_peer_removal(dbtx, peer_set)?;
+            }
+        }
+
         Ok(())
     }
 }
