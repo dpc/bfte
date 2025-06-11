@@ -169,7 +169,7 @@ async fn two_peers_first_round() -> WhateverResult<()> {
         .process_vote_response(
             PeerIdx::from(1),
             WaitVoteResponse::Proposal {
-                block: Signed::new_sign(dbg!(block), setup.seckeys[1]),
+                block: Signed::new_sign(block, setup.seckeys[1]),
                 payload,
             },
         )

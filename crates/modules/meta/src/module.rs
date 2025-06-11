@@ -102,13 +102,13 @@ impl MetaModule {
     pub(crate) async fn refresh_consensus_proposals(&self) {
         let proposals = self
             .db
-            .read_with_expect(|dbtx| self.refresh_consensus_proposals_tx(dbtx))
+            .read_with_expect(|dbtx| self.refresh_consensus_proposals_dbtx(dbtx))
             .await;
 
         self.propose_citems_tx.send_replace(proposals);
     }
 
-    pub(crate) fn refresh_consensus_proposals_tx<'dbtx>(
+    pub(crate) fn refresh_consensus_proposals_dbtx<'dbtx>(
         &self,
         dbtx: &impl ModuleReadableTransaction<'dbtx>,
     ) -> DbResult<Vec<CItemRaw>> {
@@ -116,13 +116,27 @@ impl MetaModule {
 
         // Get pending proposals
         let pending_tbl = dbtx.open_table(&tables::pending_proposals::TABLE)?;
+        let votes_tbl = dbtx.open_table(&tables::key_value_votes::TABLE)?;
+
         for kv in pending_tbl.range(..)? {
             let (key, value) = kv?;
-            let citem = MetaCitem::VoteKeyValue {
-                key: key.value(),
-                value: value.value(),
+            let key = key.value();
+            let value = value.value();
+
+            // Check if we already have the same vote for this key
+            let should_propose = if let Some(peer_pubkey) = &self.peer_pubkey {
+                match votes_tbl.get(&(key, *peer_pubkey))? {
+                    Some(existing_vote) => existing_vote.value() != value,
+                    None => true, // No existing vote, so we should propose
+                }
+            } else {
+                true // No peer pubkey, so always propose
             };
-            proposals.push(citem.encode_to_raw());
+
+            if should_propose {
+                let citem = MetaCitem::VoteKeyValue { key, value };
+                proposals.push(citem.encode_to_raw());
+            }
         }
 
         Ok(proposals)
@@ -214,7 +228,7 @@ impl IModule for MetaModule {
         }?;
 
         // Refresh proposals after processing
-        let proposals = self.refresh_consensus_proposals_tx(dbtx)?;
+        let proposals = self.refresh_consensus_proposals_dbtx(dbtx)?;
         let tx = self.propose_citems_tx.clone();
 
         dbtx.on_commit(move || {

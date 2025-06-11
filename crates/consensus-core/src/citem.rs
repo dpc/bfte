@@ -15,7 +15,7 @@ use crate::peer::PeerPubkey;
 ///
 /// Something that can transmitted and agreed on as a part of the consensus
 /// process.
-#[derive(Encode, Decode)]
+#[derive(Encode, Decode, Debug)]
 pub enum CItem {
     /// Consensus item proposed by the peer being the round leader for a block
     /// round.
@@ -30,16 +30,16 @@ pub enum CoreCitem {
     RemovePeerVote(PeerPubkey),
 }
 
-#[derive(Deref, Encode, Decode, Clone)]
+#[derive(Deref, Encode, Decode, Clone, Debug)]
 pub struct InputRaw(pub Arc<[u8]>);
 
-#[derive(Deref, Encode, Decode, Clone)]
+#[derive(Deref, Encode, Decode, Clone, Debug)]
 pub struct OutputRaw(pub Arc<[u8]>);
 
-#[derive(Deref, Encode, Decode, Clone)]
+#[derive(Deref, Encode, Decode, Clone, Debug)]
 pub struct CItemRaw(pub Arc<[u8]>);
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct ModuleDyn<Inner> {
     module_id: ModuleId,
     inner: Inner,

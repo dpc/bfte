@@ -599,6 +599,7 @@ impl Node {
                 .iter()
                 .map(|tx| CItem::Transaction(tx.to_owned())),
         );
+        dbg!(&pending_citems);
 
         debug!(target: LOG_TARGET, %cur_round, items = %pending_citems.len(), "Building new block proposal");
         let (block, payload) = self.generate_proposal(cur_round, &pending_citems).await;

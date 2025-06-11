@@ -61,7 +61,10 @@ impl<'de> Deserialize<'de> for ModuleKindVersion {
         let s = String::deserialize(deserializer)?;
         let parts: Vec<&str> = s.split(':').collect();
         if parts.len() != 2 {
-            return Err(D::Error::custom(format!("Invalid module_kind format: {}", s)));
+            return Err(D::Error::custom(format!(
+                "Invalid module_kind format: {}",
+                s
+            )));
         }
 
         let module_kind_value: u32 = parts[0]
@@ -71,7 +74,10 @@ impl<'de> Deserialize<'de> for ModuleKindVersion {
 
         let version_parts: Vec<&str> = parts[1].split('.').collect();
         if version_parts.len() != 2 {
-            return Err(D::Error::custom(format!("Invalid version format: {}", parts[1])));
+            return Err(D::Error::custom(format!(
+                "Invalid version format: {}",
+                parts[1]
+            )));
         }
 
         let major_value: u16 = version_parts[0]
@@ -107,7 +113,7 @@ impl<'de> Deserialize<'de> for MetaValue {
     {
         use serde::de::Error;
         let s = String::deserialize(deserializer)?;
-        
+
         let value_bytes: Arc<[u8]> = if s.starts_with("0x") || s.starts_with("0X") {
             // Parse as hex
             let hex_str = &s[2..];
@@ -119,7 +125,7 @@ impl<'de> Deserialize<'de> for MetaValue {
             // Treat as plain text
             s.into_bytes().into()
         };
-        
+
         Ok(MetaValue(value_bytes))
     }
 }
