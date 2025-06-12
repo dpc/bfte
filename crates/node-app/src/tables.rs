@@ -1,5 +1,4 @@
 use bfte_consensus_core::block::BlockRound;
-use bfte_consensus_core::peer_set::PeerSet;
 use bfte_util_db::def_table;
 use bincode::{Decode, Encode};
 use derive_more::{Display, From, Into};
@@ -26,9 +25,4 @@ def_table! {
     /// As the `node-app` is processing citems from blocks
     /// it keeps track of its position here.
     app_cur_round: () => (BlockRound, BlockCItemIdx)
-}
-
-def_table! {
-    /// Current peer-set, overwritten whenever changed
-    app_cur_peer_set: () => PeerSet
 }

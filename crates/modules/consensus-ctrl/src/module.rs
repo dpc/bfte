@@ -23,7 +23,8 @@ use tracing::debug;
 
 use crate::citem::ConsensusCtrlCitem;
 use crate::effects::{
-    AddModuleEffect, AddPeerEffect, ConsensusParamsChange, ModuleVersionUpgrade, RemovePeerEffect,
+    AddModuleEffect, AddPeerEffect, ConsensusParamsChange, ModuleVersionUpgradeEffect,
+    RemovePeerEffect,
 };
 use crate::{LOG_TARGET, tables};
 
@@ -38,47 +39,54 @@ pub struct ConsensusCtrlModule {
 }
 
 impl ConsensusCtrlModule {
-    pub(crate) async fn get_module_configs_static(
-        db: &ModuleDatabase,
-    ) -> BTreeMap<ModuleId, ModuleConfig> {
-        db.read_with_expect(|dbtx| {
-            let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
-
-            tbl.range(..)?
-                .map(|kv| {
-                    let (k, v) = kv?;
-
-                    let module_id = k.value();
-                    let value = v.value();
-                    Ok((
-                        module_id,
-                        ModuleConfig {
-                            kind: value.kind,
-                            version: value.version,
-                        },
-                    ))
-                })
-                .collect()
-        })
-        .await
-    }
     pub async fn get_modules_configs(&self) -> BTreeMap<ModuleId, ModuleConfig> {
-        Self::get_module_configs_static(&self.db).await
+        self.db
+            .read_with_expect(|dbtx| Self::get_modules_configs_dbtx(dbtx))
+            .await
     }
 
     pub async fn get_peer_set(&self) -> PeerSet {
         self.db
-            .read_with_expect(|dbtx| {
-                let tbl = dbtx.open_table(&tables::peers::TABLE)?;
-
-                tbl.range(..)?
-                    .map(|kv| {
-                        let (k, _) = kv?;
-                        Ok(k.value())
-                    })
-                    .collect()
-            })
+            .read_with_expect(|dbtx| Self::get_peer_set_dbtx(dbtx))
             .await
+    }
+
+    /// Get modules configs without creating an instance of `ConsensusCtrl`
+    /// itself
+    ///
+    /// This is useful on start, as `node-app` can't create an instance of
+    /// `ConsensusCtrl` without knowing its config first.
+    pub fn get_modules_configs_dbtx<'s>(
+        dbtx: &impl ModuleReadableTransaction<'s>,
+    ) -> DbResult<BTreeMap<ModuleId, ModuleConfig>> {
+        let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
+
+        tbl.range(..)?
+            .map(|kv| {
+                let (k, v) = kv?;
+
+                let module_id = k.value();
+                let value = v.value();
+                Ok((
+                    module_id,
+                    ModuleConfig {
+                        kind: value.kind,
+                        version: value.version,
+                    },
+                ))
+            })
+            .collect()
+    }
+
+    fn get_peer_set_dbtx<'s>(dbtx: &impl ModuleReadableTransaction<'s>) -> DbResult<PeerSet> {
+        let tbl = dbtx.open_table(&tables::peers::TABLE)?;
+
+        tbl.range(..)?
+            .map(|kv| {
+                let (k, _) = kv?;
+                Ok(k.value())
+            })
+            .collect()
     }
 
     pub async fn set_pending_add_peer_vote(&self, peer_to_add: PeerPubkey) -> WhateverResult<()> {
@@ -455,7 +463,7 @@ impl ConsensusCtrlModule {
 
                 // Emit module version upgrade effect
                 effects.push(
-                    (ModuleVersionUpgrade {
+                    (ModuleVersionUpgradeEffect {
                         module_id,
                         old_version,
                         new_version: new_agreed_version,

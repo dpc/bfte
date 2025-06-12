@@ -37,13 +37,13 @@ impl EffectKind for ConsensusParamsChange {
 }
 
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
-pub struct ModuleVersionUpgrade {
+pub struct ModuleVersionUpgradeEffect {
     pub module_id: ModuleId,
     pub old_version: ConsensusVersion,
     pub new_version: ConsensusVersion,
 }
 
-impl EffectKind for ModuleVersionUpgrade {
+impl EffectKind for ModuleVersionUpgradeEffect {
     const MODULE_KIND: ModuleKind = crate::KIND;
     const EFFECT_ID: EffectId = EffectId::new(3);
 }

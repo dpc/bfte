@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use bfte_consensus_core::block::{BlockHeader, BlockRound};
 use bfte_consensus_core::citem::CItem;
 use bfte_consensus_core::module::ModuleId;
@@ -7,16 +9,19 @@ use bfte_consensus_core::timestamp::Timestamp;
 use bfte_db::ctx::WriteTransactionCtx;
 use bfte_db::error::{DbResult, TxSnafu};
 use bfte_module::effect::{EffectKind as _, EffectKindExt as _, ModuleCItemEffect};
+use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::ModuleWriteTransactionCtx;
-use bfte_module_consensus_ctrl::effects::ConsensusParamsChange;
+use bfte_module_consensus_ctrl::effects::{
+    AddModuleEffect, ConsensusParamsChange, ModuleVersionUpgradeEffect,
+};
 use bfte_util_error::Whatever;
 use bfte_util_error::fmt::FmtCompact as _;
 use snafu::{IntoError as _, OptionExt as _, ResultExt as _, Snafu};
 use tracing::debug;
 
 use super::NodeApp;
+use crate::LOG_TARGET;
 use crate::tables::BlockCItemIdx;
-use crate::{LOG_TARGET, tables};
 
 #[derive(Debug, Snafu)]
 pub enum ProcessCItemError {
@@ -49,25 +54,28 @@ impl NodeApp {
         (cur_round, cur_citem_idx): (BlockRound, BlockCItemIdx),
         block_header: &BlockHeader,
         peer_pubkey: PeerPubkey,
-        peer_set: &mut PeerSet,
+        peer_set: &mut Option<PeerSet>,
+        modules_configs: &mut Option<BTreeMap<ModuleId, ModuleConfig>>,
         citem: &CItem,
     ) {
-        let peer_set_prev = peer_set.clone();
         if let Err(err) = self
             .process_citem_try(
                 (cur_round, cur_citem_idx),
                 block_header.round,
                 block_header.timestamp,
                 peer_pubkey,
-                peer_set,
+                peer_set.as_mut().expect("Must be set at this point"),
+                modules_configs,
                 citem,
             )
             .await
         {
             debug!(target: LOG_TARGET, err = %err.fmt_compact(), %cur_round, %cur_citem_idx, "Invalid consensus item" );
-            // If processing failed, we need to reset peer_set, as it might have been
-            // altered, while the changes to consensus were rolled back
-            *peer_set = peer_set_prev;
+            // If processing failed, we need to reset peer_set and module_configs, as they
+            // might have been altered, while the changes to consensus were
+            // rolled back
+            *peer_set = None;
+            *modules_configs = None;
 
             // If processing failed, we need to advance the position in another, individual
             // dbtx, as the existing one was rolled back.
@@ -78,6 +86,8 @@ impl NodeApp {
                 .await;
         }
     }
+
+    #[allow(clippy::too_many_arguments)]
     pub(crate) async fn process_citem_try(
         &self,
         (cur_round, cur_citem_idx): (BlockRound, BlockCItemIdx),
@@ -85,6 +95,7 @@ impl NodeApp {
         block_timestamp: Timestamp,
         peer_pubkey: PeerPubkey,
         peer_set: &mut PeerSet,
+        modules_configs: &mut Option<BTreeMap<ModuleId, ModuleConfig>>,
         citem: &CItem,
     ) -> ProcessCItemResult<()> {
         let modules = self.modules.read().await;
@@ -182,16 +193,15 @@ impl NodeApp {
                     }
                 }
 
+                self.process_consensus_change_effects_core_pre(
+                    dbtx,
+                    cur_round,
+                    block_timestamp,
+                    peer_set,
+                    &effects,
+                )?;
                 for (&module_id, module) in &*modules {
                     let module_dbtx = ModuleWriteTransactionCtx::new(module_id, dbtx);
-
-                    self.process_consensus_change_effects_core(
-                        dbtx,
-                        cur_round,
-                        block_timestamp,
-                        peer_set,
-                        &effects,
-                    )?;
 
                     module
                         .process_effects(&module_dbtx, peer_set, &effects)
@@ -201,6 +211,7 @@ impl NodeApp {
                         })?;
                 }
 
+                self.process_consensus_change_effects_core_post(modules_configs, &effects)?;
                 // Save the current position
                 Self::save_cur_round_and_idx_dbtx(dbtx, cur_round, cur_citem_idx)?;
 
@@ -213,7 +224,7 @@ impl NodeApp {
 
     /// Core consensus reacts to consensus changes changes dictate by the
     /// consensus ctrl module
-    fn process_consensus_change_effects_core(
+    fn process_consensus_change_effects_core_pre(
         &self,
         dbtx: &WriteTransactionCtx,
         round: BlockRound,
@@ -236,11 +247,6 @@ impl NodeApp {
                 // later)
                 *peer_set = change.peer_set.clone();
 
-                // Persist the change to the consensus in the database (dbtx will get rolled
-                // back if processing fails later)
-                dbtx.open_table(&tables::app_cur_peer_set::TABLE)?
-                    .insert(&(), peer_set)?;
-
                 // Process the change in the core consensus (dbtx will get rolled back if
                 // processing fails later)
                 self.consensus.consensus_params_change_tx(
@@ -249,6 +255,27 @@ impl NodeApp {
                     block_timestamp,
                     change.peer_set,
                 )?;
+            }
+        }
+        Ok(())
+    }
+
+    fn process_consensus_change_effects_core_post(
+        &self,
+        modules_configs: &mut Option<BTreeMap<ModuleId, ModuleConfig>>,
+        effects: &[ModuleCItemEffect],
+    ) -> DbResult<()> {
+        for effect in effects {
+            // Only process effects from our own module
+            if effect.module_kind() != bfte_module_consensus_ctrl::KIND {
+                continue;
+            }
+
+            if effect.inner().effect_id == AddModuleEffect::EFFECT_ID
+                || effect.inner().effect_id == ModuleVersionUpgradeEffect::EFFECT_ID
+            {
+                // Just invalidate, so it gets re-read and reconfigured on next iteration
+                *modules_configs = None;
             }
         }
         Ok(())

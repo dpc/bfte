@@ -6,7 +6,7 @@ use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module::module::config::ModuleConfig;
-use bfte_module::module::db::{DbResult, ModuleWriteTransactionCtx};
+use bfte_module::module::db::{DbResult, ModuleReadableTransaction, ModuleWriteTransactionCtx};
 use bfte_module::module::{
     IModule, IModuleInit, ModuleInitArgs, ModuleInitResult, UnsupportedVersionSnafu,
 };
@@ -65,32 +65,11 @@ impl ConsensusCtrlModuleInit {
         Ok(config)
     }
 
-    /// Get modules configs without creating an instance of `ConsensusCtrl`
-    /// itself
-    ///
-    /// This is useful on start, as `node-app` can't create an instance of
-    /// `ConsensusCtrl` without knowing its config first.
-    pub fn get_modules_configs_dbtx(
+    pub fn get_modules_configs<'s>(
         &self,
-        dbtx: &ModuleWriteTransactionCtx<'_>,
+        dbtx: &impl ModuleReadableTransaction<'s>,
     ) -> DbResult<BTreeMap<ModuleId, ModuleConfig>> {
-        let tbl = dbtx.open_table(&tables::modules_configs::TABLE)?;
-
-        tbl.range(..)?
-            .map(|kv| {
-                let (k, v) = kv?;
-
-                let module_id = k.value();
-                let value = v.value();
-                Ok((
-                    module_id,
-                    ModuleConfig {
-                        kind: value.kind,
-                        version: value.version,
-                    },
-                ))
-            })
-            .collect()
+        ConsensusCtrlModule::get_modules_configs_dbtx(dbtx)
     }
 }
 
