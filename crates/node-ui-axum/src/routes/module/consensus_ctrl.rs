@@ -47,7 +47,7 @@ impl UiState {
                     h4 { "Pending Votes:" }
                     ul {
                         @for (voter, voted_for) in &add_peer_votes {
-                            li { (format!("{} → {}", voter, voted_for)) }
+                            li { (format!("{} → {}", voter.to_short(), voted_for)) }
                         }
                     }
                 }
@@ -74,7 +74,7 @@ impl UiState {
                     h4 { "Pending Votes:" }
                     ul {
                         @for (voter, voted_for) in &remove_peer_votes {
-                            li { (format!("{} → {}", voter, voted_for)) }
+                            li { (format!("{} → {}", voter.to_short(), voted_for)) }
                         }
                     }
                 }
@@ -133,7 +133,7 @@ impl UiState {
                         @for (voter, (module_kind, consensus_version)) in &add_module_votes {
                             li {
                                 @let module_name = get_module_kind_name(*module_kind).unwrap_or("Unknown");
-                                (format!("{} → {} (v{})", voter, module_name, consensus_version))
+                                (format!("{} → {} (v{})", voter.to_short(), module_name, consensus_version))
                             }
                         }
                     }
