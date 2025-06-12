@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+#![doc = include_str!("../README.md")]
+
 //! Core types used in BFTE consensus
 //!
 //! Focused on serialization/encoding, conversions, etc of core data formats

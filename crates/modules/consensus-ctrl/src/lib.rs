@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+#![doc = include_str!("../README.md")]
+
 //! Application-level consensus
 //!
 //! The initial and most important BFTE module. Every federation

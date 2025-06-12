@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 //! BFTE Node
 //!
 //! A BFTE node follows and possibly participates in extending

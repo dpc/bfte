@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+#![doc = include_str!("../README.md")]
+
 mod assets;
 mod error;
 mod fragments;

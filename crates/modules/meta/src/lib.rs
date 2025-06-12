@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
 
+#![doc = include_str!("../README.md")]
+
 //! Meta module
 //!
 //! This module provides meta functionality for the BFTE system.
