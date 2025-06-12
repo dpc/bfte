@@ -58,7 +58,7 @@ impl UiState {
             aside {
                 nav
                     data-signals__ifmissing="{ nav: { openTabs: {
-                        consensus: false,
+                        general: true,
                         modules: false,
                     }}}"
                     data-persist="$nav.openTabs.*"
@@ -66,11 +66,11 @@ impl UiState {
                     h3 { "BFTE" }
                     div {
                         details
-                            data-attr="{ open: $nav.openTabs.consensus }"
+                            data-attr="{ open: $nav.openTabs.general}"
                         {
                             summary
-                                aria-current=[active_nabvar.is_consensus().then_some("true")]
-                                data-on-click__prevent="$nav.openTabs.consensus = !$nav.openTabs.consensus"
+                                aria-current=[active_nabvar.is_general().then_some("true")]
+                                data-on-click__prevent="$nav.openTabs.general = !$nav.openTabs.general"
                             {
                                 "Consensus"
                             }
@@ -79,9 +79,9 @@ impl UiState {
                                     a ."secondary"
                                         data-discover="true"
                                         href=(ROUTE_UI)
-                                        aria-current=[active_nabvar.is_consensus().then_some("page")]
+                                        aria-current=[active_nabvar.is_general().then_some("page")]
                                     {
-                                        "Consensus Status"
+                                        "Overview"
                                     }
                                 }
                                 li {
@@ -121,13 +121,13 @@ impl UiState {
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum NavbarSelector {
-    Consensus,
+    General,
     Module(ModuleId),
 }
 
 impl NavbarSelector {
-    fn is_consensus(self) -> bool {
-        matches!(self, NavbarSelector::Consensus)
+    fn is_general(self) -> bool {
+        matches!(self, NavbarSelector::General)
     }
     fn is_module(self) -> bool {
         matches!(self, NavbarSelector::Module(_))

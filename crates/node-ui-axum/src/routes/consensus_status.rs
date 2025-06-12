@@ -21,7 +21,9 @@ pub(crate) async fn root() -> Redirect {
     Redirect::permanent(ROUTE_UI)
 }
 
-async fn get_peer_count(state: &ArcUiState) -> WhateverResult<usize> {
+async fn get_peer_set(
+    state: &ArcUiState,
+) -> WhateverResult<bfte_consensus_core::peer_set::PeerSet> {
     let module = state
         .modules
         .get_module(ModuleId::new(0))
@@ -31,7 +33,7 @@ async fn get_peer_count(state: &ArcUiState) -> WhateverResult<usize> {
         .downcast_ref::<ConsensusCtrlModule>()
         .whatever_context("ConsensusCtrl module of the wrong kind")?;
     let peer_set = consensus_module_ref.get_peer_set().await;
-    Ok(peer_set.len())
+    Ok(peer_set)
 }
 
 async fn get_peer_pubkey(state: &ArcUiState) -> WhateverResult<String> {
@@ -53,7 +55,7 @@ async fn get_database_status(state: &ArcUiState) -> WhateverResult<(String, bool
 }
 
 pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
-    let peer_count = get_peer_count(&state).await.unwrap_or(0);
+    let peer_set = get_peer_set(&state).await.unwrap_or_default();
     let peer_pubkey = get_peer_pubkey(&state)
         .await
         .unwrap_or_else(|_| "Not available".to_string());
@@ -63,10 +65,10 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
 
     let content = html! {
         div {
-            h2 { "Consensus Status" }
+            h2 { "Overview" }
 
             section {
-                h3 { "Current Status" }
+                h3 { "Status" }
                 div
                     data-signals="{ round_and_timeout: '', finality_consensus: '', finality_self: '', node_app_ack: '' }"
                     data-on-load=(format!("@get('{}')", ROUTE_DS_CURRENT_ROUND)) {
@@ -90,8 +92,20 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
             }
 
             section {
+                h3 { "Peers" }
+                @if peer_set.is_empty() {
+                    p { "No peers connected." }
+                } @else {
+                    ul {
+                        @for peer in &peer_set {
+                            li { (format!("{peer}")) }
+                        }
+                    }
+                }
+            }
+
+            section {
                 h3 { "Node Information" }
-                p { "Number of peers: " (peer_count) }
                 p {
                     "Own peer public key: "
                     code style="word-break: break-all;" { (peer_pubkey) }
@@ -110,7 +124,7 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
     };
     Ok(Maud(
         state
-            .render_html_page(Some(NavbarSelector::Consensus), "Consensus Status", content)
+            .render_html_page(Some(NavbarSelector::General), "Consensus Status", content)
             .await,
     ))
 }

@@ -38,7 +38,7 @@ pub async fn get(state: State<ArcUiState>) -> RequestResult<impl IntoResponse> {
 
     Ok(Maud(
         state
-            .render_html_page(Some(NavbarSelector::Consensus), "Invite Code", content)
+            .render_html_page(Some(NavbarSelector::General), "Invite Code", content)
             .await,
     ))
 }
