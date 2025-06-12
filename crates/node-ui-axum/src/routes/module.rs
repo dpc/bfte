@@ -1,4 +1,4 @@
-mod app_consensus;
+mod consensus_ctrl;
 mod meta;
 
 use std::any::Any;
@@ -10,7 +10,7 @@ use axum::response::{IntoResponse, Redirect};
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::ver::{ConsensusVersion, ConsensusVersionMajor, ConsensusVersionMinor};
-use bfte_module_app_consensus::AppConsensusModule;
+use bfte_module_consensus_ctrl::ConsensusCtrlModule;
 use bfte_module_meta::MetaModule;
 use bfte_util_error::fmt::FmtCompact as _;
 use maud::{Markup, html};
@@ -145,9 +145,9 @@ pub async fn post_add_peer_vote(
         return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
     };
 
-    if module.config.kind == bfte_module_app_consensus::KIND {
+    if module.config.kind == bfte_module_consensus_ctrl::KIND {
         let Some(consensus_module_ref) =
-            (module.inner.as_ref() as &dyn Any).downcast_ref::<AppConsensusModule>()
+            (module.inner.as_ref() as &dyn Any).downcast_ref::<ConsensusCtrlModule>()
         else {
             return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
         };
@@ -171,9 +171,9 @@ pub async fn post_remove_peer_vote(
         return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
     };
 
-    if module.config.kind == bfte_module_app_consensus::KIND {
+    if module.config.kind == bfte_module_consensus_ctrl::KIND {
         let Some(consensus_module_ref) =
-            (module.inner.as_ref() as &dyn Any).downcast_ref::<AppConsensusModule>()
+            (module.inner.as_ref() as &dyn Any).downcast_ref::<ConsensusCtrlModule>()
         else {
             return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
         };
@@ -198,9 +198,9 @@ pub async fn post_add_module_vote(
         return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
     };
 
-    if module.config.kind == bfte_module_app_consensus::KIND {
+    if module.config.kind == bfte_module_consensus_ctrl::KIND {
         let Some(consensus_module_ref) =
-            (module.inner.as_ref() as &dyn Any).downcast_ref::<AppConsensusModule>()
+            (module.inner.as_ref() as &dyn Any).downcast_ref::<ConsensusCtrlModule>()
         else {
             return Ok(Redirect::to(&format!("/ui/module/{module_id}")).into_response());
         };
@@ -289,9 +289,9 @@ impl UiState {
         };
 
         match module.config.kind {
-            bfte_module_app_consensus::KIND => {
+            bfte_module_consensus_ctrl::KIND => {
                 let Some(consensus_module_ref) =
-                    (module.inner.as_ref() as &dyn Any).downcast_ref::<AppConsensusModule>()
+                    (module.inner.as_ref() as &dyn Any).downcast_ref::<ConsensusCtrlModule>()
                 else {
                     return html! { "Module instance is not a recognized consensus module" };
                 };

@@ -14,13 +14,13 @@ use snafu::ensure;
 use tokio::sync::watch;
 use tracing::debug;
 
-use super::AppConsensusModule;
+use super::ConsensusCtrlModule;
 use crate::tables::{self, modules_configs};
 use crate::{CURRENT_VERSION_MAJOR, CURRENT_VERSION_MINOR, KIND, LOG_TARGET};
 
-pub struct AppConsensusModuleInit;
+pub struct ConsensusCtrlModuleInit;
 
-impl AppConsensusModuleInit {
+impl ConsensusCtrlModuleInit {
     pub fn is_bootstrapped(&self, dbtx: &ModuleWriteTransactionCtx) -> DbResult<bool> {
         let tbl = dbtx.open_table(&tables::self_version::TABLE)?;
 
@@ -43,7 +43,7 @@ impl AppConsensusModuleInit {
             version,
         };
 
-        debug!(target: LOG_TARGET, %version, "Bootstrapping consensus with initial AppConsensus module");
+        debug!(target: LOG_TARGET, %version, "Bootstrapping consensus with initial ConsensusCtrl module");
 
         {
             let mut tbl = dbtx.open_table(&tables::self_version::TABLE)?;
@@ -65,11 +65,11 @@ impl AppConsensusModuleInit {
         Ok(config)
     }
 
-    /// Get modules configs without creating an instance of `AppConsensus`
+    /// Get modules configs without creating an instance of `ConsensusCtrl`
     /// itself
     ///
     /// This is useful on start, as `node-app` can't create an instance of
-    /// `AppConsensus` without knowing its config first.
+    /// `ConsensusCtrl` without knowing its config first.
     pub fn get_modules_configs_dbtx(
         &self,
         dbtx: &ModuleWriteTransactionCtx<'_>,
@@ -95,7 +95,7 @@ impl AppConsensusModuleInit {
 }
 
 #[async_trait]
-impl IModuleInit for AppConsensusModuleInit {
+impl IModuleInit for ConsensusCtrlModuleInit {
     fn kind(&self) -> ModuleKind {
         crate::KIND
     }
@@ -105,7 +105,7 @@ impl IModuleInit for AppConsensusModuleInit {
     }
 
     fn display_name(&self) -> &'static str {
-        "App Consensus"
+        "Consensus Ctrl"
     }
 
     /// All major consensus version supported by the module, with latest
@@ -137,10 +137,10 @@ impl IModuleInit for AppConsensusModuleInit {
         let (propose_citems_tx, propose_citems_rx) = watch::channel(Vec::new());
 
         args.db
-            .write_with_expect(AppConsensusModule::init_db_tx)
+            .write_with_expect(ConsensusCtrlModule::init_db_tx)
             .await;
 
-        let module = AppConsensusModule {
+        let module = ConsensusCtrlModule {
             db: args.db,
             version: args.module_consensus_version,
             peer_pubkey: args.peer_pubkey,

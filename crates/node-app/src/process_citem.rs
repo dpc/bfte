@@ -8,7 +8,7 @@ use bfte_db::ctx::WriteTransactionCtx;
 use bfte_db::error::{DbResult, TxSnafu};
 use bfte_module::effect::{EffectKind as _, EffectKindExt as _, ModuleCItemEffect};
 use bfte_module::module::db::ModuleWriteTransactionCtx;
-use bfte_module_app_consensus::effects::ConsensusParamsChange;
+use bfte_module_consensus_ctrl::effects::ConsensusParamsChange;
 use bfte_util_error::Whatever;
 use bfte_util_error::fmt::FmtCompact as _;
 use snafu::{IntoError as _, OptionExt as _, ResultExt as _, Snafu};
@@ -223,7 +223,7 @@ impl NodeApp {
     ) -> DbResult<()> {
         for effect in effects {
             // Only process effects from our own module
-            if effect.module_kind() != bfte_module_app_consensus::KIND {
+            if effect.module_kind() != bfte_module_consensus_ctrl::KIND {
                 continue;
             }
 

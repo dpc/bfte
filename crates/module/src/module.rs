@@ -35,7 +35,7 @@ pub struct ModuleInitArgs {
     pub db: ModuleDatabase,
     pub module_consensus_version: ConsensusVersion,
     pub peer_pubkey: Option<PeerPubkey>,
-    /// Only AppConsensus module should use this
+    /// Only ConsensusCtrl module should use this
     #[doc(hidden)]
     pub modules_inits: BTreeMap<ModuleKind, DynModuleInit>,
 }

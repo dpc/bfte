@@ -14,7 +14,7 @@ axum-extra = { workspace = true, features = ["typed-header"] }
 bfte-consensus-core = { workspace = true }
 bfte-invite = { workspace = true }
 bfte-module = { workspace = true }
-bfte-module-app-consensus = { workspace = true }
+bfte-module-consensus-ctrl = { workspace = true }
 bfte-module-meta = { workspace = true }
 bfte-node-shared-modules = { workspace = true }
 bfte-node-ui = { workspace = true }

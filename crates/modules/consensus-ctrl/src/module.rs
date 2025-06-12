@@ -21,13 +21,13 @@ use snafu::{OptionExt as _, ResultExt as _, whatever};
 use tokio::sync::watch;
 use tracing::debug;
 
-use crate::citem::AppConsensusCitem;
+use crate::citem::ConsensusCtrlCitem;
 use crate::effects::{
     AddModuleEffect, AddPeerEffect, ConsensusParamsChange, ModuleVersionUpgrade, RemovePeerEffect,
 };
 use crate::{LOG_TARGET, tables};
 
-pub struct AppConsensusModule {
+pub struct ConsensusCtrlModule {
     #[allow(dead_code)]
     pub(crate) version: ConsensusVersion,
     pub(crate) db: ModuleDatabase,
@@ -37,7 +37,7 @@ pub struct AppConsensusModule {
     pub(crate) modules_inits: BTreeMap<ModuleKind, DynModuleInit>,
 }
 
-impl AppConsensusModule {
+impl ConsensusCtrlModule {
     pub(crate) async fn get_module_configs_static(
         db: &ModuleDatabase,
     ) -> BTreeMap<ModuleId, ModuleConfig> {
@@ -275,7 +275,7 @@ impl AppConsensusModule {
                 };
 
                 if current_vote != Some(pending_peer) {
-                    let citem = AppConsensusCitem::VoteAddPeer(pending_peer);
+                    let citem = ConsensusCtrlCitem::VoteAddPeer(pending_peer);
                     proposals.push(citem.encode_to_raw());
                 }
             }
@@ -294,7 +294,7 @@ impl AppConsensusModule {
                 };
 
                 if current_vote != Some(pending_peer) {
-                    let citem = AppConsensusCitem::VoteRemovePeer(pending_peer);
+                    let citem = ConsensusCtrlCitem::VoteRemovePeer(pending_peer);
                     proposals.push(citem.encode_to_raw());
                 }
             }
@@ -347,7 +347,7 @@ impl AppConsensusModule {
                 };
 
                 if should_propose {
-                    let citem = AppConsensusCitem::VoteAddModule {
+                    let citem = ConsensusCtrlCitem::VoteAddModule {
                         module_kind: pending_module_kind,
                         consensus_version: pending_consensus_version,
                     };
@@ -372,7 +372,7 @@ impl AppConsensusModule {
                     .map(|v| v.value().minor());
 
                 if current_vote != Some(pending_minor_version) {
-                    let citem = AppConsensusCitem::VoteModuleVersion {
+                    let citem = ConsensusCtrlCitem::VoteModuleVersion {
                         module_id,
                         minor_consensus_version: pending_minor_version,
                     };
@@ -873,7 +873,7 @@ impl AppConsensusModule {
 }
 
 #[async_trait]
-impl IModule for AppConsensusModule {
+impl IModule for ConsensusCtrlModule {
     async fn propose_citems_rx(&self) -> watch::Receiver<Vec<CItemRaw>> {
         self.refresh_consensus_proposals().await;
         self.propose_citems_rx.clone()
@@ -888,18 +888,18 @@ impl IModule for AppConsensusModule {
         citem: &CItemRaw,
     ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
         assert!(peer_set.contains(&peer_pubkey));
-        let citem = AppConsensusCitem::decode_from_raw(citem).context(TxSnafu)?;
+        let citem = ConsensusCtrlCitem::decode_from_raw(citem).context(TxSnafu)?;
 
         debug!(target: LOG_TARGET, ?citem, %peer_pubkey, "Processing consensus item");
 
         let res = match citem {
-            AppConsensusCitem::VoteAddPeer(peer_to_add) => {
+            ConsensusCtrlCitem::VoteAddPeer(peer_to_add) => {
                 self.process_citem_vote_add_peer(dbtx, peer_pubkey, peer_set, peer_to_add)
             }
-            AppConsensusCitem::VoteRemovePeer(peer_to_remove) => {
+            ConsensusCtrlCitem::VoteRemovePeer(peer_to_remove) => {
                 self.process_citem_vote_remove_peer(dbtx, peer_pubkey, peer_set, peer_to_remove)
             }
-            AppConsensusCitem::VoteAddModule {
+            ConsensusCtrlCitem::VoteAddModule {
                 module_kind,
                 consensus_version,
             } => self.process_citem_vote_add_module(
@@ -909,7 +909,7 @@ impl IModule for AppConsensusModule {
                 module_kind,
                 consensus_version,
             ),
-            AppConsensusCitem::VoteModuleVersion {
+            ConsensusCtrlCitem::VoteModuleVersion {
                 module_id,
                 minor_consensus_version,
             } => self.process_citem_vote_module_version(

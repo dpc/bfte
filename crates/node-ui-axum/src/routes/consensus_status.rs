@@ -4,7 +4,7 @@ use async_stream::stream;
 use axum::extract::State;
 use axum::response::{IntoResponse, Redirect};
 use bfte_consensus_core::module::ModuleId;
-use bfte_module_app_consensus::AppConsensusModule;
+use bfte_module_consensus_ctrl::ConsensusCtrlModule;
 use bfte_util_error::WhateverResult;
 use datastar::Sse;
 use datastar::prelude::MergeSignals;
@@ -26,10 +26,10 @@ async fn get_peer_count(state: &ArcUiState) -> WhateverResult<usize> {
         .modules
         .get_module(ModuleId::new(0))
         .await
-        .whatever_context("Missing AppConsensus module")?;
+        .whatever_context("Missing ConsensusCtrl module")?;
     let consensus_module_ref = (module.as_ref() as &dyn Any)
-        .downcast_ref::<AppConsensusModule>()
-        .whatever_context("AppConsensus module of the wrong kind")?;
+        .downcast_ref::<ConsensusCtrlModule>()
+        .whatever_context("ConsensusCtrl module of the wrong kind")?;
     let peer_set = consensus_module_ref.get_peer_set().await;
     Ok(peer_set.len())
 }

@@ -1,5 +1,5 @@
 [package]
-name = "bfte-module-app-consensus"
+name = "bfte-module-consensus-ctrl"
 
 edition.workspace = true
 version.workspace = true

@@ -14,7 +14,7 @@ use bfte_module::module::IModule;
 use bfte_module::module::db::{
     DbResult, DbTxResult, ModuleDatabase, ModuleReadableTransaction, ModuleWriteTransactionCtx,
 };
-use bfte_module_app_consensus::effects::RemovePeerEffect;
+use bfte_module_consensus_ctrl::effects::RemovePeerEffect;
 use bfte_util_db::redb_bincode::ReadableTable as _;
 use bfte_util_error::{Whatever, WhateverResult};
 use convi::CastFrom as _;
@@ -388,8 +388,8 @@ impl IModule for MetaModule {
         effects: &[ModuleCItemEffect],
     ) -> DbTxResult<(), Whatever> {
         for effect in effects {
-            // Only process effects from the app-consensus module (peer management)
-            if effect.module_kind() != bfte_module_app_consensus::KIND {
+            // Only process effects from the consensus-ctrl module (peer management)
+            if effect.module_kind() != bfte_module_consensus_ctrl::KIND {
                 continue;
             }
 

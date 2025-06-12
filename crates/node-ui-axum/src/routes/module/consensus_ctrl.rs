@@ -8,7 +8,7 @@ use crate::UiState;
 
 fn get_module_kind_name(kind: ModuleKind) -> Option<&'static str> {
     match kind {
-        k if k == bfte_module_app_consensus::KIND => Some("App Consensus"),
+        k if k == bfte_module_consensus_ctrl::KIND => Some("Consensus Control"),
         k if k == bfte_module_meta::KIND => Some("Meta"),
         _ => None,
     }
@@ -18,7 +18,7 @@ impl UiState {
     pub(crate) async fn render_consensus_module_page(
         &self,
         module_id: bfte_consensus_core::module::ModuleId,
-        consensus_module_ref: &bfte_module_app_consensus::AppConsensusModule,
+        consensus_module_ref: &bfte_module_consensus_ctrl::ConsensusCtrlModule,
     ) -> maud::PreEscaped<String> {
         let module_configs = consensus_module_ref.get_modules_configs().await;
         let peer_set = consensus_module_ref.get_peer_set().await;
@@ -27,7 +27,7 @@ impl UiState {
         let add_module_votes = consensus_module_ref.get_add_module_votes().await;
         html! {
             header {
-                h1 { "App Consensus" }
+                h1 { "Consensus Ctrl" }
             }
 
             h2 { "Membership" }

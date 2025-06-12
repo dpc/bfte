@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use snafu::ResultExt as _;
 
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
-pub enum AppConsensusCitem {
+pub enum ConsensusCtrlCitem {
     VoteAddPeer(PeerPubkey),
     VoteRemovePeer(PeerPubkey),
     VoteAddModule {
@@ -23,7 +23,7 @@ pub enum AppConsensusCitem {
     },
 }
 
-impl AppConsensusCitem {
+impl ConsensusCtrlCitem {
     pub fn encode_to_raw(&self) -> CItemRaw {
         let serialized = bincode::encode_to_vec(self, CONSENSUS_BINCODE_CONFIG)
             .expect("encoding should not fail");

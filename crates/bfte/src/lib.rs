@@ -33,10 +33,12 @@ impl Bfte {
     ) -> WhateverResult<()> {
         let _ = modules_inits
             .insert(
-                bfte_module_app_consensus::KIND,
-                Arc::new(bfte_module_app_consensus::init::AppConsensusModuleInit),
+                bfte_module_consensus_ctrl::KIND,
+                Arc::new(bfte_module_consensus_ctrl::init::ConsensusCtrlModuleInit),
             )
-            .is_none_or(|_| panic!("Bfte has a redundant AppConsensusModuleInit already inserted"));
+            .is_none_or(|_| {
+                panic!("Bfte has a redundant ConsensusCtrlModuleInit already inserted")
+            });
 
         logging::init_logging()?;
 
@@ -71,9 +73,9 @@ impl Bfte {
             None
         };
 
-        let app_consensus_module_init_consensus_version = modules_inits
-            .get(&bfte_module_app_consensus::KIND)
-            .expect("Must have AppConsensusModuleInit")
+        let consensus_ctrl_module_init_consensus_version = modules_inits
+            .get(&bfte_module_consensus_ctrl::KIND)
+            .expect("Must have ConsensusCtrlModuleInit")
             .latest_version();
         let db = match opts.command {
             Commands::GenSecret => {
@@ -119,7 +121,7 @@ impl Bfte {
                     secret
                         .whatever_context("Secret must be provided to create a new federation")?,
                     extra_peers,
-                    app_consensus_module_init_consensus_version,
+                    consensus_ctrl_module_init_consensus_version,
                 )
                 .await
                 .whatever_context("Failed to create consensus")?;
@@ -142,8 +144,8 @@ impl Bfte {
             .maybe_root_secret(secret)
             .maybe_force_ui_password(opts.force_ui_password)
             .db(db)
-            .app_consensus_module_init_consensus_version(
-                app_consensus_module_init_consensus_version,
+            .consensus_ctrl_module_init_consensus_version(
+                consensus_ctrl_module_init_consensus_version,
             )
             .ui(Box::new({
                 let modules_inits = modules_inits.clone();

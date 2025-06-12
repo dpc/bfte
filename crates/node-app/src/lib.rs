@@ -25,7 +25,7 @@ use bfte_db::Database;
 use bfte_module::module::config::ModuleConfig;
 use bfte_module::module::db::ModuleWriteTransactionCtx;
 use bfte_module::module::{DynModuleInit, DynModuleWithConfig, IModuleInit, ModuleInitArgs};
-use bfte_module_app_consensus::{AppConsensusModule, AppConsensusModuleInit};
+use bfte_module_consensus_ctrl::{ConsensusCtrlModule, ConsensusCtrlModuleInit};
 use bfte_node_app_core::NodeAppApi;
 use bfte_node_shared_modules::SharedModules;
 use bfte_util_error::WhateverResult;
@@ -35,7 +35,7 @@ use tokio::sync::{RwLockWriteGuard, watch};
 use tracing::{debug, info};
 
 /// Consensus module is auto-initialized and always there at a fixed id
-const APP_CONSENSUS_MODULE_ID: ModuleId = ModuleId::new(0);
+const CONSENSUS_CTRL_MODULE_ID: ModuleId = ModuleId::new(0);
 const LOG_TARGET: &str = "bfte::app";
 
 pub type ModulesInits = BTreeMap<ModuleKind, DynModuleInit>;
@@ -80,8 +80,8 @@ impl NodeApp {
         pending_transactions_tx: watch::Sender<Vec<Transaction>>,
     ) -> Self {
         assert!(
-            modules_inits.contains_key(&bfte_module_app_consensus::KIND),
-            "modules_inits must have AppConsensusModuleInit"
+            modules_inits.contains_key(&bfte_module_consensus_ctrl::KIND),
+            "modules_inits must have ConsensusCtrlModuleInit"
         );
         let peer_pubkey = node_api.get_peer_pubkey().await;
         let consensus = node_api.get_consensus().await;
@@ -111,12 +111,6 @@ impl NodeApp {
 
             consensus_params.peers
         } else {
-            info!(
-               target: LOG_TARGET,
-               round = %cur_round_idx.0,
-               citem_idx = %cur_round_idx.1,
-               "Started node app consensus"
-            );
             self.setup_modules().await?;
             self.db
                 .read_with_expect(|dbtx| {
@@ -130,6 +124,12 @@ impl NodeApp {
         };
 
         self.record_modules_versions().await;
+        info!(
+           target: LOG_TARGET,
+           round = %cur_round_idx.0,
+           citem_idx = %cur_round_idx.1,
+           "Started node app"
+        );
 
         loop {
             // Reload modules in case of any changes
@@ -172,16 +172,16 @@ impl NodeApp {
         }
     }
 
-    fn get_app_consensus_module<'s>(
+    fn get_consensus_ctrl_module<'s>(
         &'s self,
         modules: &'s impl ops::Deref<Target = BTreeMap<ModuleId, DynModuleWithConfig>>,
-    ) -> &'s AppConsensusModule {
+    ) -> &'s ConsensusCtrlModule {
         let consensus_module = modules
-            .get(&APP_CONSENSUS_MODULE_ID)
+            .get(&CONSENSUS_CTRL_MODULE_ID)
             .expect("Must have a app consensus module");
 
         (consensus_module.inner.as_ref() as &dyn Any)
-            .downcast_ref::<AppConsensusModule>()
+            .downcast_ref::<ConsensusCtrlModule>()
             .expect("Must be a core consensus module")
     }
 
@@ -194,31 +194,31 @@ impl NodeApp {
         assert!(modules_write.is_empty());
         let consensus_module_init = self
             .modules_inits
-            .get(&AppConsensusModuleInit.kind())
+            .get(&ConsensusCtrlModuleInit.kind())
             .whatever_context("Missing module init for consensus module kind")?;
         let consensus_module_init = (consensus_module_init.as_ref() as &dyn Any)
-            .downcast_ref::<AppConsensusModuleInit>()
+            .downcast_ref::<ConsensusCtrlModuleInit>()
             .expect("Must be a consensus module");
 
         let new_modules_configs = self
             .db
             .write_with_expect(|dbtx| {
-                let dbtx = &ModuleWriteTransactionCtx::new(APP_CONSENSUS_MODULE_ID, dbtx);
+                let dbtx = &ModuleWriteTransactionCtx::new(CONSENSUS_CTRL_MODULE_ID, dbtx);
                 if consensus_module_init.is_bootstrapped(dbtx)? {
-                    debug!(target: LOG_TARGET, "AppConsensus already bootstrapped");
+                    debug!(target: LOG_TARGET, "ConsensusCtrl already bootstrapped");
                     consensus_module_init.get_modules_configs_dbtx(dbtx)
                 } else {
-                    debug!(target: LOG_TARGET, "Bootstrapping AppConsensus from `consensus_params`");
+                    debug!(target: LOG_TARGET, "Bootstrapping ConsensusCtrl from `consensus_params`");
                     let default_config = consensus_module_init.bootstrap_consensus(
                         dbtx,
-                        APP_CONSENSUS_MODULE_ID,
+                        CONSENSUS_CTRL_MODULE_ID,
                         consensus_params.init_core_module_cons_version,
                         consensus_params.peers.clone(),
                     )?;
 
                     dbtx.open_table(&tables::app_cur_peer_set::TABLE)?.insert(&(), &consensus_params.peers)?;
 
-                    Ok(BTreeMap::from([(APP_CONSENSUS_MODULE_ID, default_config)]))
+                    Ok(BTreeMap::from([(CONSENSUS_CTRL_MODULE_ID, default_config)]))
                 }
             })
             .await;
@@ -243,8 +243,8 @@ impl NodeApp {
     async fn setup_modules(&mut self) -> WhateverResult<()> {
         let modules_write = self.modules.write().await;
 
-        let new_modules_configs = if modules_write.contains_key(&APP_CONSENSUS_MODULE_ID) {
-            self.get_app_consensus_module(&modules_write)
+        let new_modules_configs = if modules_write.contains_key(&CONSENSUS_CTRL_MODULE_ID) {
+            self.get_consensus_ctrl_module(&modules_write)
                 .get_modules_configs()
                 .await
         } else {
@@ -252,14 +252,14 @@ impl NodeApp {
             // we use special function on the init.
             let consensus_module_init = self
                 .modules_inits
-                .get(&AppConsensusModuleInit.kind())
+                .get(&ConsensusCtrlModuleInit.kind())
                 .whatever_context("Missing module init for consensus module kind")?;
             let consensus_module_init = (consensus_module_init.as_ref() as &dyn Any)
-                .downcast_ref::<AppConsensusModuleInit>()
+                .downcast_ref::<ConsensusCtrlModuleInit>()
                 .expect("Must be a consensus module");
             self.db
                 .write_with_expect(|dbtx| {
-                    let dbtx = &ModuleWriteTransactionCtx::new(APP_CONSENSUS_MODULE_ID, dbtx);
+                    let dbtx = &ModuleWriteTransactionCtx::new(CONSENSUS_CTRL_MODULE_ID, dbtx);
                     consensus_module_init.get_modules_configs_dbtx(dbtx)
                 })
                 .await
@@ -287,8 +287,8 @@ impl NodeApp {
         }
 
         let modules_read = self.modules.read().await;
-        let app_consensus = self.get_app_consensus_module(&modules_read);
-        app_consensus
+        let consensus_ctrl = self.get_consensus_ctrl_module(&modules_read);
+        consensus_ctrl
             .record_module_init_versions(&modules_supported_versions)
             .await;
     }

@@ -438,7 +438,7 @@ dependencies = [
  "bfte-derive-secret",
  "bfte-invite",
  "bfte-module",
- "bfte-module-app-consensus",
+ "bfte-module-consensus-ctrl",
  "bfte-module-meta",
  "bfte-node",
  "bfte-node-app",
@@ -586,7 +586,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "bfte-module-app-consensus"
+name = "bfte-module-consensus-ctrl"
 version = "0.1.0"
 dependencies = [
  "async-trait",
@@ -611,7 +611,7 @@ dependencies = [
  "bfte-consensus-core",
  "bfte-db",
  "bfte-module",
- "bfte-module-app-consensus",
+ "bfte-module-consensus-ctrl",
  "bfte-util-bincode",
  "bfte-util-db",
  "bfte-util-error",
@@ -667,7 +667,7 @@ dependencies = [
  "bfte-consensus-core",
  "bfte-db",
  "bfte-module",
- "bfte-module-app-consensus",
+ "bfte-module-consensus-ctrl",
  "bfte-node-app-core",
  "bfte-node-shared-modules",
  "bfte-util-db",
@@ -741,7 +741,7 @@ dependencies = [
  "bfte-consensus-core",
  "bfte-invite",
  "bfte-module",
- "bfte-module-app-consensus",
+ "bfte-module-consensus-ctrl",
  "bfte-module-meta",
  "bfte-node-shared-modules",
  "bfte-node-ui",

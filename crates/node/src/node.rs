@@ -96,7 +96,7 @@ pub struct Node {
     /// It is so specific, because Node can initialize consensus on the UI
     /// demand, but other than this piece of data, it doesn't need to know
     /// anything about modules.
-    app_consensus_module_init_consensus_version: ConsensusVersion,
+    consensus_ctrl_module_init_consensus_version: ConsensusVersion,
 }
 
 #[derive(Debug, Snafu)]
@@ -147,7 +147,7 @@ impl Node {
     pub async fn new(
         root_secret: Option<DeriveableSecret>,
         db: Arc<Database>,
-        app_consensus_module_init_consensus_version: ConsensusVersion,
+        consensus_ctrl_module_init_consensus_version: ConsensusVersion,
         ui: Option<RunUiFn>,
         app: Option<RunNodeAppFn>,
         force_ui_password: Option<String>,
@@ -231,7 +231,7 @@ impl Node {
                 node_app_ack_rx,
                 node_app_ack_tx,
                 pending_transactions_rx,
-                app_consensus_module_init_consensus_version,
+                consensus_ctrl_module_init_consensus_version,
             };
 
             if let Some(consensus) = consensus {
@@ -326,7 +326,7 @@ impl Node {
             self.db().clone(),
             root_secret,
             extra_peers,
-            self.app_consensus_module_init_consensus_version,
+            self.consensus_ctrl_module_init_consensus_version,
         )
         .await?;
 

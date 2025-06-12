@@ -560,11 +560,11 @@ impl Node {
 
                 // If there are any pending transactions, we break.
                 _res = pending_transactions_rx.changed() => {
-                    debug!(target: LOG_TARGET, "Got pending transactions from node-app");
                     if _res.is_err() {
                         // If we're shutting down, just sleep and get dropped
                         future::pending().await
                     }
+                    debug!(target: LOG_TARGET, "Got pending transactions from node-app");
 
                     if !pending_transactions_rx.borrow().is_empty() {
                         break;
