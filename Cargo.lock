@@ -593,6 +593,7 @@ dependencies = [
  "bfte-consensus-core",
  "bfte-db",
  "bfte-module",
+ "bfte-module-consensus-ctrl-effects",
  "bfte-util-bincode",
  "bfte-util-db",
  "bfte-util-error",
@@ -604,6 +605,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "bfte-module-consensus-ctrl-effects"
+version = "0.1.0"
+dependencies = [
+ "bfte-consensus-core",
+ "bfte-module",
+ "bincode",
+ "serde",
+]
+
+[[package]]
 name = "bfte-module-meta"
 version = "0.1.0"
 dependencies = [
@@ -612,6 +623,7 @@ dependencies = [
  "bfte-db",
  "bfte-module",
  "bfte-module-consensus-ctrl",
+ "bfte-module-meta-effects",
  "bfte-util-bincode",
  "bfte-util-db",
  "bfte-util-error",
@@ -620,6 +632,16 @@ dependencies = [
  "serde",
  "snafu",
  "tokio",
+]
+
+[[package]]
+name = "bfte-module-meta-effects"
+version = "0.1.0"
+dependencies = [
+ "bfte-consensus-core",
+ "bfte-module",
+ "bincode",
+ "serde",
 ]
 
 [[package]]

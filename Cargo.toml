@@ -9,7 +9,9 @@ members = [
   "crates/invite",
   "crates/module",
   "crates/modules/consensus-ctrl",
+  "crates/modules/consensus-ctrl-effects",
   "crates/modules/meta",
+  "crates/modules/meta-effects",
   "crates/node",
   "crates/node-app",
   "crates/node-app-core",
@@ -57,7 +59,9 @@ bfte-derive-secret = { path = "./crates/derive-secret" }
 bfte-invite = { path = "./crates/invite" }
 bfte-module = { path = "./crates/module" }
 bfte-module-consensus-ctrl = { path = "./crates/modules/consensus-ctrl" }
+bfte-module-consensus-ctrl-effects = { path = "./crates/modules/consensus-ctrl-effects" }
 bfte-module-meta = { path = "./crates/modules/meta" }
+bfte-module-meta-effects = { path = "./crates/modules/meta-effects" }
 bfte-node = { path = "./crates/node" }
 bfte-node-app = { path = "./crates/node-app" }
 bfte-node-app-core = { path = "./crates/node-app-core" }
