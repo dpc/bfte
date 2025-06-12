@@ -5,7 +5,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use bfte_consensus_core::block::BlockRound;
+use bfte_consensus_core::block::{BlockHeader, BlockRound};
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_invite::Invite;
 use bfte_node_shared_modules::WeakSharedModules;
@@ -23,6 +23,14 @@ pub type RunUiFn = Box<
 >;
 
 pub type NodeUiApi = Arc<dyn INodeUiApi + Send + Sync + 'static>;
+
+#[derive(Debug, Clone)]
+pub struct ConsensusHistoryEntry {
+    pub round: BlockRound,
+    pub is_dummy: bool,
+    pub block_header: Option<BlockHeader>,
+    pub signatory_peers: Vec<PeerPubkey>,
+}
 
 /// The API `bfte-node` exposes to `bfte-node-ui`
 ///
@@ -45,4 +53,6 @@ pub trait INodeUiApi {
     fn get_peer_pubkey(&self) -> WhateverResult<Option<PeerPubkey>>;
     fn is_database_ephemeral(&self) -> WhateverResult<bool>;
     async fn generate_invite_code(&self) -> WhateverResult<Invite>;
+
+    async fn get_consensus_history(&self, limit: usize) -> WhateverResult<Vec<ConsensusHistoryEntry>>;
 }

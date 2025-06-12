@@ -296,4 +296,55 @@ impl Consensus {
 
         Ok(())
     }
+
+    /// Get consensus history entries for the last `limit` rounds
+    pub async fn get_consensus_history(&self, limit: usize) -> Vec<(BlockRound, Option<BlockHeader>, Vec<PeerPubkey>)> {
+        self.db
+            .read_with_expect(|ctx| {
+                let current_round = ctx.get_current_round()?;
+                let mut history = Vec::new();
+                
+                // Start from current round and go backwards
+                let start_round = if current_round.to_number() >= limit as u64 {
+                    BlockRound::from(current_round.to_number() - limit as u64 + 1)
+                } else {
+                    BlockRound::from(0)
+                };
+                
+                for round_num in start_round.to_number()..=current_round.to_number() {
+                    let round = BlockRound::from(round_num);
+                    
+                    // Check for notarized block
+                    if let Some(block_header) = ctx.get_notarized_block(round)? {
+                        // Get block votes
+                        let votes = ctx.get_votes_proposal(round)?;
+                        let consensus_params = ctx.get_consensus_params(round)?;
+                        let signatories: Vec<PeerPubkey> = votes.iter()
+                            .filter_map(|(peer_idx, _sig)| {
+                                let idx = peer_idx.as_usize();
+                                consensus_params.peers.as_slice().get(idx).copied()
+                            })
+                            .collect();
+                        history.push((round, Some(block_header), signatories));
+                    } else {
+                        // Check for dummy votes
+                        let dummy_votes = ctx.get_votes_dummy(round)?;
+                        let consensus_params = ctx.get_consensus_params(round)?;
+                        let signatories: Vec<PeerPubkey> = dummy_votes.iter()
+                            .filter_map(|(peer_idx, _sig)| {
+                                let idx = peer_idx.as_usize();
+                                consensus_params.peers.as_slice().get(idx).copied()
+                            })
+                            .collect();
+                        
+                        history.push((round, None, signatories));
+                    }
+                }
+                
+                // Reverse to show newest first
+                history.reverse();
+                Ok(history)
+            })
+            .await
+    }
 }

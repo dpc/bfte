@@ -7,7 +7,7 @@ use bfte_consensus_core::block::BlockRound;
 use bfte_consensus_core::peer::PeerPubkey;
 use bfte_invite::Invite;
 use bfte_node_shared_modules::WeakSharedModules;
-use bfte_node_ui::{INodeUiApi, RunUiFn};
+use bfte_node_ui::{ConsensusHistoryEntry, INodeUiApi, RunUiFn};
 use bfte_util_error::WhateverResult;
 use n0_future::task::AbortOnDropHandle;
 use snafu::{OptionExt as _, ResultExt as _};
@@ -110,6 +110,28 @@ impl INodeUiApi for NodeUiApi {
 
     async fn generate_invite_code(&self) -> WhateverResult<Invite> {
         self.node_ref()?.generate_invite_code().await
+    }
+
+    async fn get_consensus_history(&self, limit: usize) -> WhateverResult<Vec<ConsensusHistoryEntry>> {
+        let node_ref = self.node_ref()?;
+        let consensus_option = node_ref.consensus();
+        let consensus = consensus_option
+            .as_ref()
+            .whatever_context("Consensus not initialized")?;
+        
+        let history_data = consensus.get_consensus_history(limit).await;
+        
+        let history = history_data
+            .into_iter()
+            .map(|(round, block_header, signatory_peers)| ConsensusHistoryEntry {
+                round,
+                is_dummy: block_header.is_none(),
+                block_header,
+                signatory_peers,
+            })
+            .collect();
+        
+        Ok(history)
     }
 }
 

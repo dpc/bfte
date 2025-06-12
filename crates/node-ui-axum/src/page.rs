@@ -5,7 +5,7 @@ use crate::assets::{
     ROUTE_ALPINEAJAX_JS, ROUTE_ALPINEJS_JS, ROUTE_DATASTAR_JS, ROUTE_LOGO_PNG, ROUTE_PICO_CSS,
     ROUTE_STYLE_CSS,
 };
-use crate::{ROUTE_INVITE, ROUTE_UI, UiState};
+use crate::{ROUTE_EXPLORER, ROUTE_INVITE, ROUTE_UI, UiState};
 
 impl UiState {
     pub(crate) fn render_html_head(&self, page_title: &str) -> Markup {
@@ -87,6 +87,13 @@ impl UiState {
                                 li {
                                     a ."secondary" data-discover="true" href=(ROUTE_INVITE) { "Invite Code" }
                                 }
+                                li {
+                                    a ."secondary" 
+                                        data-discover="true" 
+                                        href=(ROUTE_EXPLORER)
+                                        aria-current=[active_nabvar.is_explorer().then_some("page")]
+                                    { "Explorer" }
+                                }
                             }
                         }
 
@@ -122,12 +129,16 @@ impl UiState {
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub(crate) enum NavbarSelector {
     General,
+    Explorer,
     Module(ModuleId),
 }
 
 impl NavbarSelector {
     fn is_general(self) -> bool {
         matches!(self, NavbarSelector::General)
+    }
+    fn is_explorer(self) -> bool {
+        matches!(self, NavbarSelector::Explorer)
     }
     fn is_module(self) -> bool {
         matches!(self, NavbarSelector::Module(_))

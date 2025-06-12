@@ -32,6 +32,7 @@ use tracing::info;
 
 const LOG_TARGET: &str = "bfte::node::ui";
 const ROUTE_UI: &str = "/ui";
+const ROUTE_EXPLORER: &str = "/ui/explorer";
 const ROUTE_LOGIN: &str = "/ui/login";
 const ROUTE_MODULE: &str = "/ui/module/{module-id}";
 const ROUTE_MODULE_ADD_PEER_VOTE: &str = "/ui/module/{module-id}/add_peer_vote";
