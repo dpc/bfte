@@ -38,6 +38,7 @@ const ROUTE_MODULE_ADD_PEER_VOTE: &str = "/ui/module/{module-id}/add_peer_vote";
 const ROUTE_MODULE_REMOVE_PEER_VOTE: &str = "/ui/module/{module-id}/remove_peer_vote";
 const ROUTE_MODULE_ADD_MODULE_VOTE: &str = "/ui/module/{module-id}/add_module_vote";
 const ROUTE_MODULE_META_KEY: &str = "/ui/module/{module-id}/meta_key/{key}";
+const ROUTE_MODULE_META_KEY_REDIRECT: &str = "/ui/module/{module-id}/meta_key_redirect";
 const ROUTE_MODULE_META_VOTE: &str = "/ui/module/{module-id}/meta_key/{key}/vote";
 const ROUTE_INIT_CONSENSUS: &str = "/ui/init";
 const ROUTE_INVITE: &str = "/ui/invite";

@@ -5,7 +5,7 @@ use std::any::Any;
 use std::sync::Arc;
 
 use axum::Form;
-use axum::extract::{Path, State};
+use axum::extract::{Path, Query, State};
 use axum::response::{IntoResponse, Redirect};
 use bfte_consensus_core::module::{ModuleId, ModuleKind};
 use bfte_consensus_core::peer::PeerPubkey;
@@ -133,6 +133,11 @@ impl<'de> Deserialize<'de> for MetaValue {
 #[derive(Deserialize)]
 pub struct MetaVoteForm {
     value: MetaValue,
+}
+
+#[derive(Deserialize)]
+pub struct MetaKeyRedirectForm {
+    key: u8,
 }
 
 #[axum::debug_handler]
@@ -280,6 +285,14 @@ pub async fn post_meta_vote(
     }
 
     Ok(Redirect::to(&format!("/ui/module/{module_id}/meta_key/{key}")).into_response())
+}
+
+#[axum::debug_handler]
+pub async fn get_meta_key_redirect(
+    Path(module_id): Path<ModuleId>,
+    Query(form): Query<MetaKeyRedirectForm>,
+) -> RequestResult<impl IntoResponse> {
+    Ok(Redirect::to(&format!("/ui/module/{module_id}/meta_key/{}", form.key)).into_response())
 }
 
 impl UiState {

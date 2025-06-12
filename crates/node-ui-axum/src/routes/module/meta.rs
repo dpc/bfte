@@ -51,15 +51,15 @@ impl UiState {
                 h2 { "Vote on Meta Keys" }
                 p { "Select a key to vote on:" }
 
-                ul {
-                    @for key in 0u8..=255u8 {
-                        li {
-                            a href=(format!("/ui/module/{}/meta_key/{}", module_id, key))
-                              class="button outline"
-                              style="margin: 2px;" {
-                                (format!("Key {}", key))
+                form method="get" action=(format!("/ui/module/{}/meta_key_redirect", module_id)) {
+                    fieldset {
+                        label for="key" { "Key:" }
+                        select name="key" id="key" required {
+                            @for key in 0u8..=255u8 {
+                                option value=(key) { (format!("Key {}", key)) }
                             }
                         }
+                        input type="submit" value="Go to Key";
                     }
                 }
             }
