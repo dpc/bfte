@@ -30,8 +30,9 @@ mod tests;
 
 use bfte_consensus_core::module::ModuleKind;
 use bfte_consensus_core::ver::{ConsensusVersionMajor, ConsensusVersionMinor};
+use bfte_module::kinds;
 
-pub const KIND: ModuleKind = ModuleKind::new(0);
+pub const KIND: ModuleKind = kinds::MODULE_KIND_CONSENSUS_CTRL;
 const CURRENT_VERSION_MAJOR: ConsensusVersionMajor = ConsensusVersionMajor::new(0);
 const CURRENT_VERSION_MINOR: ConsensusVersionMinor = ConsensusVersionMinor::new(1);
 

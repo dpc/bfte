@@ -2,10 +2,11 @@ use std::sync::Arc;
 
 use bfte_consensus_core::module::ModuleKind;
 use bfte_module::effect::{EffectId, EffectKind};
+use bfte_module::kinds::MODULE_KIND_META;
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-pub const KIND: ModuleKind = ModuleKind::new(1);
+pub const KIND: ModuleKind = MODULE_KIND_META;
 
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct KeyValueConsensusEffect {

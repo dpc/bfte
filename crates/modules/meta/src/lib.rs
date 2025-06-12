@@ -16,7 +16,8 @@ mod tables;
 
 use bfte_consensus_core::module::ModuleKind;
 use bfte_consensus_core::ver::{ConsensusVersionMajor, ConsensusVersionMinor};
+use bfte_module::kinds;
 
-pub const KIND: ModuleKind = ModuleKind::new(1);
+pub const KIND: ModuleKind = kinds::MODULE_KIND_META;
 const CURRENT_VERSION_MAJOR: ConsensusVersionMajor = ConsensusVersionMajor::new(0);
 const CURRENT_VERSION_MINOR: ConsensusVersionMinor = ConsensusVersionMinor::new(0);

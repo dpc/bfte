@@ -3,10 +3,11 @@ use bfte_consensus_core::peer::PeerPubkey;
 use bfte_consensus_core::peer_set::PeerSet;
 use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_module::effect::{EffectId, EffectKind};
+use bfte_module::kinds::MODULE_KIND_CONSENSUS_CTRL;
 use bincode::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 
-pub const KIND: ModuleKind = ModuleKind::new(0);
+pub const KIND: ModuleKind = MODULE_KIND_CONSENSUS_CTRL;
 
 #[derive(Debug, Clone, Encode, Decode, Serialize, Deserialize)]
 pub struct AddPeerEffect {
