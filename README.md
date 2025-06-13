@@ -68,6 +68,8 @@ Implemented:
 * consensus control module,
 * metadata module (first simple example module),
 
+![BFTE Web UI Screenshot](https://i.imgur.com/dboxXtC.png)
+
 ## Running
 
 BFTE is a standard Rust application. You can clone it and use `cargo` to build
