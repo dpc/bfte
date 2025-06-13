@@ -20,6 +20,8 @@ use bfte_consensus_core::module::ModuleKind;
 use bfte_consensus_core::ver::{ConsensusVersionMajor, ConsensusVersionMinor};
 use bfte_module::kinds;
 
+const LOG_TARGET: &str = "bfte::module::meta";
+
 pub const KIND: ModuleKind = kinds::MODULE_KIND_META;
 const CURRENT_VERSION_MAJOR: ConsensusVersionMajor = ConsensusVersionMajor::new(0);
 const CURRENT_VERSION_MINOR: ConsensusVersionMinor = ConsensusVersionMinor::new(0);

@@ -116,7 +116,9 @@ impl IModuleInit for ConsensusCtrlModuleInit {
         let (propose_citems_tx, propose_citems_rx) = watch::channel(Vec::new());
 
         args.db
-            .write_with_expect(ConsensusCtrlModule::init_db_tx)
+            .write_with_expect(|dbtx| {
+                ConsensusCtrlModule::init_db_tx(dbtx, args.module_consensus_version)
+            })
             .await;
 
         let module = ConsensusCtrlModule {

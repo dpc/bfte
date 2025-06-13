@@ -15,11 +15,11 @@ use bfte_module::module::db::{
     DbResult, DbTxResult, ModuleDatabase, ModuleReadableTransaction, ModuleWriteTransactionCtx,
 };
 use bfte_module::module::{DynModuleInit, IModule, ModuleSupportedConsensusVersions};
-use bfte_util_db::redb_bincode::ReadableTable as _;
+use bfte_util_db::redb_bincode::{AccessGuard, ReadableTable as _};
 use bfte_util_error::{Whatever, WhateverResult};
 use snafu::{OptionExt as _, ResultExt as _, whatever};
 use tokio::sync::watch;
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::citem::ConsensusCtrlCitem;
 use crate::effects::{
@@ -827,7 +827,10 @@ impl ConsensusCtrlModule {
         Ok(effects)
     }
 
-    pub(crate) fn init_db_tx(dbtx: &ModuleWriteTransactionCtx) -> DbResult<()> {
+    pub(crate) fn init_db_tx(
+        dbtx: &ModuleWriteTransactionCtx,
+        new_version: ConsensusVersion,
+    ) -> DbResult<()> {
         dbtx.open_table(&tables::modules_configs::TABLE)?;
         dbtx.open_table(&tables::peers::TABLE)?;
         dbtx.open_table(&tables::add_peer_votes::TABLE)?;
@@ -838,6 +841,19 @@ impl ConsensusCtrlModule {
         dbtx.open_table(&tables::pending_add_module_vote::TABLE)?;
         dbtx.open_table(&tables::modules_versions_votes::TABLE)?;
         dbtx.open_table(&tables::pending_modules_versions_votes::TABLE)?;
+
+        {
+            let mut tbl = dbtx.open_table(&tables::self_version::TABLE)?;
+
+            if let Some(prev_version) = tbl.get(&())?.map(|v| v.value()) {
+                if prev_version != new_version {
+                    info!(target: LOG_TARGET, %prev_version, %new_version, "Version upgrade");
+                    // Potential db migrations go here
+                }
+            }
+            tbl.insert(&(), &new_version)?;
+        }
+
         Ok(())
     }
 

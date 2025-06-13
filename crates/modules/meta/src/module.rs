@@ -20,10 +20,11 @@ use bfte_util_error::{Whatever, WhateverResult};
 use convi::CastFrom as _;
 use snafu::{OptionExt as _, ResultExt as _};
 use tokio::sync::watch;
+use tracing::info;
 
 use crate::citem::MetaCitem;
 use crate::effects::KeyValueConsensusEffect;
-use crate::tables;
+use crate::{LOG_TARGET, tables};
 
 pub struct MetaModule {
     #[allow(dead_code)]
@@ -51,10 +52,25 @@ impl MetaModule {
         }
     }
 
-    pub(crate) fn init_db_tx(dbtx: &ModuleWriteTransactionCtx) -> DbResult<()> {
+    pub(crate) fn init_db_tx(
+        dbtx: &ModuleWriteTransactionCtx,
+        new_version: ConsensusVersion,
+    ) -> DbResult<()> {
         dbtx.open_table(&tables::consensus_values::TABLE)?;
         dbtx.open_table(&tables::key_value_votes::TABLE)?;
         dbtx.open_table(&tables::pending_proposals::TABLE)?;
+
+        {
+            let mut tbl = dbtx.open_table(&tables::self_version::TABLE)?;
+
+            if let Some(prev_version) = tbl.get(&())?.map(|v| v.value()) {
+                if prev_version != new_version {
+                    info!(target: LOG_TARGET, %prev_version, %new_version, "Version upgrade");
+                    // Potential db migrations go here
+                }
+            }
+            tbl.insert(&(), &new_version)?;
+        }
         Ok(())
     }
     /// Get current agreed consensus values

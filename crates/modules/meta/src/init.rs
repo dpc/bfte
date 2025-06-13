@@ -60,7 +60,9 @@ impl IModuleInit for MetaModuleInit {
             });
         }
 
-        args.db.write_with_expect(MetaModule::init_db_tx).await;
+        args.db
+            .write_with_expect(|dbtx| MetaModule::init_db_tx(dbtx, args.module_consensus_version))
+            .await;
 
         let module = MetaModule::new(args.module_consensus_version, args.db, args.peer_pubkey);
 

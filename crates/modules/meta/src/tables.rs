@@ -1,7 +1,16 @@
 use std::sync::Arc;
 
 use bfte_consensus_core::peer::PeerPubkey;
+use bfte_consensus_core::ver::ConsensusVersion;
 use bfte_util_db::def_table;
+
+def_table! {
+    /// Own current consensus version
+    ///
+    /// This is used to detect version change, for the purpose
+    /// of database migration.
+    self_version: () => ConsensusVersion
+}
 
 def_table! {
     /// Tracks votes for key-value pairs

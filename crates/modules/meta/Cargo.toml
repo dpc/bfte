@@ -19,3 +19,4 @@ convi = { workspace = true, features = ["min_target_pointer_width_32"] }
 serde = { workspace = true }
 snafu = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
