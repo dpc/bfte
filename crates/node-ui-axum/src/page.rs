@@ -88,8 +88,8 @@ impl UiState {
                                     a ."secondary" data-discover="true" href=(ROUTE_INVITE) { "Invite Code" }
                                 }
                                 li {
-                                    a ."secondary" 
-                                        data-discover="true" 
+                                    a ."secondary"
+                                        data-discover="true"
                                         href=(ROUTE_EXPLORER)
                                         aria-current=[active_nabvar.is_explorer().then_some("page")]
                                     { "Explorer" }

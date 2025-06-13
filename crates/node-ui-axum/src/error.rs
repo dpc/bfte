@@ -7,9 +7,10 @@ use bfte_util_error::Whatever;
 use maud::html;
 use serde::Serialize;
 use snafu::Snafu;
+use tracing::debug;
 
-use crate::ROUTE_LOGIN;
 use crate::misc::{AppJson, Maud};
+use crate::{LOG_TARGET, ROUTE_LOGIN};
 
 #[derive(Debug, Snafu)]
 #[snafu(visibility(pub(crate)))]
@@ -18,6 +19,14 @@ pub enum UserRequestError {
     InvalidData,
     #[snafu(display("Wrong Password"))]
     WrongPassword,
+    #[snafu(display("Failed to create consensus: {source}"))]
+    ConsensusCreate {
+        source: Whatever,
+    },
+    #[snafu(display("Failed to join consensus: {source}"))]
+    ConsensusJoin {
+        source: Whatever,
+    },
     Other {
         source: Whatever,
     },
@@ -29,10 +38,14 @@ impl IntoResponse for &UserRequestError {
             p id="error-response" { (self.to_string()) }
         });
 
+        debug!(target: LOG_TARGET, err = self.to_string(), "Error handling request");
+
         let (status_code, html) = match self {
             UserRequestError::SomethingNotFound => (StatusCode::NOT_FOUND, html),
             UserRequestError::InvalidData => (StatusCode::BAD_REQUEST, html),
             UserRequestError::WrongPassword => (StatusCode::BAD_REQUEST, html),
+            UserRequestError::ConsensusCreate { .. } => (StatusCode::BAD_REQUEST, html),
+            UserRequestError::ConsensusJoin { .. } => (StatusCode::BAD_REQUEST, html),
             UserRequestError::Other { .. } => (StatusCode::BAD_REQUEST, html),
         };
         (status_code, html).into_response()

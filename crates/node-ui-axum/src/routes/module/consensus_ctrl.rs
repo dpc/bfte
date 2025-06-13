@@ -58,7 +58,7 @@ impl UiState {
                     method="post"
                     x-target="_none"
                     "x-target.error"="error-response-form-add:error-response"
-                    "x-target.back"="_top"
+                    "x-target.away"="_top"
                     action=(format!("/ui/module/{}/add_peer_vote", module_id))
                 {
                     fieldset role="group" {
@@ -85,7 +85,7 @@ impl UiState {
                     method="post"
                     x-target="_none"
                     "x-target.error"="error-response-form-remove:error-response"
-                    "x-target.back"="_top"
+                    "x-target.away"="_top"
                     action=(format!("/ui/module/{}/remove_peer_vote", module_id))
                 {
                     fieldset role="group" {

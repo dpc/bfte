@@ -41,6 +41,7 @@ pub trait INodeUiApi {
     async fn change_ui_password(&self, pass: &str) -> WhateverResult<()>;
     fn is_ui_password_temporary(&self) -> WhateverResult<bool>;
 
+    fn has_root_secret(&self) -> WhateverResult<bool>;
     fn is_consensus_initialized(&self) -> WhateverResult<bool>;
     async fn consensus_init(&self, extra_peers: Vec<PeerPubkey>) -> WhateverResult<()>;
     async fn consensus_join(&self, invite: &Invite) -> WhateverResult<()>;
@@ -54,5 +55,8 @@ pub trait INodeUiApi {
     fn is_database_ephemeral(&self) -> WhateverResult<bool>;
     async fn generate_invite_code(&self) -> WhateverResult<Invite>;
 
-    async fn get_consensus_history(&self, limit: usize) -> WhateverResult<Vec<ConsensusHistoryEntry>>;
+    async fn get_consensus_history(
+        &self,
+        limit: usize,
+    ) -> WhateverResult<Vec<ConsensusHistoryEntry>>;
 }

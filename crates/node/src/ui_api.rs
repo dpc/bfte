@@ -43,6 +43,10 @@ impl INodeUiApi for NodeUiApi {
         Ok(())
     }
 
+    fn has_root_secret(&self) -> WhateverResult<bool> {
+        Ok(self.node_ref()?.root_secret().is_some())
+    }
+
     fn is_ui_password_temporary(&self) -> WhateverResult<bool> {
         Ok(self
             .node_ref()?
@@ -59,7 +63,7 @@ impl INodeUiApi for NodeUiApi {
             .node_ref()?
             .consensus_init(extra_peers)
             .await
-            .whatever_context("Failed to join consensus")?)
+            .whatever_context("Failed to init consensus")?)
     }
     async fn consensus_join(&self, invite: &Invite) -> WhateverResult<()> {
         Ok(self
@@ -112,25 +116,30 @@ impl INodeUiApi for NodeUiApi {
         self.node_ref()?.generate_invite_code().await
     }
 
-    async fn get_consensus_history(&self, limit: usize) -> WhateverResult<Vec<ConsensusHistoryEntry>> {
+    async fn get_consensus_history(
+        &self,
+        limit: usize,
+    ) -> WhateverResult<Vec<ConsensusHistoryEntry>> {
         let node_ref = self.node_ref()?;
         let consensus_option = node_ref.consensus();
         let consensus = consensus_option
             .as_ref()
             .whatever_context("Consensus not initialized")?;
-        
+
         let history_data = consensus.get_consensus_history(limit).await;
-        
+
         let history = history_data
             .into_iter()
-            .map(|(round, block_header, signatory_peers)| ConsensusHistoryEntry {
-                round,
-                is_dummy: block_header.is_none(),
-                block_header,
-                signatory_peers,
-            })
+            .map(
+                |(round, block_header, signatory_peers)| ConsensusHistoryEntry {
+                    round,
+                    is_dummy: block_header.is_none(),
+                    block_header,
+                    signatory_peers,
+                },
+            )
             .collect();
-        
+
         Ok(history)
     }
 }
