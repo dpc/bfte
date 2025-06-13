@@ -4,13 +4,6 @@ BFTE is a BFT consensus engine. A permissioned p2p blockchain to
 drive BFT applications in federated setup, including financial (Bitcoin) domains.
 
 
-## Radicle note
-
-BFTE uses [Radicle][radicle] as a primary distributed code collaboration platform,
-and Github repo is only a read-only mirror.
-
-Head to [BFTE's Radicle site][bfte-radicle] for an up to date version.
-
 ## Introduction
 
 BFTE in its current form is a research project on alternative
