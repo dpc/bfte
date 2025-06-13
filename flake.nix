@@ -1,5 +1,5 @@
 {
-  description = "BTF Engine";
+  description = "BFT Engine";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";

@@ -1,6 +1,6 @@
-# BTF Engine
+# BFT Engine
 
-BTFE is a BFT consensus engine. A permissioned p2p blockchain to
+BFTE is a BFT consensus engine. A permissioned p2p blockchain to
 drive BFT applications in federated setup, including financial (Bitcoin) domains.
 
 
