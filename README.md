@@ -98,6 +98,8 @@ This mnemonic is irrecoverable if lost. Please make a back up before using it!
 2025-06-13T05:03:19.626905Z  INFO bfte::node::ui: Starting web UI server... addr=[::1]:6910
 ```
 
+The UI is available on the localhost on port `6910`.
+
 ## Links
 
 * [BFTE Radicle site][bfte-radicle]
@@ -109,4 +111,4 @@ This mnemonic is irrecoverable if lost. Please make a back up before using it!
 
 ## License
 
-MPLE is licensed under MIT.
+BFTE is licensed under MIT.
