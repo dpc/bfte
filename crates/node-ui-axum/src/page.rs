@@ -63,7 +63,12 @@ impl UiState {
                     }}}"
                     data-persist="$nav.openTabs.*"
                 {
-                    h3 { "BFTE" }
+                    h1 {
+                        a
+                            href="https://app.radicle.xyz/nodes/radicle.dpc.pw/rad:zii8qFzZhN3vigh8BuxGCuEEp6z4"
+                            target="_blank"
+                        { "BFTE" }
+                    }
                     div {
                         details
                             data-attr="{ open: $nav.openTabs.general}"
