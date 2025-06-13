@@ -239,9 +239,10 @@ impl MetaModule {
         approved_peer: PeerPubkey,
     ) -> DbTxResult<Vec<CItemEffect>, Whatever> {
         // Look up the value that the approved peer voted for
-        let votes_tbl = dbtx.open_table(&tables::key_value_votes::TABLE)?;
-
-        match votes_tbl.get(&(key, approved_peer))? {
+        match dbtx
+            .open_table(&tables::key_value_votes::TABLE)?
+            .get(&(key, approved_peer))?
+        {
             Some(approved_value) => {
                 // Cast our vote for the same value as the approved peer
                 let value = approved_value.value();
