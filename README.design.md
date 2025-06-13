@@ -28,9 +28,6 @@ as they not validate the consensus.
 Things like DKGs can just happen as a part of consensus. Mint module should support
 multiple keysets, and generating new ones on demand.
 
-Consensus items should be just module specific inputs/outputs, signed by the
-node itself. This allows things like conditional consensus items.
-
 Effect system as the only means of inter-module interactions. Modules processing consensus
 items can produce typed and serialized "effects", which other modules that happen to understand
 can act on.
