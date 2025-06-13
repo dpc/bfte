@@ -94,7 +94,7 @@ This mnemonic is irrecoverable if lost. Please make a back up before using it!
 2025-06-13T05:03:19.626707Z  WARN bfte::node: Temporary UI password pass=GYBJQPbFhk
 2025-06-13T05:03:19.626858Z  INFO bfte::node: Waiting for consensus initialization via web UI
 2025-06-13T05:03:19.626905Z  INFO bfte::node::ui: Starting web UI server... addr=[::1]:6910
-`
+```
 
 ## Links
 
