@@ -13,7 +13,7 @@ pub const ROUTE_ALPINEJS_JS: &str = "/assets/alpine/alpinejs-3.18.8.js";
 pub const ROUTE_ALPINEAJAX_JS: &str = "/assets/alpine/alpine-ajax-0.12.2.js";
 pub const ROUTE_PICO_CSS: &str = "/assets/pico@2.indigo.min.css";
 pub const ROUTE_STYLE_CSS: &str = "/assets/style.css";
-pub const ROUTE_LOGO_PNG: &str = "/assets/logo.png";
+pub const ROUTE_LOGO_SVG: &str = "/assets/logo.svg";
 
 pub(crate) fn get_static_asset(content_type: &'static str, body: &'static [u8]) -> Response {
     (
@@ -38,6 +38,9 @@ pub(crate) fn get_static_js(body: &'static str) -> Response {
 
 pub(crate) fn get_static_json(body: &'static str) -> Response {
     get_static_asset("application/json", body.as_bytes())
+}
+pub(crate) fn get_static_svg(body: &'static [u8]) -> Response {
+    get_static_asset("image/svg+xml", body)
 }
 
 pub(crate) trait WithStaticRoutesExt {
@@ -87,10 +90,9 @@ where
             ROUTE_PICO_CSS,
             get(|| async move { get_static_css(include_str!("../assets/pico@2.indigo.min.css")) }),
         )
-        // TODO: add some logo
-        // .route(
-        //     ROUTE_LOGO_PNG,
-        //     get(|| async move {
-        // get_static_png(include_bytes!("../assets/logo.png")) }),
+        .route(
+            ROUTE_LOGO_SVG,
+            get(|| async move { get_static_svg(include_bytes!("../assets/logo.svg")) }),
+        )
     }
 }

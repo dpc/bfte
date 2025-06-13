@@ -2,7 +2,7 @@ use bfte_consensus_core::module::ModuleId;
 use maud::{DOCTYPE, Markup, html};
 
 use crate::assets::{
-    ROUTE_ALPINEAJAX_JS, ROUTE_ALPINEJS_JS, ROUTE_DATASTAR_JS, ROUTE_LOGO_PNG, ROUTE_PICO_CSS,
+    ROUTE_ALPINEAJAX_JS, ROUTE_ALPINEJS_JS, ROUTE_DATASTAR_JS, ROUTE_LOGO_SVG, ROUTE_PICO_CSS,
     ROUTE_STYLE_CSS,
 };
 use crate::{ROUTE_EXPLORER, ROUTE_INVITE, ROUTE_UI, UiState};
@@ -17,7 +17,7 @@ impl UiState {
                 title { (page_title) }
                 link rel="stylesheet" type="text/css" href=(ROUTE_PICO_CSS);
                 link rel="stylesheet" type="text/css" href=(ROUTE_STYLE_CSS);
-                link rel="icon" type="image/png" href=(ROUTE_LOGO_PNG);
+                link rel="icon" type="image/svg+xml" href=(ROUTE_LOGO_SVG);
                 script defer type="module" src=(ROUTE_DATASTAR_JS) {}
                 script defer src=(ROUTE_ALPINEAJAX_JS) {}
                 script defer src=(ROUTE_ALPINEJS_JS) {}

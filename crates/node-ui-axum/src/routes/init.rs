@@ -68,7 +68,7 @@ impl UiState {
                                 "x-target.error"="error-response-form-create:error-response"
                             {
                                 p { "Start a new consensus network as the first node." }
-                                button type="submit" disabled[(!can_create_consensus)] { "Create" }
+                                button type="submit" disabled[!can_create_consensus] { "Create" }
                                 @if !has_secret {
                                     p { "Must have a root secret set with" code { "--secret-path" } "." }
                                 }
